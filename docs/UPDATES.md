@@ -34,4 +34,23 @@
 | 1 | Message deliver when user is connected to different chat server | ⏳ |
 | 2 | Add group chat feature | ⏳ |
 | 3 | Add database schemas for all data | ⏳ |
-| 4 |  | ⏳ |
+| 4 | Sign up/login feature for users| ⏳ |
+| 5 | Role based access | ⏳ |
+| 6 | Typing Indicator | ⏳ |
+| 7 | Online/Offline Status | ⏳ |
+| 8 | Group Chat Feature | ⏳ |
+| 9 | Group Chat Management | ⏳ |
+| 10 | Read receipts| ⏳ |
+| 11 | Announcement feature | ⏳ |
+| 12 | Pin message feature | ⏳ |
+| 13 | Pin message feature | ⏳ |
+| 14 | Doubt feature | ⏳ |
+| 15 | Report message feature | ⏳ |
+| 16 | Message search feature | ⏳ |
+| 17 | Message edit feature | ⏳ |
+| 18 | Message delete feature | ⏳ |
+| 19 | File sharing feature | ⏳ |
+| 20 | Message reaction feature | ⏳ |
+| 21 | Image preview | ⏳ |
+| 22 | Implement Media Service | ⏳ |
+| 23 | In app notification | ⏳ |
