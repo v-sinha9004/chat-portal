@@ -5,12 +5,16 @@ interface ChatAreaProps {
   selectedUser: User | null;
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
   selectedUser,
   messages,
   onSendMessage,
+  isLoading = false,
+  error = null,
 }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -40,6 +44,30 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   if (!selectedUser) {
+    if (isLoading) {
+      return (
+        <main className="chat-main empty-state">
+          <div className="empty-message-box">
+            <div className="loading-spinner large" />
+            <h3>Loading Users</h3>
+            <p>Fetching user details from the server...</p>
+          </div>
+        </main>
+      );
+    }
+
+    if (error) {
+      return (
+        <main className="chat-main empty-state">
+          <div className="empty-message-box">
+            <div className="empty-icon">⚠️</div>
+            <h3>Unable to Load Users</h3>
+            <p>{error}</p>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="chat-main empty-state">
         <div className="empty-message-box">
