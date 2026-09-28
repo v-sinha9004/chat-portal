@@ -33,5 +33,17 @@ export const getServicesConfig = (): ServiceProxyOptions[] => {
       pathPrefixes: ['/socket.io'],
       ws: true,
     },
+    // User Microservice: HTTP Endpoints
+    {
+      name: 'user-service',
+      target: config.userServiceUrl,
+      pathPrefixes: ['/api/users', '/users', '/api/user', '/user'],
+      pathRewrite: {
+        '^/users': '/api/users',
+        '^/user(?=/|$)': '/api/users',
+        '^/api/user(?=/|$)': '/api/users',
+      },
+      healthPath: '/api/users/health',
+    },
   ];
 };
