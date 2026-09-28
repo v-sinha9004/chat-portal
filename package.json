@@ -1,0 +1,22 @@
+{
+  "name": "chat-portal-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "services/*"
+  ],
+  "scripts": {
+    "dev:chat": "npm run start:dev --workspace=chat-service",
+    "dev:chat-service": "npm run start:dev --workspace=chat-service",
+    "start:chat": "npm run start:prod --workspace=chat-service",
+    "start:chat-service": "npm run start:prod --workspace=chat-service",
+    "build:chat": "npm run build --workspace=chat-service",
+    "build:chat-service": "npm run build --workspace=chat-service",
+    "dev:all": "concurrently -c \"cyan,magenta,yellow,blue\" -n \"chat-service\" \"npm run dev:chat\"",
+    "start:all": "npm run start:prod --workspaces --if-present",
+    "build:all": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

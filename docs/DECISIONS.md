@@ -14,5 +14,3 @@
 | :--- | :--- | :--- | :--- |
 | **PostgreSQL** | **Generic Data**<br>• User profile, setting, user friends list | • Robust and reliable<br>• Replication and sharding to satisfy availability and scalability requirements | **Recommended for Generic Data** |
 | **MongoDB (NoSQL)** | **Chat History Data**<br>• Enormous messages data <br> | • Easy horizontal scaling<br>• Very low latency to access data<br>• Relational databases do not handle long tail of data well (when indexes grow large, random access is expensive)<br>• Adopted by proven reliable chat apps (Facebook Messenger uses HBase, Discord uses Cassandra) | **Recommended for Chat History Data** |
-
-
