@@ -19,11 +19,11 @@
 | 8 | Teting emitToRoom feature of socket.io  | ✅ |
 | 9 | Reading and testing: room-per-chat (join all rooms per user) vs user-room (join only user room) | ✅ |
 | 10 | Read on database choice - documented in DECISIONS.md  | ✅ |
-| 11 | Setup database locally with docker  | ⏳ |
+| 11 | Setup database locally with docker  | ✅ |
 | 12 | Initialise user service   | ⏳ |
 | 13 | Implement auth service - with JWT token  | ⏳ |
 | 14 | Initialise api gateway | ✅ |
-| 15 | Implement proxy, rate limiter in api gateway | ⏳ |
+| 15 | Implement proxy, rate limiter in api gateway | ✅ |
 
 ---
 
@@ -32,3 +32,6 @@
 | # | Task Description | Status |
 | :-: | :--- | :-: |
 | 1 | Message deliver when user is connected to different chat server | ⏳ |
+| 2 | Add group chat feature | ⏳ |
+| 3 | Add database schemas for all data | ⏳ |
+| 4 |  | ⏳ |
