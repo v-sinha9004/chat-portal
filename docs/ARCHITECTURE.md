@@ -10,7 +10,8 @@ flowchart TD
     classDef queue fill:#d97706,stroke:#b45309,stroke-width:2px,color:#fff;
     classDef storage fill:#059669,stroke:#047857,stroke-width:2px,color:#fff;
 
-    CLIENTS["Clients<br/><b>(React Web App / Mobile / API)</b>"]:::client
+    USER_A["<b>User A</b>"]:::client
+    USER_B["<b>User B</b>"]:::client
 
     GATEWAY["<b>API GATEWAY</b>"]:::gateway
 
@@ -18,6 +19,7 @@ flowchart TD
     USER["<b>USER SERVICE</b>"]:::service
     CHAT["<b>CHAT SERVICE</b>"]:::service
     MEDIA["<b>MEDIA SERVICE</b>"]:::service
+    IDGEN["<b>MESSAGE ID GENERATOR</b>"]:::service
 
     MQ["<b>MESSAGE QUEUE</b>"]:::queue
 
@@ -25,16 +27,18 @@ flowchart TD
     MONGO[("<b>MongoDB</b>")]:::storage
     REDIS[("<b>Redis</b>")]:::storage
 
-    CLIENTS -->|HTTP / WebSocket| GATEWAY
+    USER_A -->|HTTP / WebSocket| GATEWAY
 
     GATEWAY --> AUTH
     GATEWAY --> USER
     GATEWAY --> CHAT
     GATEWAY --> MEDIA
 
-    USER ~~~ POSTGRES
+    CHAT --> IDGEN
+    USER --> POSTGRES
     CHAT --> MQ
     MQ --> MONGO
+    MQ --> USER_B
     CHAT ~~~ REDIS
 ```
 
