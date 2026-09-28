@@ -27,6 +27,9 @@
 | 16 | Implement auth service - with JWT token  | ⏳ |
 | 17 | Initialise api gateway | ✅ |
 | 18 | Implement proxy, rate limiter in api gateway | ✅ |
+| 19 | Scafolld frontend with react, vite, typescript | ✅ |
+| 20 | Add basic chat UI for testing and setting up initial connections | ✅ |
+| 21 | Integrate user API for displaying users in UI without role logic | ⏳ |
 
 ---
 
