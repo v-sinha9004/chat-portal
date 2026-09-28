@@ -11,11 +11,13 @@
 | :-: | :--- | :-: |
 | 1 | Initialized repository | ✅ |
 | 2 | Reading system design of chat applications | ⏳ |
+| 3 | Reading about different request type (websockets/long polling/polling, etc.) | ✅ |
+
 
 ---
 
 ## ⏳ Upcoming tasks
 
-| # | Task / Feature | Status |
+| # | Task Description | Status |
 | :-: | :--- | :-: |
 
