@@ -22,6 +22,9 @@
 | 11 | Setup database locally with docker  | ⏳ |
 | 12 | Initialise user service   | ⏳ |
 | 13 | Implement auth service - with JWT token  | ⏳ |
+| 14 | Initialise api gateway | ✅ |
+| 15 | Implement proxy, rate limiter in api gateway | ⏳ |
+
 ---
 
 ## ⏳ Upcoming tasks
