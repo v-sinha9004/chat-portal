@@ -19,10 +19,9 @@
 | 8 | Teting emitToRoom feature of socket.io  | ✅ |
 | 9 | Reading and testing: room-per-chat (join all rooms per user) vs user-room (join only user room) | ✅ |
 | 10 | Read on database choice - documented in DECISIONS.md  | ✅ |
-| 10 | Setup database locally with docker  | ⏳ |
-| 11 | Initialise user service   | ⏳ |
-| 12 | Implement auth service - with JWT token  | ⏳ |
-
+| 11 | Setup database locally with docker  | ⏳ |
+| 12 | Initialise user service   | ⏳ |
+| 13 | Implement auth service - with JWT token  | ⏳ |
 ---
 
 ## ⏳ Upcoming tasks
