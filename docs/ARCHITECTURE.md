@@ -20,6 +20,7 @@ flowchart TD
 
     POSTGRES[("<b>PostgreSQL</b>")]:::storage
     MONGO[("<b>MongoDB</b>")]:::storage
+    REDIS[("<b>Redis</b>")]:::storage
 
     CLIENTS -->|HTTP / WebSocket| GATEWAY
 
@@ -30,6 +31,7 @@ flowchart TD
 
     USER ~~~ POSTGRES
     CHAT ~~~ MONGO
+    CHAT ~~~ REDIS
 ```
 
 
