@@ -45,27 +45,28 @@
 | # | Task Description | Status |
 | :-: | :--- | :-: |
 | 1 | Implement auth service - with JWT token  | ⏳ |
-| 2 | Message deliver when user is connected to different chat server | ⏳ |
-| 3 | Add group chat feature | ⏳ |
-| 4 | Add database schemas for all data | ⏳ |
-| 5 | Sign up/login feature for users| ⏳ |
-| 6 | Role based access | ⏳ |
-| 7 | Typing Indicator | ⏳ |
-| 8 | Online/Offline Status | ⏳ |
-| 9 | Group Chat Feature | ⏳ |
-| 10 | Group Chat Management | ⏳ |
-| 11 | Read receipts| ⏳ |
-| 12 | Announcement feature | ⏳ |
-| 13 | Pin message feature | ⏳ |
-| 14 | Pin message feature | ⏳ |
-| 15 | Doubt feature | ⏳ |
-| 16 | Report message feature | ⏳ |
-| 17 | Message search feature | ⏳ |
-| 18 | Message edit feature | ⏳ |
-| 19 | Message delete feature | ⏳ |
-| 20 | File sharing feature | ⏳ |
-| 21 | Message reaction feature | ⏳ |
-| 22 | Image preview | ⏳ |
-| 23 | Implement Media Service | ⏳ |
-| 24 | In app notification | ⏳ |
+| 2 | Add central logging system like winston (need to learn on it for standard implementation)  | ⏳ |
+| 3 | Add central redis for caching  | ⏳ |
+| 4 | Message deliver when user is connected to different chat server | ⏳ |
+| 5 | Add group chat feature | ⏳ |
+| 6 | Add database schemas for all data | ⏳ |
+| 7 | Sign up/login feature for users| ⏳ |
+| 8 | Role based access | ⏳ |
+| 9 | Typing Indicator | ⏳ |
+| 10 | Online/Offline Status | ⏳ |
+| 11 | Group Chat Feature | ⏳ |
+| 12 | Group Chat Management | ⏳ |
+| 13 | Read receipts| ⏳ |
+| 14 | Announcement feature | ⏳ |
+| 15 | Pin message feature | ⏳ |
+| 16 | Doubt feature | ⏳ |
+| 17 | Report message feature | ⏳ |
+| 18 | Message search feature | ⏳ |
+| 19 | Message edit feature | ⏳ |
+| 20 | Message delete feature | ⏳ |
+| 21 | File sharing feature | ⏳ |
+| 22 | Message reaction feature | ⏳ |
+| 23 | Image preview | ⏳ |
+| 24 | Implement Media Service | ⏳ |
+| 25 | In app notification | ⏳ |
 ...More to add
