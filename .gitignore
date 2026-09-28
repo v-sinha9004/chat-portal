@@ -27,3 +27,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Temporary
+services/chat-service/test-client.html
+services/chat-service/test-socket.js
