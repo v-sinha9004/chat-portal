@@ -9,6 +9,8 @@ export interface GatewayConfig {
   nodeEnv: string;
   chatServiceUrl: string;
   corsOrigin: string;
+  rateLimitWindowMs: number;
+  rateLimitMax: number;
 }
 
 export const getGatewayConfig = (): GatewayConfig => {
@@ -17,5 +19,7 @@ export const getGatewayConfig = (): GatewayConfig => {
     nodeEnv: process.env.NODE_ENV || 'development',
     chatServiceUrl: (process.env.CHAT_SERVICE_URL || 'http://localhost:3001').replace(/\/+$/, ''),
     corsOrigin: process.env.CORS_ORIGIN || '*',
+    rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
   };
 };

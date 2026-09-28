@@ -21,6 +21,10 @@ export const getServicesConfig = (): ServiceProxyOptions[] => {
       name: 'chat-service',
       target: config.chatServiceUrl,
       pathPrefixes: ['/api/chat', '/chat'],
+      pathRewrite: {
+        '^/chat': '/api/chat',
+      },
+      healthPath: '/api/chat/health',
     },
     // Chat Microservice: Real-time Socket.IO
     {

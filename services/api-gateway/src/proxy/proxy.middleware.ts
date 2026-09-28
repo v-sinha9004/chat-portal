@@ -18,7 +18,7 @@ const logger = new Logger('ServiceProxy');
  * - Informative request logging
  */
 export function createServiceProxy(options: ServiceProxyOptions): RequestHandler {
-  const { name, target, pathPrefixes, ws = false } = options;
+  const { name, target, pathPrefixes, ws = false, pathRewrite } = options;
   const sortedPrefixes = [...pathPrefixes].sort((a, b) => b.length - a.length);
 
   logger.log(
@@ -29,6 +29,7 @@ export function createServiceProxy(options: ServiceProxyOptions): RequestHandler
     target,
     changeOrigin: true,
     ws,
+    ...(pathRewrite ? { pathRewrite } : {}),
     pathFilter: (pathname: string) => {
       return sortedPrefixes.some(
         (prefix) =>

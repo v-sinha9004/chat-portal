@@ -9,6 +9,10 @@ export interface ServiceProxyOptions {
   pathPrefixes: string[];
   /** Whether to enable WebSocket proxying and upgrade handling (default: false) */
   ws?: boolean;
+  /** Optional path rewrite rules (e.g. { '^/chat': '/api/chat' }) */
+  pathRewrite?: Record<string, string> | ((path: string, req: any) => string);
+  /** Optional health check path for this service (default: '/health') */
+  healthPath?: string;
 }
 
 export interface RegisteredProxy {

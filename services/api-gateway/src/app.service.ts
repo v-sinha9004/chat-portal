@@ -28,25 +28,36 @@ export class AppService {
     const services = getServicesConfig();
 
     // Deduplicate unique service targets for health checks
-    const targetMap = new Map<string, string>();
+    const targetMap = new Map<string, { serviceName: string; healthPath: string }>();
     for (const s of services) {
       if (!targetMap.has(s.target)) {
-        targetMap.set(s.target, s.name);
+        targetMap.set(s.target, {
+          serviceName: s.name,
+          healthPath: s.healthPath || '/health',
+        });
       }
     }
 
     const downstreamHealth: Record<string, any> = {};
 
-    for (const [targetUrl, serviceName] of targetMap.entries()) {
+    for (const [targetUrl, { serviceName, healthPath }] of targetMap.entries()) {
       let status = 'unknown';
       let data: any = null;
 
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
-        const res = await fetch(`${targetUrl}/health`, {
+        let res = await fetch(`${targetUrl}${healthPath}`, {
           signal: controller.signal,
         });
+        if (!res.ok && healthPath !== '/health') {
+          const fallbackRes = await fetch(`${targetUrl}/health`, {
+            signal: controller.signal,
+          });
+          if (fallbackRes.ok) {
+            res = fallbackRes;
+          }
+        }
         clearTimeout(timeoutId);
 
         if (res.ok) {
