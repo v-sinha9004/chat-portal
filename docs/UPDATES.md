@@ -4,6 +4,14 @@
 **Project:** Mentor–Mentee Chat Portal (UnsaidTalks)
 
 ---
+## Learning
+
+| # | Concept |
+| :-: | :--- |
+| 1 | Nestjs basics |
+| 2 | Socket.io basics, what it offers on top of websockets |
+
+---
 
 ## 🗓️ September 28, 2026
 
@@ -23,13 +31,12 @@
 | 12 | Setup database locally with docker  | ✅ |
 | 13 | Initialise user service   | ✅ |
 | 14 | Add orm in user service for postgresql | ✅ |
-| 15 | Add basic user crud endpoints with dummy users | ✅ |
-| 16 | Implement auth service - with JWT token  | ⏳ |
-| 17 | Initialise api gateway | ✅ |
-| 18 | Implement proxy, rate limiter in api gateway | ✅ |
-| 19 | Scafolld frontend with react, vite, typescript | ✅ |
-| 20 | Add basic chat UI for testing and setting up initial connections | ✅ |
-| 21 | Integrate user API for displaying users in UI without role logic | ⏳ |
+| 15 | Add basic user crud endpoints with dummy users in user service | ✅ |
+| 16 | Initialise api gateway | ✅ |
+| 17 | Implement proxy, rate limiter in api gateway | ✅ |
+| 18 | Scafolld frontend with react, vite, typescript | ✅ |
+| 19 | Add basic chat UI for testing and setting up initial connections | ✅ |
+| 20 | Integrate user API for displaying users in UI without role logic | ✅ |
 
 ---
 
@@ -37,27 +44,28 @@
 
 | # | Task Description | Status |
 | :-: | :--- | :-: |
-| 1 | Message deliver when user is connected to different chat server | ⏳ |
-| 2 | Add group chat feature | ⏳ |
-| 3 | Add database schemas for all data | ⏳ |
-| 4 | Sign up/login feature for users| ⏳ |
-| 5 | Role based access | ⏳ |
-| 6 | Typing Indicator | ⏳ |
-| 7 | Online/Offline Status | ⏳ |
-| 8 | Group Chat Feature | ⏳ |
-| 9 | Group Chat Management | ⏳ |
-| 10 | Read receipts| ⏳ |
-| 11 | Announcement feature | ⏳ |
-| 12 | Pin message feature | ⏳ |
+| 1 | Implement auth service - with JWT token  | ⏳ |
+| 2 | Message deliver when user is connected to different chat server | ⏳ |
+| 3 | Add group chat feature | ⏳ |
+| 4 | Add database schemas for all data | ⏳ |
+| 5 | Sign up/login feature for users| ⏳ |
+| 6 | Role based access | ⏳ |
+| 7 | Typing Indicator | ⏳ |
+| 8 | Online/Offline Status | ⏳ |
+| 9 | Group Chat Feature | ⏳ |
+| 10 | Group Chat Management | ⏳ |
+| 11 | Read receipts| ⏳ |
+| 12 | Announcement feature | ⏳ |
 | 13 | Pin message feature | ⏳ |
-| 14 | Doubt feature | ⏳ |
-| 15 | Report message feature | ⏳ |
-| 16 | Message search feature | ⏳ |
-| 17 | Message edit feature | ⏳ |
-| 18 | Message delete feature | ⏳ |
-| 19 | File sharing feature | ⏳ |
-| 20 | Message reaction feature | ⏳ |
-| 21 | Image preview | ⏳ |
-| 22 | Implement Media Service | ⏳ |
-| 23 | In app notification | ⏳ |
+| 14 | Pin message feature | ⏳ |
+| 15 | Doubt feature | ⏳ |
+| 16 | Report message feature | ⏳ |
+| 17 | Message search feature | ⏳ |
+| 18 | Message edit feature | ⏳ |
+| 19 | Message delete feature | ⏳ |
+| 20 | File sharing feature | ⏳ |
+| 21 | Message reaction feature | ⏳ |
+| 22 | Image preview | ⏳ |
+| 23 | Implement Media Service | ⏳ |
+| 24 | In app notification | ⏳ |
 ...More to add
