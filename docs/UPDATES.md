@@ -17,7 +17,7 @@
 | 6 | Add draft hld architecture  | ✅ |
 | 7 | Add nest.js project scaffolding for chat service  | ✅ |
 | 8 | Make websocket endpoint for chat service & run a test chat between two users  | ✅ |
-| 9 | Teting emitToRoom feature of socket.io  | ✅ |
+| 9 | Testing emitToRoom feature of socket.io  | ✅ |
 | 10 | Reading and testing: room-per-chat (join all rooms per user) vs user-room (join only user room) | ✅ |
 | 11 | Read on database choice - documented in DECISIONS.md  | ✅ |
 | 12 | Setup database locally with docker  | ✅ |
@@ -60,3 +60,4 @@
 | 21 | Image preview | ⏳ |
 | 22 | Implement Media Service | ⏳ |
 | 23 | In app notification | ⏳ |
+...More to add
