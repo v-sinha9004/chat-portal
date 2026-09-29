@@ -48,24 +48,24 @@
 | 1 | Integrating frontend client with our backend for testing websocket connection for chat | ✅ |
 | 2 | Initialise auth service | ✅ |
 | 3 | Implement auth service - JWT, login, signup | ✅ |
-| 4 | Figuring out correct place to implement jwt authentication | ⏳ |
-| 5 | Figuring out jwt verification process for socket connection as it is persistent | ⏳ |
+| 4 | Figuring out correct place to implement jwt authentication | ✅ |
+| 5 | Figuring out jwt verification process for socket connection as it is persistent connection | ✅ |
 | 6 | Create separate db for auth and user service within single database instance | ✅ |
 | 7 | Bug fix: user and auth service breaking due to referencing to overiding generated prisma | ✅ |
 | 8 | Refactor: shift from workspace architecture to complete microservices architecture - documented in DECISIONS.md | ✅ |
 | 9 | Create login page in UI | ✅ |
 | 10 | Testing authentication feature with dummmy users created | ✅ |
 | 11 | Testing one-on-one chat with two logged in users | ✅ |
-| 12 | On successful authentication, create a user in db | ⏳ |
-| 13 | Add jwt verification logic in api gateway for http and websocket requests | ⏳ |
-| 14 | Create public routes configuration for api gateway | ⏳ |
-| 15 | Send access token on registration & login to frontend | ⏳ |
-| 16 | Integrate auth flow with login UI | ⏳ |
-| 17 | Storing access token in front-end in react memory instead of localStorage to avoid security issues | ⏳ |
+| 12 | On successful authentication, create a user in db | ✅ |
+| 13 | Add jwt verification logic in api gateway for http and websocket requests | ✅ |
+| 14 | Create public routes configuration for api gateway | ✅ |
+| 15 | Send access token on registration & login to frontend | ✅ |
+| 16 | Integrate auth flow with login UI | ✅ |
+| 17 | Storing access token in front-end in react memory instead of localStorage to avoid security issues | ✅ |
 | 18 | Exploring on what queue we can use for now for our application for message persistence in db - Documented in DECISIONS.md | ⏳ |
 | 19 | Multiple tab able to receives in real time of same user | ✅ |
-
-
+| 20 | Decouple components in frontend for modular code | ✅ |
+| 21 | Create basic Group chat feature | ⏳ |
 
 ---
 
