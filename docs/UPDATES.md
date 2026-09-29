@@ -53,9 +53,9 @@
 | 6 | Create separate db for auth and user service within single database instance | ✅ |
 | 7 | Bug fix: user and auth service breaking due to referencing to overiding generated prisma | ✅ |
 | 8 | Refactor: shift from workspace architecture to complete microservices architecture - documented in DECISIONS.md | ✅ |
-| 9 | Create login page in UI | ⏳ |
-| 10 | Testing authentication feature with dummmy users created | ⏳ |
-| 11 | Testing one-on-one chat with two logged in users | ⏳ |
+| 9 | Create login page in UI | ✅ |
+| 10 | Testing authentication feature with dummmy users created | ✅ |
+| 11 | Testing one-on-one chat with two logged in users | ✅ |
 | 12 | On successful authentication, create a user in db | ⏳ |
 | 13 | Add jwt verification logic in api gateway for http and websocket requests | ⏳ |
 | 14 | Create public routes configuration for api gateway | ⏳ |
@@ -63,6 +63,7 @@
 | 16 | Integrate auth flow with login UI | ⏳ |
 | 17 | Storing access token in front-end in react memory instead of localStorage to avoid security issues | ⏳ |
 | 18 | Exploring on what queue we can use for now for our application for message persistence in db - Documented in DECISIONS.md | ⏳ |
+| 19 | Multiple tab able to receives in real time of same user | ✅ |
 
 
 
