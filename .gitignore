@@ -31,3 +31,4 @@ Thumbs.db
 # Temporary
 services/chat-service/test-client.html
 services/chat-service/test-socket.js
+scripts/test-e2e-persistence.js

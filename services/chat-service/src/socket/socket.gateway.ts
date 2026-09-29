@@ -19,6 +19,7 @@ import {
   GroupMessageEvent,
   NewMessageEvent,
 } from './interfaces/socket-events.interface';
+import { ChatQueueProducer } from '../queue/chat-queue.producer';
 
 
 @WebSocketGateway({
@@ -33,7 +34,11 @@ export class SocketGateway
 
   private readonly logger = new Logger(SocketGateway.name);
 
-  constructor(private readonly socketService: SocketService) { }
+  constructor(
+    private readonly socketService: SocketService,
+    private readonly chatQueueProducer: ChatQueueProducer,
+  ) { }
+
 
   afterInit(server: Server) {
     this.socketService.setServer(server);
@@ -94,7 +99,7 @@ export class SocketGateway
    * Instantly reads client.data.userId from RAM in 0ms.
    */
   @SubscribeMessage('send_direct_message')
-  handleSendDirectMessage(
+  async handleSendDirectMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: DirectMessagePayload,
   ) {
@@ -120,6 +125,9 @@ export class SocketGateway
 
     // Delegates to SocketService.emitToUser
     this.socketService.emitToUser(recipientId, 'direct_message', eventPayload);
+
+    // Enqueue message into BullMQ for asynchronous persistence
+    await this.chatQueueProducer.enqueueDirectMessage(eventPayload);
 
     return {
       status: 'ok',
@@ -187,6 +195,9 @@ export class SocketGateway
 
     // 3. Dispatch ONLY to member user rooms
     this.socketService.emitToUsers(memberIds, 'group_message', eventPayload);
+
+    // 4. Enqueue group message into BullMQ for asynchronous persistence
+    await this.chatQueueProducer.enqueueGroupMessage(eventPayload);
 
     return {
       status: 'ok',
