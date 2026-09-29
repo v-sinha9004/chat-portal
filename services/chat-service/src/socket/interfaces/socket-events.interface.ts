@@ -24,6 +24,7 @@ export interface DirectMessagePayload {
 
 export interface NewMessageEvent<T = any> {
   id: string;
+  conversationId: string;
   senderId: string;
   recipientId: string;
   data: T;
@@ -40,10 +41,19 @@ export interface GroupMessagePayload {
 
 export interface GroupMessageEvent<T = any> {
   id: string;
+  conversationId: string;
   groupId: string;
   senderId: string;
   data: T;
   timestamp: string;
   clientMessageId?: string;
+}
+
+export function getDirectConversationId(userId1: string, userId2: string): string {
+  return `direct:${[userId1, userId2].sort().join(':')}`;
+}
+
+export function getGroupConversationId(groupId: string): string {
+  return `group:${groupId}`;
 }
 

@@ -9,6 +9,7 @@ import {
 export interface ChatPersistenceJobData {
   type: 'direct' | 'group';
   messageId: string;
+  conversationId: string;
   clientMessageId?: string;
   senderId: string;
   recipientId?: string;
@@ -29,6 +30,7 @@ export class ChatQueueProducer {
     const jobData: ChatPersistenceJobData = {
       type: 'direct',
       messageId: event.id,
+      conversationId: event.conversationId,
       clientMessageId: event.clientMessageId,
       senderId: event.senderId,
       recipientId: event.recipientId,
@@ -55,6 +57,7 @@ export class ChatQueueProducer {
     const jobData: ChatPersistenceJobData = {
       type: 'group',
       messageId: event.id,
+      conversationId: event.conversationId,
       clientMessageId: event.clientMessageId,
       senderId: event.senderId,
       groupId: event.groupId,

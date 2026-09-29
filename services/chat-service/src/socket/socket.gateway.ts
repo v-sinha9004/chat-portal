@@ -9,7 +9,7 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { monotonicFactory } from 'ulid';
 import { Server } from 'socket.io';
 import { SocketService } from './socket.service';
 import {
@@ -18,6 +18,8 @@ import {
   GroupMessagePayload,
   GroupMessageEvent,
   NewMessageEvent,
+  getDirectConversationId,
+  getGroupConversationId,
 } from './interfaces/socket-events.interface';
 import { ChatQueueProducer } from '../queue/chat-queue.producer';
 
@@ -33,6 +35,7 @@ export class SocketGateway
   server: Server;
 
   private readonly logger = new Logger(SocketGateway.name);
+  private readonly ulid = monotonicFactory();
 
   constructor(
     private readonly socketService: SocketService,
@@ -112,10 +115,12 @@ export class SocketGateway
     }
 
     const senderId = client.data.userId || client.id;
-    const messageId = randomUUID();
+    const messageId = this.ulid();
+    const conversationId = getDirectConversationId(senderId, recipientId);
 
     const eventPayload: NewMessageEvent<{ message: string }> = {
       id: messageId,
+      conversationId,
       senderId,
       recipientId,
       data: { message },
@@ -132,6 +137,7 @@ export class SocketGateway
     return {
       status: 'ok',
       messageId: eventPayload.id,
+      conversationId,
       clientMessageId,
       message: `Message dispatched to user ${recipientId}`,
       data: eventPayload,
@@ -183,9 +189,11 @@ export class SocketGateway
       };
     }
 
-    const messageId = randomUUID();
+    const messageId = this.ulid();
+    const conversationId = getGroupConversationId(groupId);
     const eventPayload: GroupMessageEvent<{ message: string }> = {
       id: messageId,
+      conversationId,
       groupId,
       senderId,
       data: { message },
@@ -202,6 +210,7 @@ export class SocketGateway
     return {
       status: 'ok',
       messageId: eventPayload.id,
+      conversationId,
       clientMessageId,
       groupId,
       message: `Message dispatched to group ${groupId}`,
