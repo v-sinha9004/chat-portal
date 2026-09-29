@@ -24,35 +24,57 @@ import {
   },
 })
 export class SocketGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(SocketGateway.name);
 
-  constructor(private readonly socketService: SocketService) {}
+  constructor(private readonly socketService: SocketService) { }
 
   afterInit(server: Server) {
     this.socketService.setServer(server);
     this.logger.log('WebSocket Gateway initialized and server attached to SocketService');
   }
 
+  /**
+   * One-time handshake authentication.
+   * Runs ONLY ONCE when client connects. Validates the JWT access token.
+   * If invalid or missing, connection is rejected immediately.
+   * If valid, attaches verified userId to client.data in memory and joins room.
+   */
   handleConnection(client: AuthenticatedSocket) {
-    const userId = (client.handshake.auth?.userId ||
-      client.handshake.query?.userId) as string | undefined;
+    const token = (client.handshake.auth?.token ||
+      client.handshake.query?.token) as string | undefined;
 
-    if (userId) {
+    if (!token) {
+      this.logger.warn(
+        `Socket connection rejected: Missing auth token (Client: ${client.id})`,
+      );
+      client.emit('error', { message: 'Authentication token required' });
+      client.disconnect(true);
+      return;
+    }
+
+    try {
+      const payload = this.socketService.verifyAccessToken(token);
+      const userId = payload.sub;
       client.data.userId = userId;
+      client.data.user = payload;
+
       const userRoom = this.socketService.getUserRoom(userId);
       client.join(userRoom);
       this.logger.log(
-        `Client connected: ${client.id} (User: "${userId}") -> Auto-joined room "${userRoom}"`,
+        `Client authenticated: ${client.id} (User: "${userId}", Role: "${payload.role}") -> Auto-joined room "${userRoom}"`,
       );
-    } else {
-      this.logger.log(
-        `Client connected anonymously: ${client.id} (No userId provided in handshake)`,
+    } catch (err: any) {
+      this.logger.warn(
+        `Socket connection rejected: Invalid or expired token (Client: ${client.id}) - ${err.message}`,
       );
+      client.emit('error', {
+        message: 'Authentication failed: Invalid or expired token',
+      });
+      client.disconnect(true);
     }
   }
 
@@ -63,6 +85,11 @@ export class SocketGateway
     );
   }
 
+  /**
+   * Real-time message dispatch.
+   * Zero token checks / zero crypto operations.
+   * Instantly reads client.data.userId from RAM in 0ms.
+   */
   @SubscribeMessage('send_direct_message')
   handleSendDirectMessage(
     @ConnectedSocket() client: AuthenticatedSocket,

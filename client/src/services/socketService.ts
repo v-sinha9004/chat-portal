@@ -34,11 +34,14 @@ class SocketService {
   }
 
   /**
-   * Connect to the Socket.IO server as a specific user.
+   * Connect to the Socket.IO server with a JWT access token.
    * If already connected as the same user, does nothing.
    * If connected as a different user, disconnects and reconnects.
    */
-  connect(userId: string): Socket {
+  connect(tokenOrUserId: string, maybeUserId?: string): Socket {
+    const token = tokenOrUserId;
+    const userId = maybeUserId || tokenOrUserId;
+
     if (this.socket && this.currentUserId === userId && this.socket.connected) {
       return this.socket;
     }
@@ -51,7 +54,7 @@ class SocketService {
     const socketUrl = this.getSocketUrl();
 
     this.socket = io(socketUrl, {
-      auth: { userId },
+      auth: { token, userId },
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,

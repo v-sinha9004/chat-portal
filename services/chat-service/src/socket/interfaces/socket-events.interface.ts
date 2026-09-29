@@ -1,8 +1,16 @@
 import { Socket } from 'socket.io';
 
+export interface JwtUserPayload {
+  sub: string;
+  email: string;
+  role: string;
+  [key: string]: any;
+}
+
 export interface AuthenticatedSocket extends Socket {
   data: {
     userId?: string;
+    user?: JwtUserPayload;
     [key: string]: any;
   };
 }

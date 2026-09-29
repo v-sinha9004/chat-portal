@@ -1,10 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
+import * as jwt from 'jsonwebtoken';
+import { JwtUserPayload } from './interfaces/socket-events.interface';
 
 @Injectable()
 export class SocketService {
   private readonly logger = new Logger(SocketService.name);
   private server: Server | null = null;
+
+  /**
+   * Verifies and decodes a JWT access token.
+   * Throws an error if the token is invalid, expired, or missing required claims.
+   */
+  verifyAccessToken(token: string): JwtUserPayload {
+    const jwtSecret = process.env.JWT_ACCESS_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_ACCESS_SECRET is not configured');
+    }
+
+    const payload = jwt.verify(token, jwtSecret) as JwtUserPayload;
+    if (!payload || !payload.sub) {
+      throw new Error('Invalid token claims: sub missing');
+    }
+
+    return payload;
+  }
 
   /**
    * Registers the Socket.io Server instance from the Gateway on initialization.
