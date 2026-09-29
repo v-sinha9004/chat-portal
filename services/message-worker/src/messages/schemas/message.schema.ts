@@ -8,19 +8,22 @@ export class Message {
   @Prop({ required: true, unique: true, index: true })
   messageId: string;
 
+  @Prop({ required: true })
+  conversationId: string;
+
   @Prop({ index: true, sparse: true })
   clientMessageId?: string;
 
-  @Prop({ required: true, enum: ['direct', 'group'], index: true })
+  @Prop({ required: true, enum: ['direct', 'group'] })
   type: 'direct' | 'group';
 
-  @Prop({ required: true, index: true })
+  @Prop({ required: true })
   senderId: string;
 
-  @Prop({ index: true })
+  @Prop()
   recipientId?: string;
 
-  @Prop({ index: true })
+  @Prop()
   groupId?: string;
 
   @Prop({ required: true })
@@ -29,13 +32,11 @@ export class Message {
   @Prop({ default: 'sent', enum: ['sent', 'delivered', 'read'] })
   status: string;
 
-  @Prop({ required: true, index: true })
+  @Prop({ required: true })
   timestamp: Date;
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message);
 
-// Compound indexes for optimized conversation history queries
-MessageSchema.index({ senderId: 1, recipientId: 1, timestamp: -1 });
-MessageSchema.index({ recipientId: 1, senderId: 1, timestamp: -1 });
-MessageSchema.index({ groupId: 1, timestamp: -1 });
+// Optimized compound index for all conversation history and cursor pagination queries
+MessageSchema.index({ conversationId: 1, messageId: -1 });

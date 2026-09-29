@@ -6,6 +6,7 @@ import { Message, MessageDocument } from './schemas/message.schema';
 export interface SaveMessageDto {
   type: 'direct' | 'group';
   messageId: string;
+  conversationId: string;
   clientMessageId?: string;
   senderId: string;
   recipientId?: string;
@@ -30,6 +31,7 @@ export class MessagesService {
         {
           $setOnInsert: {
             messageId: dto.messageId,
+            conversationId: dto.conversationId,
             clientMessageId: dto.clientMessageId,
             type: dto.type,
             senderId: dto.senderId,
