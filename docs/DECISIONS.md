@@ -26,3 +26,17 @@
 ### Key Decision Points:
 1. **Connection & Memory Efficiency**: Users join only their personal `user:<userId>` room on connection, avoiding heavy room join overhead and high memory consumption when users belong to hundreds of chats.
 2. **Multi-Device Synchronization**: Emitting to a single user room automatically reaches all active sockets (phone, desktop, web tabs) belonging to that user.
+
+## Q4. Database strategy for Auth Service vs User Service (Shared DB vs Separate DB)
+
+| Approach | Architecture & Description | Pros & Cons | Recommendation |
+| :--- | :--- | :--- | :--- |
+| **Logical Separation (Same Postgres Instance, Separate DBs)** | Run one Postgres container/server, but create two separate databases (`chat_portal_auth` and `chat_portal_users`) or schemas. | • **Pros**: Low resource usage (single DB container), clean service boundaries, prevents Prisma migration conflicts, isolates password hashes from user profile queries, seamless upgrade to separate servers later.<br>• **Cons**: Inter-service communication needed during signup to create user profile. | **Chosen Approach (Recommended)** |
+| **Shared Database & Tables** | Both `auth-service` and `user-service` connect to the same database and access the same `users` table. | • **Pros**: Simple initial setup, no cross-service API calls or data sync needed.<br>• **Cons**: Tight coupling (creates a "distributed monolith"), Prisma migration clashes, security risk (profile queries can access password hashes). | **Not Recommended** |
+| **Physical Separation (Separate Database Containers / Servers)** | Run two separate Postgres containers locally, or two distinct managed database servers in production. | • **Pros**: Complete isolation, independent scaling, failure in one DB does not affect the other.<br>• **Cons**: Doubles RAM and CPU usage on local machine (two database engines running), higher operational cost. | **Future Scale (Production)** |
+
+### Key Decision Points:
+1. **Decoupled Schemas & Migrations**: Giving `auth-service` and `user-service` their own databases avoids Prisma migration collisions and keeps credentials separate from user profile details.
+2. **Developer & Resource Friendly**: Running two logical databases on one Postgres instance avoids running multiple heavy Docker containers locally.
+3. **Production Readiness**: Moving to physically separate database clusters later only requires updating the connection strings in `.env` without changing any application code.
+
