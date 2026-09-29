@@ -1,60 +1,95 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { User, ChatMessage } from './types';
+import type { User, Group, ChatMessage, ActiveConversation } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthView } from './components/auth/AuthView';
 import { fetchUsers } from './services/userService';
-import { socketService, type IncomingDirectMessageEvent } from './services/socketService';
+import { fetchUserGroups } from './services/groupService';
+import {
+  socketService,
+  type IncomingDirectMessageEvent,
+  type IncomingGroupMessageEvent,
+} from './services/socketService';
 import { UserList } from './components/UserList';
 import { ChatArea } from './components/ChatArea';
+import { CreateGroupModal } from './components/CreateGroupModal';
 import './App.css';
 
 function MainChatPortal() {
   const { user, accessToken, isAuthenticated, isLoading: isAuthLoading, logout } = useAuth();
 
   const [users, setUsers] = useState<User[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState<boolean>(true);
-  const [userFetchError, setUserFetchError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
+  const [dataFetchError, setDataFetchError] = useState<string | null>(null);
 
-  // Selected chat partner
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  // Active selected conversation (direct contact or group)
+  const [activeConversation, setActiveConversation] = useState<ActiveConversation | null>(null);
 
-  // In-memory conversation messages: { [contactUserId]: ChatMessage[] }
-  const [messagesByUser, setMessagesByUser] = useState<Record<string, ChatMessage[]>>({});
+  // In-memory conversation messages: { [conversationKey]: ChatMessage[] }
+  // Key format: "direct:<userId>" or "group:<groupId>"
+  const [messagesByConvo, setMessagesByConvo] = useState<Record<string, ChatMessage[]>>({});
 
   // Socket connection state
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
 
-  // Unread contact IDs
+  // Unread conversation IDs
   const [unreadUserIds, setUnreadUserIds] = useState<Set<string>>(new Set());
+  const [unreadGroupIds, setUnreadGroupIds] = useState<Set<string>>(new Set());
+
+  // Create Group Modal visibility
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState<boolean>(false);
 
   const [reloadKey, setReloadKey] = useState<number>(0);
 
   const currentUserId = user?.id || null;
 
-  // Fetch users from user-service via API Gateway (passing Bearer token)
+  // 1. Fetch contacts and user groups concurrently
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
       return;
     }
 
+    const token = accessToken;
     let ignore = false;
     const controller = new AbortController();
 
-    async function loadContacts() {
-      setIsLoadingUsers(true);
+    async function loadConversations() {
+      setIsLoadingData(true);
       try {
-        const data = await fetchUsers(accessToken, controller.signal);
-        if (!ignore) {
-          setUsers(data);
-          setUserFetchError(null);
+        const [fetchedUsers, fetchedGroups] = await Promise.all([
+          fetchUsers(token, controller.signal),
+          fetchUserGroups(token, controller.signal).catch((err) => {
+            console.error('Failed to fetch user groups:', err);
+            return [] as Group[];
+          }),
+        ]);
 
-          // Auto-select first contact that is not the current user
-          setSelectedUserId((currentSelected) => {
-            if (currentSelected && data.some((u) => u.id === currentSelected && u.id !== currentUserId)) {
-              return currentSelected;
+
+        if (!ignore) {
+          setUsers(fetchedUsers);
+          setGroups(fetchedGroups);
+          setDataFetchError(null);
+
+          // Auto-select first available conversation if none active
+          setActiveConversation((current) => {
+            if (current) {
+              if (current.type === 'direct' && fetchedUsers.some((u) => u.id === current.id)) {
+                return current;
+              }
+              if (current.type === 'group' && fetchedGroups.some((g) => g.id === current.id)) {
+                return current;
+              }
             }
-            const firstOther = data.find((u) => u.id !== currentUserId);
-            return firstOther?.id || null;
+
+            // Priority: select first direct contact, or first group
+            const firstOther = fetchedUsers.find((u) => u.id !== currentUserId);
+            if (firstOther) {
+              return { type: 'direct', id: firstOther.id, user: firstOther };
+            }
+            if (fetchedGroups.length > 0) {
+              return { type: 'group', id: fetchedGroups[0].id, group: fetchedGroups[0] };
+            }
+            return null;
           });
         }
       } catch (err: unknown) {
@@ -62,21 +97,21 @@ function MainChatPortal() {
           if (err instanceof DOMException && err.name === 'AbortError') {
             return;
           }
-          const message = err instanceof Error ? err.message : 'Failed to fetch contacts';
+          const message = err instanceof Error ? err.message : 'Failed to fetch conversations';
           if (message.includes('Unauthorized')) {
             logout();
             return;
           }
-          setUserFetchError(message);
+          setDataFetchError(message);
         }
       } finally {
         if (!ignore) {
-          setIsLoadingUsers(false);
+          setIsLoadingData(false);
         }
       }
     }
 
-    loadContacts();
+    loadConversations();
 
     return () => {
       ignore = true;
@@ -84,7 +119,7 @@ function MainChatPortal() {
     };
   }, [isAuthenticated, accessToken, currentUserId, reloadKey, logout]);
 
-  // Connect socket with signed JWT access token and handle real-time events
+  // 2. Connect socket with signed JWT and listen for direct + group events
   useEffect(() => {
     if (!isAuthenticated || !accessToken || !currentUserId) {
       socketService.disconnect();
@@ -92,11 +127,12 @@ function MainChatPortal() {
       return;
     }
 
-    // Connect passing the real JWT access token
+    // Connect with JWT access token
     socketService.connect(accessToken, currentUserId);
     const unsubscribeConn = socketService.onConnectionChange(setIsSocketConnected);
 
-    const handleIncomingMessage = (payload: IncomingDirectMessageEvent) => {
+    // Direct Message Listener
+    const handleIncomingDirect = (payload: IncomingDirectMessageEvent) => {
       const partnerId = payload.senderId;
       const formattedTime = new Date(payload.timestamp).toLocaleTimeString([], {
         hour: '2-digit',
@@ -113,8 +149,10 @@ function MainChatPortal() {
         status: 'sent',
       };
 
-      setMessagesByUser((prev) => {
-        const existing = prev[partnerId] || [];
+      const convoKey = `direct:${partnerId}`;
+
+      setMessagesByConvo((prev) => {
+        const existing = prev[convoKey] || [];
         if (
           existing.some(
             (m) =>
@@ -126,48 +164,108 @@ function MainChatPortal() {
         }
         return {
           ...prev,
-          [partnerId]: [...existing, incomingMsg],
+          [convoKey]: [...existing, incomingMsg],
         };
       });
 
-      // Mark unread if not currently viewing that user's chat
-      setSelectedUserId((currentSelected) => {
-        if (currentSelected !== partnerId) {
+      // Mark unread if not currently viewing this direct chat
+      setActiveConversation((current) => {
+        if (!current || current.type !== 'direct' || current.id !== partnerId) {
           setUnreadUserIds((prev) => new Set(prev).add(partnerId));
         }
-        return currentSelected;
+        return current;
       });
     };
 
-    const unsubscribeMsg = socketService.onDirectMessage(handleIncomingMessage);
+    // Group Message Listener
+    const handleIncomingGroup = (payload: IncomingGroupMessageEvent) => {
+      const { groupId } = payload;
+      const formattedTime = new Date(payload.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const incomingMsg: ChatMessage = {
+        id: payload.id,
+        clientMessageId: payload.clientMessageId,
+        senderId: payload.senderId,
+        groupId,
+        text: payload.data?.message || '',
+        timestamp: formattedTime,
+        status: 'sent',
+      };
+
+      const convoKey = `group:${groupId}`;
+
+      setMessagesByConvo((prev) => {
+        const existing = prev[convoKey] || [];
+        if (
+          existing.some(
+            (m) =>
+              m.id === incomingMsg.id ||
+              (incomingMsg.clientMessageId && m.clientMessageId === incomingMsg.clientMessageId),
+          )
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [convoKey]: [...existing, incomingMsg],
+        };
+      });
+
+      // Mark unread if not currently viewing this group
+      setActiveConversation((current) => {
+        if (!current || current.type !== 'group' || current.id !== groupId) {
+          setUnreadGroupIds((prev) => new Set(prev).add(groupId));
+        }
+        return current;
+      });
+    };
+
+    const unsubscribeDirect = socketService.onDirectMessage(handleIncomingDirect);
+    const unsubscribeGroup = socketService.onGroupMessage(handleIncomingGroup);
 
     return () => {
       unsubscribeConn();
-      unsubscribeMsg();
+      unsubscribeDirect();
+      unsubscribeGroup();
       socketService.disconnect();
     };
   }, [isAuthenticated, accessToken, currentUserId]);
 
   const handleRetry = () => {
-    setIsLoadingUsers(true);
-    setUserFetchError(null);
+    setIsLoadingData(true);
+    setDataFetchError(null);
     setReloadKey((prev) => prev + 1);
   };
 
-  const handleSelectUser = useCallback((selected: User) => {
-    setSelectedUserId(selected.id);
-    setUnreadUserIds((prev) => {
-      if (prev.has(selected.id)) {
-        const next = new Set(prev);
-        next.delete(selected.id);
-        return next;
-      }
-      return prev;
-    });
+  const handleSelectConversation = useCallback((convo: ActiveConversation) => {
+    setActiveConversation(convo);
+
+    if (convo.type === 'direct') {
+      setUnreadUserIds((prev) => {
+        if (prev.has(convo.id)) {
+          const next = new Set(prev);
+          next.delete(convo.id);
+          return next;
+        }
+        return prev;
+      });
+    } else {
+      setUnreadGroupIds((prev) => {
+        if (prev.has(convo.id)) {
+          const next = new Set(prev);
+          next.delete(convo.id);
+          return next;
+        }
+        return prev;
+      });
+    }
   }, []);
 
   const handleSendMessage = async (text: string) => {
-    if (!selectedUserId || !currentUserId) return;
+    if (!activeConversation || !currentUserId) return;
 
     const clientMessageId = `client-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const now = new Date();
@@ -176,42 +274,65 @@ function MainChatPortal() {
       minute: '2-digit',
     });
 
+    const isGroup = activeConversation.type === 'group';
+    const convoKey = `${activeConversation.type}:${activeConversation.id}`;
+
     const optimisticMessage: ChatMessage = {
       id: clientMessageId,
       clientMessageId,
       senderId: currentUserId,
-      receiverId: selectedUserId,
+      receiverId: !isGroup ? activeConversation.id : undefined,
+      groupId: isGroup ? activeConversation.id : undefined,
       text,
       timestamp: formattedTime,
       status: 'sending',
     };
 
     // Optimistically render outgoing message
-    setMessagesByUser((prev) => ({
+    setMessagesByConvo((prev) => ({
       ...prev,
-      [selectedUserId]: [...(prev[selectedUserId] || []), optimisticMessage],
+      [convoKey]: [...(prev[convoKey] || []), optimisticMessage],
     }));
 
     try {
-      const ack = await socketService.sendMessage(selectedUserId, text, clientMessageId);
-      setMessagesByUser((prev) => {
-        const list = prev[selectedUserId] || [];
-        return {
-          ...prev,
-          [selectedUserId]: list.map((msg) =>
-            msg.clientMessageId === clientMessageId
-              ? { ...msg, id: ack.messageId || msg.id, status: 'sent' }
-              : msg,
-          ),
-        };
-      });
+      if (isGroup) {
+        const ack = await socketService.sendGroupMessage(
+          activeConversation.id,
+          text,
+          clientMessageId,
+        );
+        setMessagesByConvo((prev) => {
+          const list = prev[convoKey] || [];
+          return {
+            ...prev,
+            [convoKey]: list.map((msg) =>
+              msg.clientMessageId === clientMessageId
+                ? { ...msg, id: ack.messageId || msg.id, status: 'sent' }
+                : msg,
+            ),
+          };
+        });
+      } else {
+        const ack = await socketService.sendMessage(activeConversation.id, text, clientMessageId);
+        setMessagesByConvo((prev) => {
+          const list = prev[convoKey] || [];
+          return {
+            ...prev,
+            [convoKey]: list.map((msg) =>
+              msg.clientMessageId === clientMessageId
+                ? { ...msg, id: ack.messageId || msg.id, status: 'sent' }
+                : msg,
+            ),
+          };
+        });
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
-      setMessagesByUser((prev) => {
-        const list = prev[selectedUserId] || [];
+      setMessagesByConvo((prev) => {
+        const list = prev[convoKey] || [];
         return {
           ...prev,
-          [selectedUserId]: list.map((msg) =>
+          [convoKey]: list.map((msg) =>
             msg.clientMessageId === clientMessageId ? { ...msg, status: 'failed' } : msg,
           ),
         };
@@ -219,7 +340,12 @@ function MainChatPortal() {
     }
   };
 
-  // 1. Initial Authentication Boot Check
+  const handleGroupCreated = (newGroup: Group) => {
+    setGroups((prev) => [newGroup, ...prev]);
+    setActiveConversation({ type: 'group', id: newGroup.id, group: newGroup });
+  };
+
+  // Boot Loader
   if (isAuthLoading) {
     return (
       <div className="app-boot-loader">
@@ -232,39 +358,58 @@ function MainChatPortal() {
     );
   }
 
-  // 2. Unauthenticated View (Login / Register)
+  // Unauthenticated View
   if (!isAuthenticated || !user) {
     return <AuthView />;
   }
 
-  // 3. Authenticated View (Main Chat Application)
-  const selectedUser = users.find((u) => u.id === selectedUserId) || null;
-  const currentMessages = selectedUserId ? messagesByUser[selectedUserId] || [] : [];
+  // Active messages list
+  const currentConvoKey = activeConversation
+    ? `${activeConversation.type}:${activeConversation.id}`
+    : null;
+  const currentMessages = currentConvoKey ? messagesByConvo[currentConvoKey] || [] : [];
+  const contacts = users.filter((u) => u.id !== currentUserId);
 
   return (
     <div className="chat-app-container">
       <UserList
         users={users}
+        groups={groups}
         currentUserId={currentUserId}
         currentUser={user}
         onLogout={logout}
-        selectedUserId={selectedUserId}
-        onSelectUser={handleSelectUser}
-        isLoading={isLoadingUsers}
-        error={userFetchError}
+        activeConversation={activeConversation}
+        onSelectConversation={handleSelectConversation}
+        onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
+        isLoading={isLoadingData}
+        error={dataFetchError}
         onRetry={handleRetry}
         isSocketConnected={isSocketConnected}
         unreadUserIds={unreadUserIds}
+        unreadGroupIds={unreadGroupIds}
       />
+
       <ChatArea
-        selectedUser={selectedUser}
+        activeConversation={activeConversation}
+        users={users}
         currentUserId={currentUserId}
         messages={currentMessages}
         onSendMessage={handleSendMessage}
-        isLoading={isLoadingUsers}
-        error={userFetchError}
+        isLoading={isLoadingData}
+        error={dataFetchError}
         isSocketConnected={isSocketConnected}
       />
+
+      {accessToken && currentUserId && (
+        <CreateGroupModal
+          isOpen={isCreateGroupOpen}
+          onClose={() => setIsCreateGroupOpen(false)}
+          contacts={contacts}
+          currentUserId={currentUserId}
+          token={accessToken}
+          onGroupCreated={handleGroupCreated}
+        />
+      )}
     </div>
   );
 }

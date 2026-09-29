@@ -24,12 +24,41 @@ export interface UsersResponse {
 export interface ChatMessage {
   id: string;
   senderId: string;
-  receiverId: string;
+  receiverId?: string;
+  groupId?: string;
+  senderName?: string;
   text: string;
   timestamp: string;
   clientMessageId?: string;
   status?: 'sending' | 'sent' | 'failed';
 }
+
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  role: 'ADMIN' | 'MEMBER';
+  joinedAt: string;
+  user?: User | null;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  avatarUrl: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  memberCount?: number;
+  myRole?: 'ADMIN' | 'MEMBER';
+  members?: GroupMember[];
+}
+
+export type ActiveConversation =
+  | { type: 'direct'; id: string; user: User }
+  | { type: 'group'; id: string; group: Group };
+
 
 export type UserRole = 'ADMIN' | 'MENTOR' | 'MENTEE';
 

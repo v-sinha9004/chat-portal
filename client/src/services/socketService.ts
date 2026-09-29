@@ -20,7 +20,29 @@ export interface SendMessageAck {
   data?: IncomingDirectMessageEvent;
 }
 
+export interface IncomingGroupMessageEvent {
+  id: string;
+  groupId: string;
+  senderId: string;
+  data: {
+    message: string;
+    [key: string]: unknown;
+  };
+  timestamp: string;
+  clientMessageId?: string;
+}
+
+export interface SendGroupMessageAck {
+  status: 'ok' | 'error';
+  messageId?: string;
+  clientMessageId?: string;
+  groupId?: string;
+  message?: string;
+  data?: IncomingGroupMessageEvent;
+}
+
 type MessageListener = (event: IncomingDirectMessageEvent) => void;
+type GroupMessageListener = (event: IncomingGroupMessageEvent) => void;
 type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
@@ -28,7 +50,9 @@ class SocketService {
   private currentToken: string | null = null;
   private currentUserId: string | null = null;
   private messageListeners: Set<MessageListener> = new Set();
+  private groupMessageListeners: Set<GroupMessageListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
+
 
   private getSocketUrl(): string {
     return import.meta.env.VITE_CHAT_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
@@ -83,6 +107,16 @@ class SocketService {
       });
     });
 
+    this.socket.on('group_message', (payload: IncomingGroupMessageEvent) => {
+      this.groupMessageListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in group_message listener:', err);
+        }
+      });
+    });
+
     return this.socket;
   }
 
@@ -130,6 +164,35 @@ class SocketService {
   }
 
   /**
+   * Send a group message to a group.
+   */
+  sendGroupMessage(
+    groupId: string,
+    message: string,
+    clientMessageId?: string,
+  ): Promise<SendGroupMessageAck> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        return reject(new Error('Socket is not connected. Please connect first.'));
+      }
+
+      this.socket.emit(
+        'send_group_message',
+        { groupId, message, clientMessageId },
+        (ack: SendGroupMessageAck) => {
+          if (!ack) {
+            return reject(new Error('No acknowledgement received from chat server'));
+          }
+          if (ack.status === 'error') {
+            return reject(new Error(ack.message || 'Failed to dispatch group message'));
+          }
+          resolve(ack);
+        },
+      );
+    });
+  }
+
+  /**
    * Register a listener for incoming messages.
    * Returns an unregister cleanup function.
    */
@@ -139,6 +202,18 @@ class SocketService {
       this.messageListeners.delete(listener);
     };
   }
+
+  /**
+   * Register a listener for incoming group messages.
+   * Returns an unregister cleanup function.
+   */
+  onGroupMessage(listener: GroupMessageListener): () => void {
+    this.groupMessageListeners.add(listener);
+    return () => {
+      this.groupMessageListeners.delete(listener);
+    };
+  }
+
 
   private notifyConnectionChange(connected: boolean): void {
     this.connectionListeners.forEach((listener) => {

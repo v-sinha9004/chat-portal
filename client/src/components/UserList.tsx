@@ -1,33 +1,57 @@
-import React from 'react';
-import type { User, AuthUser } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import type { User, AuthUser, Group, ActiveConversation } from '../types';
 
 interface UserListProps {
   users: User[];
+  groups: Group[];
   currentUserId: string | null;
   currentUser?: User | AuthUser | null;
   onLogout?: () => void;
-  selectedUserId: string | null;
-  onSelectUser: (user: User) => void;
+  activeConversation: ActiveConversation | null;
+  onSelectConversation: (convo: ActiveConversation) => void;
+  onOpenCreateGroup: () => void;
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
   isSocketConnected: boolean;
   unreadUserIds?: Set<string>;
+  unreadGroupIds?: Set<string>;
 }
 
 export const UserList: React.FC<UserListProps> = ({
   users,
+  groups,
   currentUserId,
   currentUser: propCurrentUser,
   onLogout,
-  selectedUserId,
-  onSelectUser,
+  activeConversation,
+  onSelectConversation,
+  onOpenCreateGroup,
   isLoading = false,
   error = null,
   onRetry,
   isSocketConnected,
   unreadUserIds = new Set(),
+  unreadGroupIds = new Set(),
 }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown menu if clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
   const getInitials = (name?: string) => {
     if (!name) return 'U';
     return name
@@ -46,15 +70,18 @@ export const UserList: React.FC<UserListProps> = ({
         return 'role-badge badge-mentor';
       case 'MENTEE':
         return 'role-badge badge-mentee';
+      case 'GROUP':
+        return 'role-badge badge-group';
       default:
         return 'role-badge';
     }
   };
 
-  // Find user in fetched contacts list or fallback to propCurrentUser
   const foundUser = users.find((u) => u.id === currentUserId);
   const activeUser = foundUser || propCurrentUser || null;
   const contacts = users.filter((u) => u.id !== currentUserId);
+
+  const totalConversations = contacts.length + groups.length;
 
   return (
     <aside className="sidebar">
@@ -109,29 +136,62 @@ export const UserList: React.FC<UserListProps> = ({
         )}
       </div>
 
-      {/* Contacts List Header */}
+      {/* Chats Header with Top '+' Action Button */}
       <div className="sidebar-header">
         <div className="sidebar-title-row">
-          <h2>Contacts</h2>
-          <span className="user-count-badge">
-            {isLoading ? '...' : `${contacts.length} ${contacts.length === 1 ? 'contact' : 'contacts'}`}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2>Chats</h2>
+            <span className="user-count-badge">
+              {isLoading ? '...' : `${totalConversations}`}
+            </span>
+          </div>
+
+          {/* '+' Button & Dropdown Menu */}
+          <div className="sidebar-action-wrapper" ref={menuRef}>
+            <button
+              type="button"
+              className="action-add-btn"
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              title="New chat options"
+              aria-label="New chat options"
+              aria-expanded={isMenuOpen}
+            >
+              +
+            </button>
+
+            {isMenuOpen && (
+              <div className="action-dropdown-menu">
+                <button
+                  type="button"
+                  className="dropdown-menu-item"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onOpenCreateGroup();
+                  }}
+                >
+                  <span className="dropdown-item-icon">👥</span>
+                  <div className="dropdown-item-text">
+                    <span className="dropdown-item-title">Create Group</span>
+                    <span className="dropdown-item-desc">Chat with multiple members</span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        <p className="sidebar-subtitle">
-          {isLoading ? 'Fetching contacts from server...' : 'Select a contact to direct message'}
-        </p>
+        <p className="sidebar-subtitle">Direct messages and group conversations</p>
       </div>
 
+      {/* Unified Conversation List */}
       <div className="user-list">
         {isLoading && (
-          <div className="user-skeletons" aria-label="Loading contacts">
-            {[1, 2, 3].map((n) => (
+          <div className="user-skeletons" aria-label="Loading conversations">
+            {[1, 2, 3, 4].map((n) => (
               <div key={n} className="skeleton-user-item">
                 <div className="skeleton-avatar" />
                 <div className="skeleton-info">
                   <div className="skeleton-line skeleton-name" />
                   <div className="skeleton-line skeleton-username" />
-                  <div className="skeleton-line skeleton-bio" />
                 </div>
               </div>
             ))}
@@ -150,56 +210,126 @@ export const UserList: React.FC<UserListProps> = ({
           </div>
         )}
 
-        {!isLoading && !error && contacts.length === 0 && (
+        {!isLoading && !error && totalConversations === 0 && (
           <div className="user-list-empty">
-            <p>No other contacts available</p>
+            <p>No conversations yet</p>
+            <span className="user-list-empty-sub">
+              Click <strong>+</strong> above to create a group or wait for contacts to appear.
+            </span>
+          </div>
+        )}
+
+        {/* Groups Section (if any groups exist) */}
+        {!isLoading && !error && groups.length > 0 && (
+          <div className="conversation-section-header">
+            <span>Groups ({groups.length})</span>
           </div>
         )}
 
         {!isLoading &&
           !error &&
-          contacts.map((user) => {
-            const isSelected = user.id === selectedUserId;
-            const hasUnread = unreadUserIds.has(user.id);
+          groups.map((group) => {
+            const isSelected =
+              activeConversation?.type === 'group' && activeConversation.id === group.id;
+            const hasUnread = unreadGroupIds.has(group.id);
 
             return (
               <div
-                key={user.id}
-                className={`user-item ${isSelected ? 'active' : ''} ${hasUnread ? 'has-unread' : ''}`}
-                onClick={() => onSelectUser(user)}
+                key={`group-${group.id}`}
+                className={`user-item group-item ${isSelected ? 'active' : ''} ${
+                  hasUnread ? 'has-unread' : ''
+                }`}
+                onClick={() => onSelectConversation({ type: 'group', id: group.id, group })}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    onSelectUser(user);
+                    onSelectConversation({ type: 'group', id: group.id, group });
                   }
                 }}
               >
-                <div className="avatar-wrapper">
-                  {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.name} className="avatar-img" />
+                <div className="avatar-wrapper group-avatar">
+                  {group.avatarUrl ? (
+                    <img src={group.avatarUrl} alt={group.name} className="avatar-img" />
                   ) : (
-                    <div className={`avatar-placeholder avatar-${user.role.toLowerCase()}`}>
-                      {getInitials(user.name)}
+                    <div className="avatar-placeholder avatar-group-bg">
+                      <span className="avatar-group-icon">👥</span>
                     </div>
                   )}
-                  {user.isActive && <span className="status-indicator online" title="Active" />}
                 </div>
 
                 <div className="user-info">
                   <div className="user-info-top">
-                    <span className="user-name">{user.name}</span>
-                    <span className={getRoleBadgeClass(user.role)}>{user.role}</span>
+                    <span className="user-name">{group.name}</span>
+                    <span className={getRoleBadgeClass('GROUP')}>Group</span>
                   </div>
                   <div className="user-username-row">
-                    <span className="user-username">@{user.username}</span>
-                    {hasUnread && <span className="unread-dot" title="New message" />}
+                    <span className="user-username">
+                      {group.memberCount ?? 1} {group.memberCount === 1 ? 'member' : 'members'}
+                    </span>
+                    {hasUnread && <span className="unread-dot" title="New group message" />}
                   </div>
-                  {user.bio ? (
-                    <p className="user-bio">{user.bio}</p>
+                  {group.description && <p className="user-bio">{group.description}</p>}
+                </div>
+              </div>
+            );
+          })}
+
+        {/* Direct Messages Section */}
+        {!isLoading && !error && contacts.length > 0 && (
+          <div className="conversation-section-header">
+            <span>Direct Messages ({contacts.length})</span>
+          </div>
+        )}
+
+        {!isLoading &&
+          !error &&
+          contacts.map((contact) => {
+            const isSelected =
+              activeConversation?.type === 'direct' && activeConversation.id === contact.id;
+            const hasUnread = unreadUserIds.has(contact.id);
+
+            return (
+              <div
+                key={`user-${contact.id}`}
+                className={`user-item ${isSelected ? 'active' : ''} ${
+                  hasUnread ? 'has-unread' : ''
+                }`}
+                onClick={() => onSelectConversation({ type: 'direct', id: contact.id, user: contact })}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectConversation({ type: 'direct', id: contact.id, user: contact });
+                  }
+                }}
+              >
+                <div className="avatar-wrapper">
+                  {contact.avatarUrl ? (
+                    <img src={contact.avatarUrl} alt={contact.name} className="avatar-img" />
                   ) : (
-                    <p className="user-email">{user.email}</p>
+                    <div className={`avatar-placeholder avatar-${contact.role.toLowerCase()}`}>
+                      {getInitials(contact.name)}
+                    </div>
+                  )}
+                  {contact.isActive && <span className="status-indicator online" title="Active" />}
+                </div>
+
+                <div className="user-info">
+                  <div className="user-info-top">
+                    <span className="user-name">{contact.name}</span>
+                    <span className={getRoleBadgeClass(contact.role)}>{contact.role}</span>
+                  </div>
+                  <div className="user-username-row">
+                    <span className="user-username">@{contact.username}</span>
+                    {hasUnread && <span className="unread-dot" title="New direct message" />}
+                  </div>
+                  {contact.bio ? (
+                    <p className="user-bio">{contact.bio}</p>
+                  ) : (
+                    <p className="user-email">{contact.email}</p>
                   )}
                 </div>
               </div>
