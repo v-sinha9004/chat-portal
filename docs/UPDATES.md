@@ -69,13 +69,16 @@
 | 21 | Create basic Group chat feature | ✅ |
 | 22 | Test group creation, message fan-out feature | ✅ |
 | 23 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
-| 24 | Integrating bullmq and sending events into it | ✅ |
+| 24 | Integrating bullmq and publish events into it | ✅ |
 | 25 | Add message worker on top of bullmq to store messages into mongodb | ✅ |
 | 26 | Testing bullmq and message worker for message persistence | ✅ |
 | 27 | Looking into reliable way to get sorted message response via appropriate indexing - Documented in DECISIONS.md | ✅ |
-| 28 | Add conversation_id in message schema - so that we can index this for one-to-one message filtering | ⏳ |
+| 28 | Add conversation_id in message schema - so that we can index this for one-to-one message filtering | ✅ |
 | 29 | Checking if we should create a separate collection for group messages | ✅ |
-| 29 | Add ULID for unique sortable indentifier for messages | ⏳ |
+| 30 | Add ULID for unique sortable indentifier for messages | ✅ |
+| 31 | Test if ulid idetifier are sortable in javascript | ✅ |
+| 32 | Add chat endpoints to retrieve previous chats from database | ⏳ |
+| 33 | Show past chats in UI | ⏳ |
 
 ---
 
