@@ -56,7 +56,9 @@
 | 9 | Create login page in UI | ⏳ |
 | 10 | Testing authentication feature with dummmy users created | ⏳ |
 | 11 | Testing one-on-one chat with two logged in users | ⏳ |
-
+| 12 | On successful authentication, create a user in db | ⏳ |
+| 13 | Add jwt verification logic in api gateway for http and websocket requests | ⏳ |
+| 14 | Create public routes configuration for api gateway | ⏳ |
 
 
 ---
