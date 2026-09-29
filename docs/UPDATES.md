@@ -59,6 +59,8 @@
 | 12 | On successful authentication, create a user in db | ⏳ |
 | 13 | Add jwt verification logic in api gateway for http and websocket requests | ⏳ |
 | 14 | Create public routes configuration for api gateway | ⏳ |
+| 15 | Send access token on registration & login to frontend | ⏳ |
+| 16 | Integrate auth flow with login UI | ⏳ |
 
 
 ---
