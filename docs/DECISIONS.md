@@ -40,3 +40,14 @@
 2. **Developer & Resource Friendly**: Running two logical databases on one Postgres instance avoids running multiple heavy Docker containers locally.
 3. **Production Readiness**: Moving to physically separate database clusters later only requires updating the connection strings in `.env` without changing any application code.
 
+## Q5. Monorepo (Shared Workspaces) vs Complete Independent Microservices
+
+| Architecture Approach | Description | Pros & Cons | Recommendation |
+| :--- | :--- | :--- | :--- |
+| **Monorepo with Workspaces (Current)** | Single repository with npm workspaces (`services/*`) and hoisted root `node_modules`. | • **Pros**: Single `npm install` for all backend services, atomic commits across services, centralized dev scripts (`npm run dev:all`), lower disk usage.<br>• **Cons**: Prisma client collision in root `node_modules` (requires custom `@prisma/*-client` output paths), Docker builds require root context, risk of ghost dependencies. | **Chosen Approach (Current Stage)** |
+| **Completely Independent Microservices** | Each service has isolated `node_modules`, own lockfile, and standalone Dockerfile (can remain in monorepo or separate repos). | • **Pros**: Zero tooling/Prisma collisions (standard `@prisma/client`), simple and fast isolated Docker builds (`docker build ./services/chat-service`), independent package upgrade lifecycles.<br>• **Cons**: Duplicate disk usage (~1-2 GB for repeated NestJS/TS packages), multiple `npm install` commands and lockfiles to maintain, harder to share internal code/DTOs. | **Recommended for Production & Scale** |
+
+### Key Decision Points:
+1. **Developer Velocity vs Deployment Isolation**: The current monorepo setup maximizes developer velocity during early stages with unified scripts and single-command setups.
+2. **Tooling Trade-offs**: Root dependency hoisting forces custom output paths for tools like Prisma (`@prisma/auth-client`) to avoid overwriting generated artifacts.
+3. **Evolution Path**: Maintain the monorepo for repository management, while gradually decoupling service `node_modules` and Docker contexts as independent deployment and scaling needs arise.
