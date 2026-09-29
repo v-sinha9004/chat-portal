@@ -10,6 +10,7 @@
 | :-: | :--- |
 | 1 | Nestjs basics |
 | 2 | Socket.io basics, what it offers on top of websockets |
+| 3 | Nestjs websocket gateways lifecycle hooks |
 
 ---
 
@@ -37,6 +38,17 @@
 | 18 | Scafolld frontend with react, vite, typescript | ✅ |
 | 19 | Add basic chat UI for testing and setting up initial connections | ✅ |
 | 20 | Integrate user API for displaying users in UI without role logic | ✅ |
+
+---
+
+## 🗓️ September 29, 2026
+
+| # | Task Description | Status |
+| :-: | :--- | :-: |  
+| 1 | Integrating frontend client with our backend for testing websocket connection for chat | ✅ |
+| 2 | Initialise auth service | ⏳ |
+| 3 | Implement auth service - JWT, login, signup | ⏳ |
+
 
 ---
 
