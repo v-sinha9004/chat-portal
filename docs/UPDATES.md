@@ -103,4 +103,6 @@
 | 23 | Image preview | ⏳ |
 | 24 | Implement Media Service | ⏳ |
 | 25 | In app notification | ⏳ |
+| 25 | Enqueue before emitting message | ⏳ |
+| 25 | Catch enqueue errors | ⏳ |
 ...More to add
