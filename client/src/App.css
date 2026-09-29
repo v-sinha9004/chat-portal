@@ -542,3 +542,168 @@
   }
 }
 
+/* Active User Card & Switcher */
+.current-user-card {
+  padding: 14px 16px;
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.current-user-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.current-user-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.socket-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.socket-status-badge.connected {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.socket-status-badge.disconnected {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.socket-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.socket-status-badge.connected .socket-dot {
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.current-user-selector-wrapper {
+  position: relative;
+}
+
+.current-user-select {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.current-user-select:focus {
+  border-color: var(--accent-color);
+}
+
+.current-user-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.current-user-avatar .avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.current-user-avatar img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.current-user-details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.current-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.current-user-email {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.user-username-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.8);
+  flex-shrink: 0;
+}
+
+/* Message Meta & Status */
+.message-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.message-status {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.message-status.status-sending {
+  color: #94a3b8;
+}
+
+.message-status.status-sent {
+  color: #10b981;
+}
+
+.message-status.status-failed {
+  color: #ef4444;
+}
+
+.no-messages-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+

@@ -23,8 +23,10 @@ export interface UsersResponse {
 
 export interface ChatMessage {
   id: string;
-  senderId: string; // user id or 'current-user'
+  senderId: string;
   receiverId: string;
   text: string;
   timestamp: string;
+  clientMessageId?: string;
+  status?: 'sending' | 'sent' | 'failed';
 }

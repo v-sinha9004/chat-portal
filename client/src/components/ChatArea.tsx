@@ -3,18 +3,22 @@ import type { User, ChatMessage } from '../types';
 
 interface ChatAreaProps {
   selectedUser: User | null;
+  currentUserId: string | null;
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
   isLoading?: boolean;
   error?: string | null;
+  isSocketConnected?: boolean;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
   selectedUser,
+  currentUserId,
   messages,
   onSendMessage,
   isLoading = false,
   error = null,
+  isSocketConnected = true,
 }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -49,8 +53,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <main className="chat-main empty-state">
           <div className="empty-message-box">
             <div className="loading-spinner large" />
-            <h3>Loading Users</h3>
-            <p>Fetching user details from the server...</p>
+            <h3>Loading Contacts</h3>
+            <p>Fetching contacts from the server...</p>
           </div>
         </main>
       );
@@ -61,7 +65,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <main className="chat-main empty-state">
           <div className="empty-message-box">
             <div className="empty-icon">⚠️</div>
-            <h3>Unable to Load Users</h3>
+            <h3>Unable to Load Contacts</h3>
             <p>{error}</p>
           </div>
         </main>
@@ -73,7 +77,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <div className="empty-message-box">
           <div className="empty-icon">💬</div>
           <h3>No Conversation Selected</h3>
-          <p>Please select a user from the list on the left to view messages and chat.</p>
+          <p>Please select a contact from the list on the left to start direct messaging.</p>
         </div>
       </main>
     );
@@ -107,7 +111,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <span className="user-email-text">{selectedUser.email}</span>
               <span className="dot-separator">•</span>
               <span className={selectedUser.isActive ? 'status-text online' : 'status-text'}>
-                {selectedUser.isActive ? 'Active now' : 'Offline'}
+                {selectedUser.isActive ? 'Active' : 'Offline'}
               </span>
             </div>
             {selectedUser.bio && <div className="chat-header-bio">"{selectedUser.bio}"</div>}
@@ -118,17 +122,28 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       <div className="chat-messages-container">
         {messages.length === 0 ? (
           <div className="no-messages">
-            <p>No messages yet. Say hello to {selectedUser.name}!</p>
+            <p>No messages yet with {selectedUser.name}.</p>
+            <span className="no-messages-sub">Send a message below to start a live conversation!</span>
           </div>
         ) : (
           <div className="messages-list">
             {messages.map((msg) => {
-              const isMe = msg.senderId === 'current-user';
+              const isMe = msg.senderId === currentUserId;
               return (
                 <div key={msg.id} className={`message-row ${isMe ? 'sent' : 'received'}`}>
                   <div className="message-bubble">
                     <p className="message-text">{msg.text}</p>
-                    <span className="message-timestamp">{msg.timestamp}</span>
+                    <div className="message-meta">
+                      <span className="message-timestamp">{msg.timestamp}</span>
+                      {isMe && msg.status && (
+                        <span
+                          className={`message-status status-${msg.status}`}
+                          title={`Status: ${msg.status}`}
+                        >
+                          {msg.status === 'sending' ? '⏱' : msg.status === 'sent' ? '✓' : '⚠️'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -142,15 +157,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <input
           type="text"
           className="chat-input"
-          placeholder={`Message ${selectedUser.name}...`}
+          placeholder={
+            isSocketConnected
+              ? `Message ${selectedUser.name}...`
+              : 'Connecting to chat server...'
+          }
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
+          disabled={!isSocketConnected}
           autoFocus
         />
         <button
           type="submit"
           className="chat-send-button"
-          disabled={!inputText.trim()}
+          disabled={!inputText.trim() || !isSocketConnected}
         >
           Send
         </button>

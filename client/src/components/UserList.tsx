@@ -3,20 +3,28 @@ import type { User } from '../types';
 
 interface UserListProps {
   users: User[];
+  currentUserId: string | null;
+  onSwitchCurrentUser: (userId: string) => void;
   selectedUserId: string | null;
   onSelectUser: (user: User) => void;
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  isSocketConnected: boolean;
+  unreadUserIds?: Set<string>;
 }
 
 export const UserList: React.FC<UserListProps> = ({
   users,
+  currentUserId,
+  onSwitchCurrentUser,
   selectedUserId,
   onSelectUser,
   isLoading = false,
   error = null,
   onRetry,
+  isSocketConnected,
+  unreadUserIds = new Set(),
 }) => {
   const getInitials = (name: string) => {
     return name
@@ -28,7 +36,7 @@ export const UserList: React.FC<UserListProps> = ({
   };
 
   const getRoleBadgeClass = (role: string) => {
-    switch (role.toUpperCase()) {
+    switch (role?.toUpperCase()) {
       case 'ADMIN':
         return 'role-badge badge-admin';
       case 'MENTOR':
@@ -40,23 +48,76 @@ export const UserList: React.FC<UserListProps> = ({
     }
   };
 
+  const currentUser = users.find((u) => u.id === currentUserId) || null;
+  const contacts = users.filter((u) => u.id !== currentUserId);
+
   return (
     <aside className="sidebar">
+      {/* Current User Identity / Switcher */}
+      <div className="current-user-card">
+        <div className="current-user-header">
+          <span className="current-user-label">Logged in as</span>
+          <span
+            className={`socket-status-badge ${isSocketConnected ? 'connected' : 'disconnected'}`}
+            title={isSocketConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'}
+          >
+            <span className="socket-dot" />
+            {isSocketConnected ? 'Connected' : 'Offline'}
+          </span>
+        </div>
+
+        {users.length > 0 && (
+          <div className="current-user-selector-wrapper">
+            <select
+              className="current-user-select"
+              value={currentUserId || ''}
+              onChange={(e) => onSwitchCurrentUser(e.target.value)}
+              aria-label="Switch active user"
+            >
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.role})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {currentUser && (
+          <div className="current-user-info-row">
+            <div className="current-user-avatar">
+              {currentUser.avatarUrl ? (
+                <img src={currentUser.avatarUrl} alt={currentUser.name} />
+              ) : (
+                <div className={`avatar-placeholder avatar-${currentUser.role.toLowerCase()}`}>
+                  {getInitials(currentUser.name)}
+                </div>
+              )}
+            </div>
+            <div className="current-user-details">
+              <span className="current-user-name">{currentUser.name}</span>
+              <span className="current-user-email">@{currentUser.username}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Contacts List Header */}
       <div className="sidebar-header">
         <div className="sidebar-title-row">
-          <h2>Chats</h2>
+          <h2>Contacts</h2>
           <span className="user-count-badge">
-            {isLoading ? 'Loading...' : `${users.length} ${users.length === 1 ? 'user' : 'users'}`}
+            {isLoading ? '...' : `${contacts.length} ${contacts.length === 1 ? 'contact' : 'contacts'}`}
           </span>
         </div>
         <p className="sidebar-subtitle">
-          {isLoading ? 'Fetching users from server...' : 'Select a user to begin messaging'}
+          {isLoading ? 'Fetching contacts from server...' : 'Select a contact to direct message'}
         </p>
       </div>
 
       <div className="user-list">
         {isLoading && (
-          <div className="user-skeletons" aria-label="Loading users">
+          <div className="user-skeletons" aria-label="Loading contacts">
             {[1, 2, 3].map((n) => (
               <div key={n} className="skeleton-user-item">
                 <div className="skeleton-avatar" />
@@ -82,20 +143,22 @@ export const UserList: React.FC<UserListProps> = ({
           </div>
         )}
 
-        {!isLoading && !error && users.length === 0 && (
+        {!isLoading && !error && contacts.length === 0 && (
           <div className="user-list-empty">
-            <p>No users found</p>
+            <p>No other contacts available</p>
           </div>
         )}
 
         {!isLoading &&
           !error &&
-          users.map((user) => {
+          contacts.map((user) => {
             const isSelected = user.id === selectedUserId;
+            const hasUnread = unreadUserIds.has(user.id);
+
             return (
               <div
                 key={user.id}
-                className={`user-item ${isSelected ? 'active' : ''}`}
+                className={`user-item ${isSelected ? 'active' : ''} ${hasUnread ? 'has-unread' : ''}`}
                 onClick={() => onSelectUser(user)}
                 role="button"
                 tabIndex={0}
@@ -122,7 +185,10 @@ export const UserList: React.FC<UserListProps> = ({
                     <span className="user-name">{user.name}</span>
                     <span className={getRoleBadgeClass(user.role)}>{user.role}</span>
                   </div>
-                  <div className="user-username">@{user.username}</div>
+                  <div className="user-username-row">
+                    <span className="user-username">@{user.username}</span>
+                    {hasUnread && <span className="unread-dot" title="New message" />}
+                  </div>
                   {user.bio ? (
                     <p className="user-bio">{user.bio}</p>
                   ) : (
