@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 
 export interface IncomingDirectMessageEvent {
   id: string;
+  conversationId?: string;
   senderId: string;
   recipientId: string;
   data: {
@@ -15,6 +16,7 @@ export interface IncomingDirectMessageEvent {
 export interface SendMessageAck {
   status: 'ok' | 'error';
   messageId?: string;
+  conversationId?: string;
   clientMessageId?: string;
   message?: string;
   data?: IncomingDirectMessageEvent;
@@ -22,6 +24,7 @@ export interface SendMessageAck {
 
 export interface IncomingGroupMessageEvent {
   id: string;
+  conversationId?: string;
   groupId: string;
   senderId: string;
   data: {
@@ -35,6 +38,7 @@ export interface IncomingGroupMessageEvent {
 export interface SendGroupMessageAck {
   status: 'ok' | 'error';
   messageId?: string;
+  conversationId?: string;
   clientMessageId?: string;
   groupId?: string;
   message?: string;

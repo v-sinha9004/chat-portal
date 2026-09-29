@@ -23,6 +23,7 @@ export interface UsersResponse {
 
 export interface ChatMessage {
   id: string;
+  conversationId?: string;
   senderId: string;
   receiverId?: string;
   groupId?: string;

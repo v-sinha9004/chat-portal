@@ -14,6 +14,17 @@ import { ChatArea } from './components/ChatArea';
 import { CreateGroupModal } from './components/CreateGroupModal';
 import './App.css';
 
+const getDirectConvoKey = (u1: string, u2: string) => `direct:${[u1, u2].sort().join(':')}`;
+const getGroupConvoKey = (groupId: string) => `group:${groupId}`;
+
+const sortMessages = (list: ChatMessage[]) => {
+  return [...list].sort((a, b) => {
+    if (a.id.startsWith('client-') && !b.id.startsWith('client-')) return 1;
+    if (!a.id.startsWith('client-') && b.id.startsWith('client-')) return -1;
+    return a.id.localeCompare(b.id);
+  });
+};
+
 function MainChatPortal() {
   const { user, accessToken, isAuthenticated, isLoading: isAuthLoading, logout } = useAuth();
 
@@ -139,8 +150,13 @@ function MainChatPortal() {
         minute: '2-digit',
       });
 
+      const convoKey =
+        payload.conversationId ||
+        getDirectConvoKey(payload.senderId, payload.recipientId);
+
       const incomingMsg: ChatMessage = {
         id: payload.id,
+        conversationId: convoKey,
         clientMessageId: payload.clientMessageId,
         senderId: payload.senderId,
         receiverId: payload.recipientId,
@@ -148,8 +164,6 @@ function MainChatPortal() {
         timestamp: formattedTime,
         status: 'sent',
       };
-
-      const convoKey = `direct:${partnerId}`;
 
       setMessagesByConvo((prev) => {
         const existing = prev[convoKey] || [];
@@ -164,7 +178,7 @@ function MainChatPortal() {
         }
         return {
           ...prev,
-          [convoKey]: [...existing, incomingMsg],
+          [convoKey]: sortMessages([...existing, incomingMsg]),
         };
       });
 
@@ -185,8 +199,11 @@ function MainChatPortal() {
         minute: '2-digit',
       });
 
+      const convoKey = payload.conversationId || getGroupConvoKey(groupId);
+
       const incomingMsg: ChatMessage = {
         id: payload.id,
+        conversationId: convoKey,
         clientMessageId: payload.clientMessageId,
         senderId: payload.senderId,
         groupId,
@@ -194,8 +211,6 @@ function MainChatPortal() {
         timestamp: formattedTime,
         status: 'sent',
       };
-
-      const convoKey = `group:${groupId}`;
 
       setMessagesByConvo((prev) => {
         const existing = prev[convoKey] || [];
@@ -210,7 +225,7 @@ function MainChatPortal() {
         }
         return {
           ...prev,
-          [convoKey]: [...existing, incomingMsg],
+          [convoKey]: sortMessages([...existing, incomingMsg]),
         };
       });
 
@@ -275,10 +290,13 @@ function MainChatPortal() {
     });
 
     const isGroup = activeConversation.type === 'group';
-    const convoKey = `${activeConversation.type}:${activeConversation.id}`;
+    const convoKey = isGroup
+      ? getGroupConvoKey(activeConversation.id)
+      : getDirectConvoKey(currentUserId, activeConversation.id);
 
     const optimisticMessage: ChatMessage = {
       id: clientMessageId,
+      conversationId: convoKey,
       clientMessageId,
       senderId: currentUserId,
       receiverId: !isGroup ? activeConversation.id : undefined,
@@ -291,7 +309,7 @@ function MainChatPortal() {
     // Optimistically render outgoing message
     setMessagesByConvo((prev) => ({
       ...prev,
-      [convoKey]: [...(prev[convoKey] || []), optimisticMessage],
+      [convoKey]: sortMessages([...(prev[convoKey] || []), optimisticMessage]),
     }));
 
     try {
@@ -305,10 +323,17 @@ function MainChatPortal() {
           const list = prev[convoKey] || [];
           return {
             ...prev,
-            [convoKey]: list.map((msg) =>
-              msg.clientMessageId === clientMessageId
-                ? { ...msg, id: ack.messageId || msg.id, status: 'sent' }
-                : msg,
+            [convoKey]: sortMessages(
+              list.map((msg) =>
+                msg.clientMessageId === clientMessageId
+                  ? {
+                      ...msg,
+                      id: ack.messageId || msg.id,
+                      conversationId: ack.conversationId || convoKey,
+                      status: 'sent',
+                    }
+                  : msg,
+              ),
             ),
           };
         });
@@ -318,10 +343,17 @@ function MainChatPortal() {
           const list = prev[convoKey] || [];
           return {
             ...prev,
-            [convoKey]: list.map((msg) =>
-              msg.clientMessageId === clientMessageId
-                ? { ...msg, id: ack.messageId || msg.id, status: 'sent' }
-                : msg,
+            [convoKey]: sortMessages(
+              list.map((msg) =>
+                msg.clientMessageId === clientMessageId
+                  ? {
+                      ...msg,
+                      id: ack.messageId || msg.id,
+                      conversationId: ack.conversationId || convoKey,
+                      status: 'sent',
+                    }
+                  : msg,
+              ),
             ),
           };
         });
@@ -365,7 +397,11 @@ function MainChatPortal() {
 
   // Active messages list
   const currentConvoKey = activeConversation
-    ? `${activeConversation.type}:${activeConversation.id}`
+    ? activeConversation.type === 'group'
+      ? getGroupConvoKey(activeConversation.id)
+      : currentUserId
+      ? getDirectConvoKey(currentUserId, activeConversation.id)
+      : null
     : null;
   const currentMessages = currentConvoKey ? messagesByConvo[currentConvoKey] || [] : [];
   const contacts = users.filter((u) => u.id !== currentUserId);
