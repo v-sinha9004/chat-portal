@@ -46,8 +46,12 @@
 | # | Task Description | Status |
 | :-: | :--- | :-: |  
 | 1 | Integrating frontend client with our backend for testing websocket connection for chat | ✅ |
-| 2 | Initialise auth service | ⏳ |
-| 3 | Implement auth service - JWT, login, signup | ⏳ |
+| 2 | Initialise auth service | ✅ |
+| 3 | Implement auth service - JWT, login, signup | ✅ |
+| 4 | Figuring out correct place to implement jwt authentication | ⏳ |
+| 5 | Figuring out jwt verification process for socket connection as it is persistent | ⏳ |
+| 6 | Create separate db for auth and user service within single database instance | ⏳ |
+
 
 
 ---
