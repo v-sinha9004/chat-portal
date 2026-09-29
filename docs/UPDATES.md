@@ -63,14 +63,15 @@
 | 16 | Integrate auth flow with login UI | ✅ |
 | 17 | Storing access token in front-end in react memory instead of localStorage to avoid security issues | ✅ |
 | 18 | Exploring on what queue we can use for now for our application for message persistence in db - Documented in DECISIONS.md | ✅ |
-| 19 | Multiple tab able to receives in real time of same user | ✅ |
+| 19 | Multiple tab able to receive messages in real time of same user | ✅ |
 | 20 | Decouple components in frontend for modular code | ✅ |
 | 21 | Create basic Group chat feature | ✅ |
 | 22 | Test group creation, message fan-out feature | ✅ |
 | 23 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
-| 24 | Integrating bullmq and sending events into it | ⏳ |
-| 25 | Add message worker on top of bullmq to store messages into mongodb | ⏳ |
-| 26 | Testing bullmq and message worker for message persistence | ⏳ |
+| 24 | Integrating bullmq and sending events into it | ✅ |
+| 25 | Add message worker on top of bullmq to store messages into mongodb | ✅ |
+| 26 | Testing bullmq and message worker for message persistence | ✅ |
+| 27 | Looking into reliable way to get sorted message response via appropriate indexing | ⏳ |
 
 ---
 
