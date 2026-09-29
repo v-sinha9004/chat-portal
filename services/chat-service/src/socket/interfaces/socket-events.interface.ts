@@ -30,3 +30,20 @@ export interface NewMessageEvent<T = any> {
   timestamp: string;
   clientMessageId?: string;
 }
+
+export interface GroupMessagePayload {
+  groupId: string;
+  message: string;
+  clientMessageId?: string;
+  [key: string]: any;
+}
+
+export interface GroupMessageEvent<T = any> {
+  id: string;
+  groupId: string;
+  senderId: string;
+  data: T;
+  timestamp: string;
+  clientMessageId?: string;
+}
+

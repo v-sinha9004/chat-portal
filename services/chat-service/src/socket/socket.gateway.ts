@@ -15,8 +15,11 @@ import { SocketService } from './socket.service';
 import {
   AuthenticatedSocket,
   DirectMessagePayload,
+  GroupMessagePayload,
+  GroupMessageEvent,
   NewMessageEvent,
 } from './interfaces/socket-events.interface';
+
 
 @WebSocketGateway({
   cors: {
@@ -126,4 +129,73 @@ export class SocketGateway
       data: eventPayload,
     };
   }
+
+  /**
+   * Real-time group message dispatch.
+   * 1. Reads verified senderId from client.data.userId in RAM (0ms).
+   * 2. Queries fresh group memberIds from user-service (direct query, zero stale caching).
+   * 3. Rejects with error ACK if sender is not in group members.
+   * 4. Fans out ONLY to verified member user rooms ('user:<memberId>').
+   */
+  @SubscribeMessage('send_group_message')
+  async handleSendGroupMessage(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: GroupMessagePayload,
+  ) {
+    const { groupId, message, clientMessageId } = payload || {};
+    if (!groupId || !message) {
+      return {
+        status: 'error',
+        message: 'Both groupId and message are required',
+      };
+    }
+
+    const senderId = client.data.userId;
+    if (!senderId) {
+      return {
+        status: 'error',
+        message: 'Unauthorized socket session',
+      };
+    }
+
+    // 1. Fetch fresh member IDs from user-service
+    const memberIds = await this.socketService.getGroupMemberIds(groupId);
+    if (!memberIds || memberIds.length === 0) {
+      return {
+        status: 'error',
+        message: 'Group not found or has no members',
+      };
+    }
+
+    // 2. Strict authorization check: sender must be a member
+    if (!memberIds.includes(senderId)) {
+      return {
+        status: 'error',
+        message: 'Forbidden: You are not a member of this group',
+      };
+    }
+
+    const messageId = randomUUID();
+    const eventPayload: GroupMessageEvent<{ message: string }> = {
+      id: messageId,
+      groupId,
+      senderId,
+      data: { message },
+      timestamp: new Date().toISOString(),
+      ...(clientMessageId ? { clientMessageId } : {}),
+    };
+
+    // 3. Dispatch ONLY to member user rooms
+    this.socketService.emitToUsers(memberIds, 'group_message', eventPayload);
+
+    return {
+      status: 'ok',
+      messageId: eventPayload.id,
+      clientMessageId,
+      groupId,
+      message: `Message dispatched to group ${groupId}`,
+      data: eventPayload,
+    };
+  }
 }
+

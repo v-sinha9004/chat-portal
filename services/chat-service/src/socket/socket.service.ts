@@ -74,4 +74,43 @@ export class SocketService {
     );
     this.server.to(userRooms).emit(event, payload);
   }
+
+  /**
+   * Fetches fresh member IDs for a given group from user-service.
+   * Direct inter-service HTTP query ensures newly added/removed members
+   * are reflected instantly with zero stale caching.
+   */
+  async getGroupMemberIds(groupId: string): Promise<string[]> {
+    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
+    const url = `${userServiceUrl}/api/users/groups/${encodeURIComponent(groupId)}/member-ids`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          this.logger.warn(`Group not found in user-service: ${groupId}`);
+          return [];
+        }
+        this.logger.error(
+          `Failed to fetch group members for ${groupId}: HTTP ${response.status}`,
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as { groupId: string; memberIds: string[] };
+      return data?.memberIds || [];
+    } catch (err: any) {
+      this.logger.error(
+        `Error calling user-service for group ${groupId} members: ${err.message}`,
+      );
+      return [];
+    }
+  }
 }
+
