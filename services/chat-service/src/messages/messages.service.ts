@@ -1,0 +1,199 @@
+import {
+  Injectable,
+  Logger,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Message, MessageDocument } from './schemas/message.schema';
+import { SocketService } from '../socket/socket.service';
+import {
+  getDirectConversationId,
+  getGroupConversationId,
+} from '../socket/interfaces/socket-events.interface';
+import {
+  QueryMessagesDto,
+  ConversationHistoryResponse,
+  ChatMessageResponse,
+} from './dto/query-messages.dto';
+
+@Injectable()
+export class MessagesService {
+  private readonly logger = new Logger(MessagesService.name);
+
+  constructor(
+    @InjectModel(Message.name)
+    private readonly messageModel: Model<MessageDocument>,
+    private readonly socketService: SocketService,
+  ) {}
+
+  /**
+   * Fetches past direct messages between current authenticated user and target user.
+   * Query is indexed by { conversationId: 1, messageId: -1 }.
+   * Returns messages in chronological order (oldest to newest).
+   */
+  async getDirectMessages(
+    currentUserId: string,
+    targetUserId: string,
+    query: QueryMessagesDto,
+  ): Promise<ConversationHistoryResponse> {
+    if (!targetUserId || typeof targetUserId !== 'string' || !targetUserId.trim()) {
+      throw new BadRequestException('Target userId is required');
+    }
+
+    if (currentUserId === targetUserId) {
+      throw new BadRequestException('Cannot fetch direct chat history with yourself');
+    }
+
+    const conversationId = getDirectConversationId(currentUserId, targetUserId.trim());
+    const limit = this.sanitizeLimit(query.limit);
+    const before = query.before?.trim();
+
+    const filter: Record<string, any> = { conversationId };
+    if (before) {
+      filter.messageId = { $lt: before };
+    }
+
+    // Fetch limit + 1 to reliably detect if older messages exist
+    const rawDocs = await this.messageModel
+      .find(filter)
+      .sort({ messageId: -1 })
+      .limit(limit + 1)
+      .lean()
+      .exec();
+
+    const hasMore = rawDocs.length > limit;
+    const docs = hasMore ? rawDocs.slice(0, limit) : rawDocs;
+
+    // Track oldest cursor before reversing (since docs are sorted newest first)
+    const oldestCursor = docs.length > 0 ? docs[docs.length - 1].messageId : undefined;
+
+    // Reverse to chronological order (oldest -> newest) for client rendering
+    docs.reverse();
+
+    const messages: ChatMessageResponse[] = docs.map((doc) =>
+      this.formatMessageResponse(doc),
+    );
+
+    this.logger.log(
+      `Retrieved ${messages.length} direct messages for conversation "${conversationId}" (hasMore: ${hasMore})`,
+    );
+
+    return {
+      conversationId,
+      messages,
+      hasMore,
+      oldestCursor,
+    };
+  }
+
+  /**
+   * Fetches past group messages for a given group.
+   * Verifies that the requester is an active group member via user-service.
+   * Returns messages in chronological order (oldest to newest).
+   */
+  async getGroupMessages(
+    groupId: string,
+    currentUserId: string,
+    query: QueryMessagesDto,
+  ): Promise<ConversationHistoryResponse> {
+    if (!groupId || typeof groupId !== 'string' || !groupId.trim()) {
+      throw new BadRequestException('groupId is required');
+    }
+
+    const cleanGroupId = groupId.trim();
+
+    // 1. Authorize: verify user is an active member of this group
+    const memberIds = await this.socketService.getGroupMemberIds(cleanGroupId);
+    if (!memberIds || memberIds.length === 0) {
+      throw new NotFoundException(`Group "${cleanGroupId}" not found or has no active members`);
+    }
+
+    if (!memberIds.includes(currentUserId)) {
+      this.logger.warn(
+        `Unauthorized group history access attempt: User "${currentUserId}" is not in group "${cleanGroupId}"`,
+      );
+      throw new ForbiddenException('Forbidden: You are not a member of this group');
+    }
+
+    const conversationId = getGroupConversationId(cleanGroupId);
+    const limit = this.sanitizeLimit(query.limit);
+    const before = query.before?.trim();
+
+    const filter: Record<string, any> = { conversationId };
+    if (before) {
+      filter.messageId = { $lt: before };
+    }
+
+    // Fetch limit + 1 to detect older messages
+    const rawDocs = await this.messageModel
+      .find(filter)
+      .sort({ messageId: -1 })
+      .limit(limit + 1)
+      .lean()
+      .exec();
+
+    const hasMore = rawDocs.length > limit;
+    const docs = hasMore ? rawDocs.slice(0, limit) : rawDocs;
+
+    // Track oldest cursor before reversing
+    const oldestCursor = docs.length > 0 ? docs[docs.length - 1].messageId : undefined;
+
+    // Reverse to chronological order (oldest -> newest)
+    docs.reverse();
+
+    const messages: ChatMessageResponse[] = docs.map((doc) =>
+      this.formatMessageResponse(doc),
+    );
+
+    this.logger.log(
+      `Retrieved ${messages.length} group messages for group "${cleanGroupId}" (hasMore: ${hasMore})`,
+    );
+
+    return {
+      conversationId,
+      groupId: cleanGroupId,
+      messages,
+      hasMore,
+      oldestCursor,
+    };
+  }
+
+  /**
+   * Clamps limit between 1 and 100 with default 50.
+   */
+  private sanitizeLimit(limit?: string | number): number {
+    const parsed = typeof limit === 'number' ? limit : parseInt(String(limit || '50'), 10);
+    if (isNaN(parsed) || parsed < 1) {
+      return 50;
+    }
+    return Math.min(parsed, 100);
+  }
+
+  /**
+   * Normalizes MongoDB document to consistent DTO response.
+   */
+  private formatMessageResponse(doc: any): ChatMessageResponse {
+    const timestampIso =
+      doc.timestamp instanceof Date
+        ? doc.timestamp.toISOString()
+        : new Date(doc.timestamp).toISOString();
+
+    return {
+      id: doc.messageId,
+      messageId: doc.messageId,
+      conversationId: doc.conversationId,
+      clientMessageId: doc.clientMessageId,
+      type: doc.type,
+      senderId: doc.senderId,
+      recipientId: doc.recipientId,
+      groupId: doc.groupId,
+      text: doc.content,
+      content: doc.content,
+      status: doc.status || 'sent',
+      timestamp: timestampIso,
+    };
+  }
+}
