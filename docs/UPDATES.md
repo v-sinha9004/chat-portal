@@ -51,8 +51,8 @@
 | 4 | Figuring out correct place to implement jwt authentication | ⏳ |
 | 5 | Figuring out jwt verification process for socket connection as it is persistent | ⏳ |
 | 6 | Create separate db for auth and user service within single database instance | ⏳ |
-| 7 | Bug fix: user and auth service breaking due to referencing to overiding generated prisma | ⏳ |
-| 8 | Refactor: shift from workspace architecture to complete microservices architecture | ⏳ |
+| 7 | Bug fix: user and auth service breaking due to referencing to overiding generated prisma | ✅ |
+| 8 | Refactor: shift from workspace architecture to complete microservices architecture | ✅ |
 
 ---
 
