@@ -58,3 +58,24 @@ If any unforeseen issues arise, the changes can be reverted by:
 - Restoring output lines in the two schema.prisma files.
 - Running npm install at the repository root.
 
+## Q6. Reliable Message Queue
+
+### Decision: What to Use Now vs. Later
+
+| Stage | Solution | Why |
+| :--- | :--- | :--- |
+| **Now** | **Redis + BullMQ** | **Zero extra infrastructure.** Socket.io already requires Redis for multi-instance scaling and presence tracking. Has first-party `@nestjs/bullmq` support and takes minutes to set up. |
+| **Later** *(if scale explodes)* | **Apache Kafka** *(or RabbitMQ)* | **Multi-consumer event streaming.** When multiple separate services (persistence worker, push notifications, search indexer, analytics) need to consume the same message stream without re-querying the database. |
+
+### Broker Comparison & Trade-offs
+
+| Broker | Status | Key Pros | Key Cons | Recommendation |
+| :--- | :--- | :--- | :--- | :--- |
+| **Redis + BullMQ** | **Use Now** | • **Zero footprint**: Reuses the Redis instance needed for Socket.io clustering.<br>• **Native NestJS**: Cleanest integration via `@nestjs/bullmq`.<br>• **Built-in features**: Retries with backoff, concurrency controls, and DLQ out of the box. | • **Memory-bound**: Queues reside in RAM; large unconsumed backlogs eat memory.<br>• Not meant for multi-day message log retention. | **Chosen Approach (Recommended)** |
+| **RabbitMQ** | **Alternative** | • **Disk-backed durability**: Minimal memory pressure during backlogs.<br>• **Advanced routing**: Flexible exchanges, routing keys, and dead-letter exchanges. | • Extra service container to manage.<br>• Redundant if Redis is already running for WebSockets. | **Alternative for Strict Durability** |
+| **Apache Kafka** | **Use Later** | • **Massive throughput**: Millions of msgs/sec with partitioned scaling.<br>• **Replayable event log**: Multiple consumer groups can read at their own pace. | • **High complexity**: Partition rebalancing, offset tracking, heavy operational overhead.<br>• Overkill for simple queue-to-DB persistence. | **Future Scale (Multi-consumer Event Mesh)** |
+
+### My Take
+- Using bullmq for now, will see how it works
+- If it has any issue for our use case, we will switch to RabbitMQ
+
