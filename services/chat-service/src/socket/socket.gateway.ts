@@ -9,6 +9,7 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Server } from 'socket.io';
 import { SocketService } from './socket.service';
 import {
@@ -67,7 +68,7 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: DirectMessagePayload,
   ) {
-    const { recipientId, message } = payload || {};
+    const { recipientId, message, clientMessageId } = payload || {};
     if (!recipientId || !message) {
       return {
         status: 'error',
@@ -76,17 +77,26 @@ export class SocketGateway
     }
 
     const senderId = client.data.userId || client.id;
+    const messageId = randomUUID();
 
     const eventPayload: NewMessageEvent<{ message: string }> = {
+      id: messageId,
       senderId,
       recipientId,
       data: { message },
       timestamp: new Date().toISOString(),
+      ...(clientMessageId ? { clientMessageId } : {}),
     };
 
     // Delegates to SocketService.emitToUser
     this.socketService.emitToUser(recipientId, 'direct_message', eventPayload);
 
-    return { status: 'ok', message: `Message dispatched to user ${recipientId}` };
+    return {
+      status: 'ok',
+      messageId: eventPayload.id,
+      clientMessageId,
+      message: `Message dispatched to user ${recipientId}`,
+      data: eventPayload,
+    };
   }
 }
