@@ -1,5 +1,4 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -21,7 +20,7 @@ export const USER_SAFE_SELECT: Prisma.UserSelect = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateUserDto) {
     const normalizedEmail = dto.email.toLowerCase().trim();
@@ -43,15 +42,11 @@ export class UsersService {
       throw new ConflictException('A user with this username already exists');
     }
 
-    // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(dto.password, saltRounds);
-
     return this.prisma.user.create({
       data: {
+        ...(dto.id ? { id: dto.id } : {}),
         email: normalizedEmail,
         username: normalizedUsername,
-        password: hashedPassword,
         name: dto.name.trim(),
         role: dto.role ?? Role.MENTEE,
         avatarUrl: dto.avatarUrl,
@@ -151,11 +146,6 @@ export class UsersService {
       ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       ...(dto.role !== undefined && { role: dto.role }),
     };
-
-    if (dto.password) {
-      const saltRounds = 10;
-      data.password = await bcrypt.hash(dto.password, saltRounds);
-    }
 
     if (dto.email) {
       const normalizedEmail = dto.email.toLowerCase().trim();

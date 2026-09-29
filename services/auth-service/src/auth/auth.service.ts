@@ -3,6 +3,8 @@ import {
   ConflictException,
   UnauthorizedException,
   NotFoundException,
+  BadRequestException,
+  BadGatewayException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -135,6 +137,70 @@ export class AuthService {
         role: dto.role ?? Role.MENTEE,
       },
     });
+
+    // Provision user profile in user-service
+    const userServiceUrl = this.configService.get<string>(
+      'USER_SERVICE_URL',
+      'http://localhost:3002',
+    );
+
+    try {
+      const userRes = await fetch(`${userServiceUrl}/api/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user.id,
+          email: user.email,
+          username: dto.username,
+          name: dto.name,
+          role: user.role,
+        }),
+      });
+
+      if (!userRes.ok) {
+        const errorData = (await userRes.json().catch(() => null)) as {
+          message?: string | string[];
+          statusCode?: number;
+        } | null;
+
+        const errorMsg =
+          (Array.isArray(errorData?.message)
+            ? errorData?.message.join(', ')
+            : errorData?.message) || 'Failed to initialize user profile in user-service';
+
+        // Compensating rollback: Delete the auth user record to prevent orphaned credentials
+        await this.prisma.authUser.delete({ where: { id: user.id } });
+
+        this.logger.warn(
+          `Compensating rollback: Deleted auth user [${user.id}] due to user-service failure: ${errorMsg}`,
+        );
+
+        if (userRes.status === 409) {
+          throw new ConflictException(errorMsg);
+        } else if (userRes.status === 400) {
+          throw new BadRequestException(errorMsg);
+        } else {
+          throw new BadGatewayException(errorMsg);
+        }
+      }
+    } catch (err) {
+      if (
+        err instanceof ConflictException ||
+        err instanceof BadRequestException ||
+        err instanceof BadGatewayException
+      ) {
+        throw err;
+      }
+
+      // If network failure / connection refused to user-service
+      await this.prisma.authUser.delete({ where: { id: user.id } }).catch(() => null);
+      this.logger.error(
+        `Failed to reach user-service at ${userServiceUrl}: ${(err as Error).message}`,
+      );
+      throw new BadGatewayException(
+        'User service is unreachable. Registration could not be completed.',
+      );
+    }
 
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email, user.role);

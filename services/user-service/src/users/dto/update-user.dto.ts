@@ -15,11 +15,6 @@ export class UpdateUserDto {
   @IsOptional()
   name?: string;
 
-  @IsString()
-  @IsOptional()
-  @MinLength(6, { message: 'Password must be at least 6 characters long' })
-  password?: string;
-
   @IsEnum(Role, { message: 'Role must be ADMIN, MENTOR, or MENTEE' })
   @IsOptional()
   role?: Role;
