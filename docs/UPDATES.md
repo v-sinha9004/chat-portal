@@ -11,6 +11,7 @@
 | 1 | Nestjs basics |
 | 2 | Socket.io basics, what it offers on top of websockets |
 | 3 | Nestjs websocket gateways lifecycle hooks |
+| 4 | Bullmq |
 
 ---
 
@@ -71,7 +72,10 @@
 | 24 | Integrating bullmq and sending events into it | ✅ |
 | 25 | Add message worker on top of bullmq to store messages into mongodb | ✅ |
 | 26 | Testing bullmq and message worker for message persistence | ✅ |
-| 27 | Looking into reliable way to get sorted message response via appropriate indexing | ⏳ |
+| 27 | Looking into reliable way to get sorted message response via appropriate indexing - Documented in DECISIONS.md | ✅ |
+| 28 | Add conversation_id in message schema - so that we can index this for one-to-one message filtering | ⏳ |
+| 29 | Checking if we should create a separate collection for group messages | ✅ |
+| 29 | Add ULID for unique sortable indentifier for messages | ⏳ |
 
 ---
 
