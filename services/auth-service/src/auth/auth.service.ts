@@ -76,8 +76,8 @@ export class AuthService {
     email: string,
     role: Role,
   ): Promise<AuthTokens> {
-    const accessPayload = { sub: userId, email, role };
-    const refreshPayload = { sub: userId, email };
+    const accessPayload = { sub: userId, email, role, jti: crypto.randomUUID() };
+    const refreshPayload = { sub: userId, email, jti: crypto.randomUUID() };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(accessPayload, {
@@ -277,6 +277,36 @@ export class AuthService {
 
     // Reuse detection: If token was already revoked, someone is reusing an old token!
     if (existingToken.isRevoked) {
+      // Concurrency Grace Period: check if a valid token was created for this user within the last 20s
+      const recentActive = await this.prisma.refreshToken.findFirst({
+        where: {
+          userId: existingToken.userId,
+          isRevoked: false,
+          createdAt: { gte: new Date(Date.now() - 20000) },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (recentActive) {
+        this.logger.log(
+          `Concurrent refresh request tolerated within grace period for user [${existingToken.userId}]`,
+        );
+        const tokens = await this.generateTokens(
+          existingToken.user.id,
+          existingToken.user.email,
+          existingToken.user.role,
+        );
+        return {
+          accessToken: tokens.accessToken,
+          refreshToken: rawRefreshToken,
+          user: {
+            id: existingToken.user.id,
+            email: existingToken.user.email,
+            role: existingToken.user.role,
+          },
+        };
+      }
+
       this.logger.warn(
         `Revoked refresh token reuse detected for user ${existingToken.userId}! Revoking all sessions.`,
       );

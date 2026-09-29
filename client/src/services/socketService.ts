@@ -25,24 +25,22 @@ type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
   private socket: Socket | null = null;
+  private currentToken: string | null = null;
   private currentUserId: string | null = null;
   private messageListeners: Set<MessageListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
 
   private getSocketUrl(): string {
-    return import.meta.env.VITE_CHAT_SOCKET_URL || 'http://localhost:3000';
+    return import.meta.env.VITE_CHAT_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
   }
 
   /**
-   * Connect to the Socket.IO server with a JWT access token.
-   * If already connected as the same user, does nothing.
-   * If connected as a different user, disconnects and reconnects.
+   * Connect to the Socket.IO server with a signed JWT access token.
+   * If already connected with the same token, does nothing.
+   * If connected with a different token/user, disconnects and reconnects.
    */
-  connect(tokenOrUserId: string, maybeUserId?: string): Socket {
-    const token = tokenOrUserId;
-    const userId = maybeUserId || tokenOrUserId;
-
-    if (this.socket && this.currentUserId === userId && this.socket.connected) {
+  connect(token: string, userId?: string): Socket {
+    if (this.socket && this.currentToken === token && this.socket.connected) {
       return this.socket;
     }
 
@@ -50,7 +48,8 @@ class SocketService {
       this.disconnect();
     }
 
-    this.currentUserId = userId;
+    this.currentToken = token;
+    this.currentUserId = userId || null;
     const socketUrl = this.getSocketUrl();
 
     this.socket = io(socketUrl, {
@@ -95,6 +94,7 @@ class SocketService {
       this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
+      this.currentToken = null;
       this.currentUserId = null;
       this.notifyConnectionChange(false);
     }

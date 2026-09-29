@@ -1,10 +1,11 @@
 import React from 'react';
-import type { User } from '../types';
+import type { User, AuthUser } from '../types';
 
 interface UserListProps {
   users: User[];
   currentUserId: string | null;
-  onSwitchCurrentUser: (userId: string) => void;
+  currentUser?: User | AuthUser | null;
+  onLogout?: () => void;
   selectedUserId: string | null;
   onSelectUser: (user: User) => void;
   isLoading?: boolean;
@@ -17,7 +18,8 @@ interface UserListProps {
 export const UserList: React.FC<UserListProps> = ({
   users,
   currentUserId,
-  onSwitchCurrentUser,
+  currentUser: propCurrentUser,
+  onLogout,
   selectedUserId,
   onSelectUser,
   isLoading = false,
@@ -26,7 +28,8 @@ export const UserList: React.FC<UserListProps> = ({
   isSocketConnected,
   unreadUserIds = new Set(),
 }) => {
-  const getInitials = (name: string) => {
+  const getInitials = (name?: string) => {
+    if (!name) return 'U';
     return name
       .split(' ')
       .map((part) => part[0])
@@ -35,7 +38,7 @@ export const UserList: React.FC<UserListProps> = ({
       .slice(0, 2);
   };
 
-  const getRoleBadgeClass = (role: string) => {
+  const getRoleBadgeClass = (role?: string) => {
     switch (role?.toUpperCase()) {
       case 'ADMIN':
         return 'role-badge badge-admin';
@@ -48,55 +51,59 @@ export const UserList: React.FC<UserListProps> = ({
     }
   };
 
-  const currentUser = users.find((u) => u.id === currentUserId) || null;
+  // Find user in fetched contacts list or fallback to propCurrentUser
+  const foundUser = users.find((u) => u.id === currentUserId);
+  const activeUser = foundUser || propCurrentUser || null;
   const contacts = users.filter((u) => u.id !== currentUserId);
 
   return (
     <aside className="sidebar">
-      {/* Current User Identity / Switcher */}
+      {/* Current Logged-in User Identity Card */}
       <div className="current-user-card">
         <div className="current-user-header">
-          <span className="current-user-label">Logged in as</span>
-          <span
-            className={`socket-status-badge ${isSocketConnected ? 'connected' : 'disconnected'}`}
-            title={isSocketConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'}
-          >
-            <span className="socket-dot" />
-            {isSocketConnected ? 'Connected' : 'Offline'}
-          </span>
+          <span className="current-user-label">My Account</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              className={`socket-status-badge ${isSocketConnected ? 'connected' : 'disconnected'}`}
+              title={isSocketConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'}
+            >
+              <span className="socket-dot" />
+              {isSocketConnected ? 'Connected' : 'Offline'}
+            </span>
+            {onLogout && (
+              <button
+                type="button"
+                className="current-user-logout-btn"
+                onClick={onLogout}
+                title="Sign out of your session"
+              >
+                Sign out
+              </button>
+            )}
+          </div>
         </div>
 
-        {users.length > 0 && (
-          <div className="current-user-selector-wrapper">
-            <select
-              className="current-user-select"
-              value={currentUserId || ''}
-              onChange={(e) => onSwitchCurrentUser(e.target.value)}
-              aria-label="Switch active user"
-            >
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.role})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {currentUser && (
+        {activeUser && (
           <div className="current-user-info-row">
             <div className="current-user-avatar">
-              {currentUser.avatarUrl ? (
-                <img src={currentUser.avatarUrl} alt={currentUser.name} />
+              {'avatarUrl' in activeUser && typeof activeUser.avatarUrl === 'string' ? (
+                <img src={activeUser.avatarUrl} alt={activeUser.name || 'User'} />
               ) : (
-                <div className={`avatar-placeholder avatar-${currentUser.role.toLowerCase()}`}>
-                  {getInitials(currentUser.name)}
+                <div
+                  className={`avatar-placeholder avatar-${(activeUser.role || 'mentee').toLowerCase()}`}
+                >
+                  {getInitials(activeUser.name || activeUser.email)}
                 </div>
               )}
             </div>
             <div className="current-user-details">
-              <span className="current-user-name">{currentUser.name}</span>
-              <span className="current-user-email">@{currentUser.username}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="current-user-name">{activeUser.name || activeUser.email}</span>
+                <span className={getRoleBadgeClass(activeUser.role)}>{activeUser.role}</span>
+              </div>
+              <span className="current-user-email">
+                {activeUser.username ? `@${activeUser.username}` : activeUser.email}
+              </span>
             </div>
           </div>
         )}

@@ -57,7 +57,6 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponse> {
-    // Read refresh token from either request body or HttpOnly cookie
     const token = dto.refreshToken || req.cookies?.refreshToken;
     const result = await this.authService.refreshTokens(token);
     this.setRefreshTokenCookie(res, result.refreshToken);

@@ -1,20 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User, ChatMessage } from './types';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthView } from './components/auth/AuthView';
 import { fetchUsers } from './services/userService';
 import { socketService, type IncomingDirectMessageEvent } from './services/socketService';
 import { UserList } from './components/UserList';
 import { ChatArea } from './components/ChatArea';
 import './App.css';
 
-function App() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+function MainChatPortal() {
+  const { user, accessToken, isAuthenticated, isLoading: isAuthLoading, logout } = useAuth();
 
-  // Active identity ("Who am I")
-  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
-    return sessionStorage.getItem('chat_portal_user_id') || null;
-  });
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState<boolean>(true);
+  const [userFetchError, setUserFetchError] = useState<string | null>(null);
 
   // Selected chat partner
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -30,60 +29,71 @@ function App() {
 
   const [reloadKey, setReloadKey] = useState<number>(0);
 
-  // Fetch users from user-service
+  const currentUserId = user?.id || null;
+
+  // Fetch users from user-service via API Gateway (passing Bearer token)
   useEffect(() => {
+    if (!isAuthenticated || !accessToken) {
+      return;
+    }
+
     let ignore = false;
     const controller = new AbortController();
 
-    async function loadUsers() {
+    async function loadContacts() {
+      setIsLoadingUsers(true);
       try {
-        const data = await fetchUsers(controller.signal);
+        const data = await fetchUsers(accessToken, controller.signal);
         if (!ignore) {
           setUsers(data);
-          setError(null);
+          setUserFetchError(null);
 
-          // Establish initial current user and contact
-          if (data.length > 0) {
-            const savedUserId = sessionStorage.getItem('chat_portal_user_id');
-            const validCurrentUser = data.find((u) => u.id === savedUserId);
-            const activeId = validCurrentUser ? validCurrentUser.id : data[0].id;
-
-            setCurrentUserId(activeId);
-            sessionStorage.setItem('chat_portal_user_id', activeId);
-
-            // Select first available contact (different from current user)
-            const firstContact = data.find((u) => u.id !== activeId);
-            setSelectedUserId(firstContact?.id || null);
-          }
+          // Auto-select first contact that is not the current user
+          setSelectedUserId((currentSelected) => {
+            if (currentSelected && data.some((u) => u.id === currentSelected && u.id !== currentUserId)) {
+              return currentSelected;
+            }
+            const firstOther = data.find((u) => u.id !== currentUserId);
+            return firstOther?.id || null;
+          });
         }
       } catch (err: unknown) {
         if (!ignore) {
           if (err instanceof DOMException && err.name === 'AbortError') {
             return;
           }
-          const message = err instanceof Error ? err.message : 'Failed to fetch users';
-          setError(message);
+          const message = err instanceof Error ? err.message : 'Failed to fetch contacts';
+          if (message.includes('Unauthorized')) {
+            logout();
+            return;
+          }
+          setUserFetchError(message);
         }
       } finally {
         if (!ignore) {
-          setIsLoading(false);
+          setIsLoadingUsers(false);
         }
       }
     }
 
-    loadUsers();
+    loadContacts();
 
     return () => {
       ignore = true;
       controller.abort();
     };
-  }, [reloadKey]);
+  }, [isAuthenticated, accessToken, currentUserId, reloadKey, logout]);
 
-  // Connect socket and handle incoming messages when currentUserId changes
+  // Connect socket with signed JWT access token and handle real-time events
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!isAuthenticated || !accessToken || !currentUserId) {
+      socketService.disconnect();
+      setIsSocketConnected(false);
+      return;
+    }
 
-    socketService.connect(currentUserId);
+    // Connect passing the real JWT access token
+    socketService.connect(accessToken, currentUserId);
     const unsubscribeConn = socketService.onConnectionChange(setIsSocketConnected);
 
     const handleIncomingMessage = (payload: IncomingDirectMessageEvent) => {
@@ -105,7 +115,6 @@ function App() {
 
       setMessagesByUser((prev) => {
         const existing = prev[partnerId] || [];
-        // Avoid duplicate insertion
         if (
           existing.some(
             (m) =>
@@ -121,7 +130,7 @@ function App() {
         };
       });
 
-      // Show unread indicator if the incoming message is not from the currently selected chat
+      // Mark unread if not currently viewing that user's chat
       setSelectedUserId((currentSelected) => {
         if (currentSelected !== partnerId) {
           setUnreadUserIds((prev) => new Set(prev).add(partnerId));
@@ -137,29 +146,20 @@ function App() {
       unsubscribeMsg();
       socketService.disconnect();
     };
-  }, [currentUserId]);
+  }, [isAuthenticated, accessToken, currentUserId]);
 
   const handleRetry = () => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoadingUsers(true);
+    setUserFetchError(null);
     setReloadKey((prev) => prev + 1);
   };
 
-  const handleSwitchCurrentUser = (newUserId: string) => {
-    setCurrentUserId(newUserId);
-    sessionStorage.setItem('chat_portal_user_id', newUserId);
-
-    // Pick first contact that is not the new current user
-    const otherContacts = users.filter((u) => u.id !== newUserId);
-    setSelectedUserId(otherContacts[0]?.id || null);
-  };
-
-  const handleSelectUser = useCallback((user: User) => {
-    setSelectedUserId(user.id);
+  const handleSelectUser = useCallback((selected: User) => {
+    setSelectedUserId(selected.id);
     setUnreadUserIds((prev) => {
-      if (prev.has(user.id)) {
+      if (prev.has(selected.id)) {
         const next = new Set(prev);
-        next.delete(user.id);
+        next.delete(selected.id);
         return next;
       }
       return prev;
@@ -186,7 +186,7 @@ function App() {
       status: 'sending',
     };
 
-    // Optimistically render message
+    // Optimistically render outgoing message
     setMessagesByUser((prev) => ({
       ...prev,
       [selectedUserId]: [...(prev[selectedUserId] || []), optimisticMessage],
@@ -194,7 +194,6 @@ function App() {
 
     try {
       const ack = await socketService.sendMessage(selectedUserId, text, clientMessageId);
-      // Reconcile optimistic message with server-assigned UUID and mark sent
       setMessagesByUser((prev) => {
         const list = prev[selectedUserId] || [];
         return {
@@ -220,6 +219,25 @@ function App() {
     }
   };
 
+  // 1. Initial Authentication Boot Check
+  if (isAuthLoading) {
+    return (
+      <div className="app-boot-loader">
+        <div className="app-boot-brand">
+          <span className="app-boot-icon">💬</span>
+          <span className="app-boot-title">Chat Portal</span>
+        </div>
+        <div className="loading-spinner large" />
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated View (Login / Register)
+  if (!isAuthenticated || !user) {
+    return <AuthView />;
+  }
+
+  // 3. Authenticated View (Main Chat Application)
   const selectedUser = users.find((u) => u.id === selectedUserId) || null;
   const currentMessages = selectedUserId ? messagesByUser[selectedUserId] || [] : [];
 
@@ -228,11 +246,12 @@ function App() {
       <UserList
         users={users}
         currentUserId={currentUserId}
-        onSwitchCurrentUser={handleSwitchCurrentUser}
+        currentUser={user}
+        onLogout={logout}
         selectedUserId={selectedUserId}
         onSelectUser={handleSelectUser}
-        isLoading={isLoading}
-        error={error}
+        isLoading={isLoadingUsers}
+        error={userFetchError}
         onRetry={handleRetry}
         isSocketConnected={isSocketConnected}
         unreadUserIds={unreadUserIds}
@@ -242,11 +261,19 @@ function App() {
         currentUserId={currentUserId}
         messages={currentMessages}
         onSendMessage={handleSendMessage}
-        isLoading={isLoading}
-        error={error}
+        isLoading={isLoadingUsers}
+        error={userFetchError}
         isSocketConnected={isSocketConnected}
       />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <MainChatPortal />
+    </AuthProvider>
   );
 }
 

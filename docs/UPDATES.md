@@ -61,6 +61,7 @@
 | 14 | Create public routes configuration for api gateway | ⏳ |
 | 15 | Send access token on registration & login to frontend | ⏳ |
 | 16 | Integrate auth flow with login UI | ⏳ |
+| 17 | Storing access token in front-end in react memory instead of localStorage to avoid security issues | ⏳ |
 
 
 ---

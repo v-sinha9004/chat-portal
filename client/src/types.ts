@@ -30,3 +30,37 @@ export interface ChatMessage {
   clientMessageId?: string;
   status?: 'sending' | 'sent' | 'failed';
 }
+
+export type UserRole = 'ADMIN' | 'MENTOR' | 'MENTEE';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: UserRole | string;
+  name?: string;
+  username?: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken?: string;
+  user: {
+    id: string;
+    email: string;
+    role: UserRole | string;
+  };
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  email: string;
+  password: string;
+  username: string;
+  name: string;
+  role?: UserRole;
+}
+
