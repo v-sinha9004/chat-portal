@@ -12,6 +12,7 @@
 | 2 | Socket.io basics, what it offers on top of websockets |
 | 3 | Nestjs websocket gateways lifecycle hooks |
 | 4 | Bullmq |
+| 5 | Zustand |
 
 ---
 
@@ -68,7 +69,6 @@
 | 20 | Decouple components in frontend for modular code | ✅ |
 | 21 | Create basic Group chat feature | ✅ |
 | 22 | Test group creation, message fan-out feature | ✅ |
-| 23 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
 | 24 | Integrating bullmq and publish events into it | ✅ |
 | 25 | Add message worker on top of bullmq to store messages into mongodb | ✅ |
 | 26 | Testing bullmq and message worker for message persistence | ✅ |
@@ -77,8 +77,7 @@
 | 29 | Checking if we should create a separate collection for group messages | ✅ |
 | 30 | Add ULID for unique sortable indentifier for messages | ✅ |
 | 31 | Test if ulid idetifier are sortable in javascript | ✅ |
-| 32 | Add chat endpoints to retrieve previous chats from database | ⏳ |
-| 33 | Show past chats in UI | ⏳ |
+| 32 | Add chat endpoints to retrieve previous chats from database | ✅ |
 
 ---
 
@@ -86,31 +85,36 @@
 
 | # | Task Description | Status |
 | :-: | :--- | :-: |
-| 1 | Implement auth service - with JWT token  | ⏳ |
-| 2 | Add central logging system like winston (need to learn on it for standard implementation)  | ⏳ |
-| 3 | Add central redis for caching  | ⏳ |
-| 4 | Message deliver when user is connected to different chat server | ⏳ |
-| 5 | Add group chat feature | ⏳ |
-| 6 | Add database schemas for all data | ⏳ |
-| 7 | Sign up/login feature for users| ⏳ |
-| 8 | Role based access | ⏳ |
-| 9 | Typing Indicator | ⏳ |
-| 10 | Online/Offline Status | ⏳ |
-| 11 | Group Chat Feature | ⏳ |
-| 12 | Group Chat Management | ⏳ |
-| 13 | Read receipts| ⏳ |
-| 14 | Announcement feature | ⏳ |
-| 15 | Pin message feature | ⏳ |
-| 16 | Doubt feature | ⏳ |
-| 17 | Report message feature | ⏳ |
-| 18 | Message search feature | ⏳ |
-| 19 | Message edit feature | ⏳ |
-| 20 | Message delete feature | ⏳ |
-| 21 | File sharing feature | ⏳ |
-| 22 | Message reaction feature | ⏳ |
-| 23 | Image preview | ⏳ |
-| 24 | Implement Media Service | ⏳ |
-| 25 | In app notification | ⏳ |
-| 25 | Enqueue before emitting message | ⏳ |
-| 25 | Catch enqueue errors | ⏳ |
-...More to add
+| 1 | Show past chats in UI | ⏳ |
+| 2 | Add central redis for caching  | ⏳ |
+| 3 | Message deliver when user is connected to different chat server | ⏳ |
+| 4 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
+| 5 | Role based access | ⏳ |
+| 6 | Typing Indicator | ⏳ |
+| 7 | Online/Offline Status | ⏳ |
+| 8 | Group Chat Management | ⏳ |
+| 9 | Read receipts| ⏳ |
+| 10 | Announcement feature | ⏳ |
+| 11 | Pin message feature | ⏳ |
+| 12 | Doubt feature | ⏳ |
+| 13 | Report message feature | ⏳ |
+| 14 | Message search feature | ⏳ |
+| 15 | Message edit feature | ⏳ |
+| 16 | Message delete feature | ⏳ |
+| 17 | File sharing feature | ⏳ |
+| 18 | Message reaction feature | ⏳ |
+| 19 | Image preview | ⏳ |
+| 20 | Implement Media Service | ⏳ |
+| 21 | In app notification | ⏳ |
+| 22 | Enqueue before emitting message | ⏳ |
+| 23 | Catch enqueue errors | ⏳ |
+| 24 | Smooth Data Load on UI | ⏳ |
+| 25 | Resposive UI | ⏳ |
+| 26 | Test on mobile view | ⏳ |
+| 27 | Test on real devices | ⏳ |
+| 28 | Deployment of all services | ⏳ |
+| 29 | Clean Up Codebase & documentation | ⏳ |
+| 30 | Cache implementation at multiple levels for smooth loading and functioning | ⏳ |
+| 31 | Cache invalidation when needed | ⏳ |
+| 32 | Monitoring system | ⏳ |
+...More
