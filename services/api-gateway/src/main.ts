@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common';
 import { getGatewayConfig } from './config/configuration';
 import { registerServiceProxies } from './proxy/proxy.middleware';
 import { getServicesConfig } from './proxy/proxy.config';
-import { createRateLimiter } from './middleware/rate-limiter.middleware';
+import { createRateLimiter, createAuthMiddleware } from './middleware';
 import * as http from 'http';
 
 async function bootstrap() {
@@ -30,6 +30,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Apply Edge Authentication & JWT Verification middleware
+  app.use(createAuthMiddleware(config.jwtAccessSecret));
 
   const server: http.Server = app.getHttpServer();
 

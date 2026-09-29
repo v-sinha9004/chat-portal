@@ -16,6 +16,16 @@ export const getServicesConfig = (): ServiceProxyOptions[] => {
   const config = getGatewayConfig();
 
   return [
+    // Auth Microservice: HTTP Endpoints
+    {
+      name: 'auth-service',
+      target: config.authServiceUrl,
+      pathPrefixes: ['/api/auth', '/auth'],
+      pathRewrite: {
+        '^/auth': '/api/auth',
+      },
+      healthPath: '/api/auth/health',
+    },
     // Chat Microservice: HTTP Endpoints
     {
       name: 'chat-service',

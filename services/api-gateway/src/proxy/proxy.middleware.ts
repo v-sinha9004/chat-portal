@@ -42,6 +42,15 @@ export function createServiceProxy(options: ServiceProxyOptions): RequestHandler
     on: {
       proxyReq: (proxyReq, req) => {
         logger.log(`[Proxy:${name}] [${req.method}] ${req.url} -> ${target}${proxyReq.path}`);
+        if (req.headers['x-user-id']) {
+          proxyReq.setHeader('x-user-id', req.headers['x-user-id'] as string);
+        }
+        if (req.headers['x-user-role']) {
+          proxyReq.setHeader('x-user-role', req.headers['x-user-role'] as string);
+        }
+        if (req.headers['x-user-email']) {
+          proxyReq.setHeader('x-user-email', req.headers['x-user-email'] as string);
+        }
         fixRequestBody(proxyReq, req);
       },
       proxyReqWs: (proxyReq, req) => {
