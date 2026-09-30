@@ -1,41 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { User, AuthUser, Group, ActiveConversation } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { useChatStore } from '../store/useChatStore';
+import { useUIStore } from '../store/useUIStore';
 
-interface UserListProps {
-  users: User[];
-  groups: Group[];
-  currentUserId: string | null;
-  currentUser?: User | AuthUser | null;
-  onLogout?: () => void;
-  activeConversation: ActiveConversation | null;
-  onSelectConversation: (convo: ActiveConversation) => void;
-  onOpenCreateGroup: () => void;
-  isLoading?: boolean;
-  error?: string | null;
-  onRetry?: () => void;
-  isSocketConnected: boolean;
-  unreadUserIds?: Set<string>;
-  unreadGroupIds?: Set<string>;
-}
+export const UserList: React.FC = () => {
+  const { user: authUser, logout, accessToken } = useAuth();
 
-export const UserList: React.FC<UserListProps> = ({
-  users,
-  groups,
-  currentUserId,
-  currentUser: propCurrentUser,
-  onLogout,
-  activeConversation,
-  onSelectConversation,
-  onOpenCreateGroup,
-  isLoading = false,
-  error = null,
-  onRetry,
-  isSocketConnected,
-  unreadUserIds = new Set(),
-  unreadGroupIds = new Set(),
-}) => {
+  const users = useChatStore((s) => s.users);
+  const groups = useChatStore((s) => s.groups);
+  const activeConversation = useChatStore((s) => s.activeConversation);
+  const selectConversation = useChatStore((s) => s.selectConversation);
+  const isLoading = useChatStore((s) => s.isLoadingConversations);
+  const error = useChatStore((s) => s.conversationsError);
+  const fetchConversations = useChatStore((s) => s.fetchConversations);
+  const isSocketConnected = useChatStore((s) => s.isSocketConnected);
+  const unreadUserIds = useChatStore((s) => s.unreadUserIds);
+  const unreadGroupIds = useChatStore((s) => s.unreadGroupIds);
+
+  const openCreateGroup = useUIStore((s) => s.openCreateGroup);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const currentUserId = authUser?.id || null;
 
   // Close dropdown menu if clicking outside
   useEffect(() => {
@@ -51,6 +38,12 @@ export const UserList: React.FC<UserListProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isMenuOpen]);
+
+  const handleRetry = () => {
+    if (accessToken) {
+      fetchConversations(accessToken, currentUserId);
+    }
+  };
 
   const getInitials = (name?: string) => {
     if (!name) return 'U';
@@ -78,7 +71,7 @@ export const UserList: React.FC<UserListProps> = ({
   };
 
   const foundUser = users.find((u) => u.id === currentUserId);
-  const activeUser = foundUser || propCurrentUser || null;
+  const activeUser = foundUser || authUser || null;
   const contacts = users.filter((u) => u.id !== currentUserId);
 
   const totalConversations = contacts.length + groups.length;
@@ -97,16 +90,14 @@ export const UserList: React.FC<UserListProps> = ({
               <span className="socket-dot" />
               {isSocketConnected ? 'Connected' : 'Offline'}
             </span>
-            {onLogout && (
-              <button
-                type="button"
-                className="current-user-logout-btn"
-                onClick={onLogout}
-                title="Sign out of your session"
-              >
-                Sign out
-              </button>
-            )}
+            <button
+              type="button"
+              className="current-user-logout-btn"
+              onClick={logout}
+              title="Sign out of your session"
+            >
+              Sign out
+            </button>
           </div>
         </div>
 
@@ -166,7 +157,7 @@ export const UserList: React.FC<UserListProps> = ({
                   className="dropdown-menu-item"
                   onClick={() => {
                     setIsMenuOpen(false);
-                    onOpenCreateGroup();
+                    openCreateGroup();
                   }}
                 >
                   <span className="dropdown-item-icon">👥</span>
@@ -202,11 +193,9 @@ export const UserList: React.FC<UserListProps> = ({
           <div className="user-list-error">
             <div className="error-icon">⚠️</div>
             <p className="error-message">{error}</p>
-            {onRetry && (
-              <button type="button" className="retry-btn" onClick={onRetry}>
-                Try Again
-              </button>
-            )}
+            <button type="button" className="retry-btn" onClick={handleRetry}>
+              Try Again
+            </button>
           </div>
         )}
 
@@ -239,13 +228,13 @@ export const UserList: React.FC<UserListProps> = ({
                 className={`user-item group-item ${isSelected ? 'active' : ''} ${
                   hasUnread ? 'has-unread' : ''
                 }`}
-                onClick={() => onSelectConversation({ type: 'group', id: group.id, group })}
+                onClick={() => selectConversation({ type: 'group', id: group.id, group })}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    onSelectConversation({ type: 'group', id: group.id, group });
+                    selectConversation({ type: 'group', id: group.id, group });
                   }
                 }}
               >
@@ -296,13 +285,13 @@ export const UserList: React.FC<UserListProps> = ({
                 className={`user-item ${isSelected ? 'active' : ''} ${
                   hasUnread ? 'has-unread' : ''
                 }`}
-                onClick={() => onSelectConversation({ type: 'direct', id: contact.id, user: contact })}
+                onClick={() => selectConversation({ type: 'direct', id: contact.id, user: contact })}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    onSelectConversation({ type: 'direct', id: contact.id, user: contact });
+                    selectConversation({ type: 'direct', id: contact.id, user: contact });
                   }
                 }}
               >

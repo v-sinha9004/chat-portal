@@ -1,23 +1,23 @@
 import React, { useState, useMemo } from 'react';
-import type { User, Group } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { useChatStore } from '../store/useChatStore';
+import { useUIStore } from '../store/useUIStore';
 import { createGroup } from '../services/groupService';
 
-interface CreateGroupModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  contacts: User[];
-  currentUserId: string;
-  token: string;
-  onGroupCreated: (newGroup: Group) => void;
-}
+export const CreateGroupModal: React.FC = () => {
+  const { accessToken: token, user } = useAuth();
+  const currentUserId = user?.id;
 
-export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
-  isOpen,
-  onClose,
-  contacts,
-  token,
-  onGroupCreated,
-}) => {
+  const isOpen = useUIStore((s) => s.isCreateGroupOpen);
+  const onClose = useUIStore((s) => s.closeCreateGroup);
+
+  const users = useChatStore((s) => s.users);
+  const addGroup = useChatStore((s) => s.addGroup);
+
+  const contacts = useMemo(() => {
+    return users.filter((u) => u.id !== currentUserId);
+  }, [users, currentUserId]);
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,7 +36,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     );
   }, [contacts, searchQuery]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !token || !currentUserId) return null;
 
   const toggleUserSelection = (userId: string) => {
     setSelectedUserIds((prev) => {
@@ -48,6 +48,15 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       }
       return next;
     });
+  };
+
+  const handleClose = () => {
+    setName('');
+    setDescription('');
+    setSearchQuery('');
+    setSelectedUserIds(new Set());
+    setError(null);
+    onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,22 +77,14 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         memberIds: Array.from(selectedUserIds),
       });
 
-      onGroupCreated(newGroup);
+      addGroup(newGroup);
       handleClose();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create group');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create group';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleClose = () => {
-    setName('');
-    setDescription('');
-    setSearchQuery('');
-    setSelectedUserIds(new Set());
-    setError(null);
-    onClose();
   };
 
   const getInitials = (name?: string) => {
