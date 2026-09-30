@@ -24,6 +24,12 @@ export interface SaveMessageDto {
     senderId: string;
     text: string;
   };
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }
 
 export interface SaveLastReadDto {
@@ -63,6 +69,12 @@ export class MessagesService {
             isAnnouncement: dto.isAnnouncement || false,
             heading: dto.heading,
             replyTo: dto.replyTo,
+            isDoubt: dto.isDoubt || false,
+            doubtStatus: dto.isDoubt ? (dto.doubtStatus || 'OPEN') : undefined,
+            doubtTopic: dto.doubtTopic,
+            resolvedBy: dto.resolvedBy,
+            resolvedByName: dto.resolvedByName,
+            resolvedAt: dto.resolvedAt ? new Date(dto.resolvedAt) : undefined,
           },
         },
         { upsert: true, new: true },

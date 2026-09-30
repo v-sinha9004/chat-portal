@@ -38,6 +38,7 @@ export class MediaService {
    */
   async createUploadUrl(
     dto: CreateUploadUrlDto,
+    userId?: string,
   ): Promise<UploadUrlResponseDto> {
     const ext = path.extname(dto.fileName).toLowerCase();
     const baseName = path
@@ -49,7 +50,7 @@ export class MediaService {
     const fileKey = `conversations/${dto.conversationId}/${uniqueId}-${sanitizedFileName}`;
 
     this.logger.log(
-      `Generating pre-signed upload URL for [${fileKey}] (${dto.mimeType}, ${dto.fileSize} bytes)`,
+      `Generating pre-signed upload URL for [${fileKey}] by user [${userId || 'direct-client'}] (${dto.mimeType}, ${dto.fileSize} bytes)`,
     );
 
     return this.storageService.generatePresignedUploadUrl(
@@ -62,14 +63,19 @@ export class MediaService {
   /**
    * Deletes a file from storage by its key
    */
-  async deleteFile(fileKey: string): Promise<DeleteFileResponseDto> {
+  async deleteFile(
+    fileKey: string,
+    userId?: string,
+  ): Promise<DeleteFileResponseDto> {
     if (!fileKey || !fileKey.startsWith('conversations/')) {
       throw new BadRequestException(
         'Invalid fileKey. Must start with conversations/',
       );
     }
 
-    this.logger.log(`Deleting file [${fileKey}]`);
+    this.logger.log(
+      `Deleting file [${fileKey}] requested by user [${userId || 'system'}]`,
+    );
     await this.storageService.deleteObject(fileKey);
 
     return {
