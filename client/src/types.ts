@@ -21,6 +21,12 @@ export interface UsersResponse {
   };
 }
 
+export interface ReplyToInfo {
+  messageId: string;
+  senderId: string;
+  text: string;
+}
+
 export interface ChatMessage {
   id: string;
   conversationId?: string;
@@ -34,6 +40,7 @@ export interface ChatMessage {
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: ReplyToInfo;
 }
 
 export interface GroupMember {

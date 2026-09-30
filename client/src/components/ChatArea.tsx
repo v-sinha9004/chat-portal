@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
+import type { ChatMessage } from '../types';
 import { AnnouncementCard } from './announcements/AnnouncementCard';
 import { AnnouncementComposer } from './announcements/AnnouncementComposer';
 import { MegaphoneIcon } from './announcements/MegaphoneIcon';
@@ -64,6 +65,8 @@ export const ChatArea: React.FC = () => {
   const hasMoreMessages = useChatStore((s) => s.hasMoreMessages);
   const isLoadingOlderMessages = useChatStore((s) => s.isLoadingOlderMessages);
   const loadOlderMessages = useChatStore((s) => s.loadOlderMessages);
+  const replyingTo = useChatStore((s) => s.replyingTo);
+  const setReplyingTo = useChatStore((s) => s.setReplyingTo);
 
   // Typing tracking from store
   const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
@@ -73,6 +76,7 @@ export const ChatArea: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isAnnouncementMode, setIsAnnouncementMode] = useState(false);
   const [announcementHeading, setAnnouncementHeading] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastLoadedConvoKeyRef = useRef<string | null>(null);
@@ -210,13 +214,61 @@ export const ChatArea: React.FC = () => {
       .slice(0, 2);
   };
 
-  const getUserName = useCallback(
+  const getDisplayName = useCallback(
     (userId: string) => {
+      if (userId === currentUserId) return 'You';
+
+      if (activeConversation?.type === 'direct') {
+        if (activeConversation.user.id === userId) {
+          return activeConversation.user.name || `@${activeConversation.user.username}`;
+        }
+      }
+
+      if (activeConversation?.type === 'group') {
+        const member = activeConversation.group.members?.find((m) => m.userId === userId);
+        if (member?.user) {
+          return member.user.name || (member.user.username ? `@${member.user.username}` : 'Member');
+        }
+      }
+
       const found = users.find((u) => u.id === userId);
-      return found?.name || (found?.username ? `@${found.username}` : 'User');
+      return found?.name || (found?.username ? `@${found.username}` : 'Member');
     },
-    [users],
+    [currentUserId, activeConversation, users],
   );
+
+  const getUserName = getDisplayName;
+
+  const handleInitiateReply = useCallback(
+    (msg: ChatMessage) => {
+      setReplyingTo(msg);
+      inputRef.current?.focus();
+    },
+    [setReplyingTo],
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && replyingTo) {
+        setReplyingTo(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [replyingTo, setReplyingTo]);
+
+  const scrollToMessage = useCallback((targetMessageId: string) => {
+    const element = document.getElementById(`msg-${targetMessageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.remove('highlight-pulse');
+      void element.offsetWidth;
+      element.classList.add('highlight-pulse');
+      setTimeout(() => {
+        element.classList.remove('highlight-pulse');
+      }, 1500);
+    }
+  }, []);
 
   const activeKey = activeConversation
     ? activeConversation.type === 'group'
@@ -541,7 +593,7 @@ export const ChatArea: React.FC = () => {
             {messages.map((msg) => {
               const isMe = msg.senderId === currentUserId;
               const senderDisplayName =
-                msg.senderName || (isGroup ? getUserName(msg.senderId) : '');
+                msg.senderName || (isGroup ? getDisplayName(msg.senderId) : '');
 
               if (msg.isAnnouncement) {
                 return (
@@ -550,34 +602,83 @@ export const ChatArea: React.FC = () => {
                     message={msg}
                     senderDisplayName={senderDisplayName}
                     isMe={isMe}
+                    onReply={handleInitiateReply}
                   />
                 );
               }
 
               return (
-                <div key={msg.id} className={`message-row ${isMe ? 'sent' : 'received'}`}>
-                  <div className="message-bubble">
-                    {/* In group chats, show sender's name above received messages */}
-                    {isGroup && !isMe && senderDisplayName && (
-                      <span className="message-sender-name">{senderDisplayName}</span>
-                    )}
-
-                    <p className="message-text">{msg.text}</p>
-                    <div className="message-meta">
-                      <span className="message-timestamp">{msg.timestamp}</span>
-                      {isMe && msg.status && (
-                        <span
-                          className={`message-status status-${msg.status}`}
-                          title={`Status: ${msg.status.charAt(0).toUpperCase() + msg.status.slice(1)}`}
+                <div
+                  key={msg.id}
+                  id={`msg-${msg.id}`}
+                  className={`message-row ${isMe ? 'sent' : 'received'}`}
+                >
+                  <div className="message-bubble-wrapper">
+                    <div className="message-bubble">
+                      {/* Quoted Reply Card */}
+                      {msg.replyTo && (
+                        <div
+                          className="reply-quote-card"
+                          onClick={() => scrollToMessage(msg.replyTo!.messageId)}
+                          role="button"
+                          tabIndex={0}
+                          title="Click to jump to quoted message"
                         >
-                          {msg.status === 'sending' && '⏱'}
-                          {msg.status === 'sent' && '✓'}
-                          {msg.status === 'delivered' && '✓✓'}
-                          {msg.status === 'read' && '✓✓'}
-                          {msg.status === 'failed' && '⚠️'}
-                        </span>
+                          <div className="reply-quote-bar" />
+                          <div className="reply-quote-body">
+                            <span className="reply-quote-sender">
+                              {getDisplayName(msg.replyTo.senderId)}
+                            </span>
+                            <p className="reply-quote-snippet">{msg.replyTo.text}</p>
+                          </div>
+                        </div>
                       )}
+
+                      {/* In group chats, show sender's name above received messages */}
+                      {isGroup && !isMe && senderDisplayName && (
+                        <span className="message-sender-name">{senderDisplayName}</span>
+                      )}
+
+                      <p className="message-text">{msg.text}</p>
+                      <div className="message-meta">
+                        <span className="message-timestamp">{msg.timestamp}</span>
+                        {isMe && msg.status && (
+                          <span
+                            className={`message-status status-${msg.status}`}
+                            title={`Status: ${msg.status.charAt(0).toUpperCase() + msg.status.slice(1)}`}
+                          >
+                            {msg.status === 'sending' && '⏱'}
+                            {msg.status === 'sent' && '✓'}
+                            {msg.status === 'delivered' && '✓✓'}
+                            {msg.status === 'read' && '✓✓'}
+                            {msg.status === 'failed' && '⚠️'}
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Hover Reply Action Button */}
+                    <button
+                      type="button"
+                      className="message-reply-btn"
+                      onClick={() => handleInitiateReply(msg)}
+                      title="Reply"
+                      aria-label="Reply to message"
+                    >
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="9 17 4 12 9 7" />
+                        <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               );
@@ -596,6 +697,31 @@ export const ChatArea: React.FC = () => {
             <span className="typing-dot" />
           </div>
           <span className="typing-indicator-text">{typingText}</span>
+        </div>
+      )}
+
+      {/* Docked Reply Preview Bar */}
+      {replyingTo && (
+        <div className="replying-preview-bar">
+          <div className="replying-preview-bar-indicator" />
+          <div className="replying-preview-content">
+            <span className="replying-preview-label">
+              Replying to{' '}
+              <strong className="replying-preview-author">
+                {getDisplayName(replyingTo.senderId)}
+              </strong>
+            </span>
+            <p className="replying-preview-text">{replyingTo.text}</p>
+          </div>
+          <button
+            type="button"
+            className="replying-preview-close-btn"
+            onClick={() => setReplyingTo(null)}
+            title="Cancel reply (Esc)"
+            aria-label="Cancel reply"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -638,6 +764,7 @@ export const ChatArea: React.FC = () => {
           </button>
         )}
         <input
+          ref={inputRef}
           type="text"
           className={`chat-input ${isAnnouncementMode ? 'announcement-body-input' : ''}`}
           placeholder={

@@ -1,3 +1,5 @@
+import type { ReplyToInfo } from '../types';
+
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/chat';
 
 export interface ChatHistoryMessage {
@@ -15,6 +17,7 @@ export interface ChatHistoryMessage {
   timestamp: string;
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: ReplyToInfo;
 }
 
 export interface ChatHistoryResponse {

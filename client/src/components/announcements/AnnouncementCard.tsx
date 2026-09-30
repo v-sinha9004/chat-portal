@@ -6,19 +6,23 @@ interface AnnouncementCardProps {
   message: ChatMessage;
   senderDisplayName?: string;
   isMe: boolean;
+  onReply?: (message: ChatMessage) => void;
 }
 
 export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
   message,
   senderDisplayName,
   isMe,
+  onReply,
 }) => {
   return (
     <div
+      id={`msg-${message.id}`}
       className={`message-row announcement-row ${isMe ? 'sent' : 'received'}`}
       data-message-id={message.id}
     >
-      <div className="announcement-card">
+      <div className="message-bubble-wrapper">
+        <div className="announcement-card">
         {/* Top Accent Header Banner */}
         <div className="announcement-header-banner">
           <div className="announcement-badge-row">
@@ -62,6 +66,30 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
           </div>
         </div>
       </div>
+      {onReply && (
+        <button
+          type="button"
+          className="message-reply-btn"
+          onClick={() => onReply(message)}
+          title="Reply"
+          aria-label="Reply to announcement"
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="9 17 4 12 9 7" />
+            <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+          </svg>
+        </button>
+      )}
     </div>
+  </div>
   );
 };

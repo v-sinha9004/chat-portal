@@ -454,11 +454,28 @@
   justify-content: flex-start;
 }
 
+.message-bubble-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 75%;
+}
+
+.message-row.sent .message-bubble-wrapper {
+  flex-direction: row-reverse;
+}
+
+.message-row.received .message-bubble-wrapper {
+  flex-direction: row;
+}
+
 .message-bubble {
-  max-width: 65%;
+  max-width: 100%;
   padding: 10px 14px;
   border-radius: 12px;
   word-break: break-word;
+  position: relative;
 }
 
 .message-row.sent .message-bubble {
@@ -471,6 +488,204 @@
   background-color: var(--bubble-other-bg);
   color: var(--bubble-other-text);
   border-bottom-left-radius: 2px;
+}
+
+.message-reply-btn {
+  opacity: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.message-row:hover .message-reply-btn,
+.message-bubble-wrapper:focus-within .message-reply-btn {
+  opacity: 1;
+}
+
+.message-reply-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  transform: scale(1.08);
+}
+
+/* Quoted Reply Card Inside Message Bubble */
+.reply-quote-card {
+  display: flex;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.07);
+  margin-bottom: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  user-select: none;
+}
+
+[data-theme='dark'] .reply-quote-card {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.message-row.sent .reply-quote-card {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.reply-quote-card:hover {
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='dark'] .reply-quote-card:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.message-row.sent .reply-quote-card:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.reply-quote-bar {
+  width: 4px;
+  background-color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.message-row.sent .reply-quote-bar {
+  background-color: #ffffff;
+}
+
+.reply-quote-body {
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.reply-quote-sender {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-row.sent .reply-quote-sender {
+  color: #ffffff;
+}
+
+.reply-quote-snippet {
+  font-size: 12px;
+  line-height: 1.35;
+  color: inherit;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+/* Docked Reply Preview Bar Above Input Form */
+.replying-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-color);
+  position: relative;
+  animation: slideDownReply 0.15s ease-out;
+}
+
+@keyframes slideDownReply {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.replying-preview-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.replying-preview-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.replying-preview-author {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.replying-preview-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.replying-preview-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.replying-preview-close-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Click-to-scroll Flash Highlight Animation */
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 4px var(--accent-color);
+    transform: scale(1.02);
+  }
+  50% {
+    box-shadow: 0 0 0 6px var(--accent-hover);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: none;
+    transform: scale(1);
+  }
+}
+
+.highlight-pulse .message-bubble,
+.highlight-pulse .announcement-card {
+  animation: highlightPulse 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-radius: 12px;
 }
 
 .message-text {

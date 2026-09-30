@@ -99,6 +99,7 @@
 | 12 | Load more messages in batches of 50 upon scrolling smoothly upwards | ✅ |
 | 13 | Pin message feature | ⏳ |
 | 14 | Save opened chat messages in memory, even when user navigates to other chats | ⏳ |
+| 14 | Initialise media service | ⏳ |
 
 ---
 

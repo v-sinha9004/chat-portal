@@ -9,10 +9,11 @@ import type {
   UserPresenceChangedEvent,
   GroupPresenceChangedEvent,
   UserTypingEvent,
+  ReplyToInfo,
 } from '../types';
 import { getDirectConversationId, getGroupConversationId } from '../types';
 import { fetchUsers } from '../services/userService';
-import { fetchUserGroups } from '../services/groupService';
+import { fetchUserGroups, fetchGroupDetails } from '../services/groupService';
 import {
   fetchDirectMessages,
   fetchGroupMessages,
@@ -64,8 +65,10 @@ interface ChatState {
   hasMoreMessages: boolean;
   oldestMessageCursor: string | null;
   isLoadingOlderMessages: boolean;
+  replyingTo: ChatMessage | null;
 
   // Actions
+  setReplyingTo: (message: ChatMessage | null) => void;
   fetchConversations: () => Promise<void>;
   selectConversation: (conversation: ActiveConversation | null) => void;
   fetchMessages: (targetConvo?: ActiveConversation) => Promise<void>;
@@ -163,6 +166,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   hasMoreMessages: false,
   oldestMessageCursor: null,
   isLoadingOlderMessages: false,
+  replyingTo: null,
+
+  setReplyingTo: (message) => set({ replyingTo: message }),
 
   fetchConversations: async () => {
     const token = useAuthStore.getState().accessToken;
@@ -291,6 +297,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         hasMoreMessages: false,
         oldestMessageCursor: null,
         isLoadingOlderMessages: false,
+        replyingTo: null,
       });
       return;
     }
@@ -329,6 +336,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         hasMoreMessages: false,
         oldestMessageCursor: null,
         isLoadingOlderMessages: false,
+        replyingTo: null,
       };
     });
 
@@ -351,6 +359,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
         });
     } else {
+      const token = useAuthStore.getState().accessToken;
+      if (token && (!conversation.group.members || conversation.group.members.length === 0)) {
+        fetchGroupDetails(token, conversation.id)
+          .then((detailedGroup) => {
+            if (get().activeConversation?.id === conversation.id) {
+              set((state) => {
+                if (
+                  state.activeConversation?.type === 'group' &&
+                  state.activeConversation.id === conversation.id
+                ) {
+                  return {
+                    activeConversation: {
+                      ...state.activeConversation,
+                      group: { ...state.activeConversation.group, ...detailedGroup },
+                    },
+                    groups: state.groups.map((g) =>
+                      g.id === conversation.id ? { ...g, ...detailedGroup } : g,
+                    ),
+                  };
+                }
+                return state;
+              });
+            }
+          })
+          .catch((err) => console.warn('Failed to load group details with members:', err));
+      }
+
       socketService
         .subscribeGroupPresence(conversation.id)
         .then((presence) => {
@@ -440,6 +475,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           status,
           isAnnouncement: m.isAnnouncement,
           heading: m.heading,
+          replyTo: m.replyTo,
         };
       });
 
@@ -577,6 +613,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           status,
           isAnnouncement: m.isAnnouncement,
           heading: m.heading,
+          replyTo: m.replyTo,
         };
       });
 
@@ -625,6 +662,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ? `group:${activeConversation.id}`
       : `direct:${[currentUserId, activeConversation.id].sort().join(':')}`;
 
+    const replyingTo = get().replyingTo;
+    const replyToPayload: ReplyToInfo | undefined = replyingTo
+      ? {
+          messageId: replyingTo.id,
+          senderId: replyingTo.senderId,
+          text: replyingTo.text.slice(0, 120),
+        }
+      : undefined;
+
     const optimisticMessage: ChatMessage = {
       id: clientMessageId,
       conversationId: expectedConvoId,
@@ -637,9 +683,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       status: 'sending',
       isAnnouncement: options?.isAnnouncement,
       heading: options?.heading,
+      replyTo: replyToPayload,
     };
 
-    set((state) => ({ messages: [...state.messages, optimisticMessage] }));
+    set((state) => ({ messages: [...state.messages, optimisticMessage], replyingTo: null }));
 
     try {
       if (isGroup) {
@@ -647,7 +694,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           activeConversation.id,
           trimmedText,
           clientMessageId,
-          options,
+          { ...options, replyTo: replyToPayload },
         );
         set((state) => ({
           messages: state.messages.map((msg) =>
@@ -665,6 +712,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           activeConversation.id,
           trimmedText,
           clientMessageId,
+          { replyTo: replyToPayload },
         );
         const newStatus = ack?.delivered ? 'delivered' : 'sent';
         set((state) => ({
@@ -806,6 +854,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           text: payload.data?.message || '',
           timestamp: formattedTime,
           status: 'sent',
+          replyTo: payload.replyTo,
         };
 
         const directTimerKey = `user:${partnerId}:${partnerId}`;
@@ -924,6 +973,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           status: 'sent',
           isAnnouncement: payload.isAnnouncement,
           heading: payload.heading,
+          replyTo: payload.replyTo,
         };
 
         if (isVisibleAndActive) {
@@ -1293,6 +1343,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       hasMoreMessages: false,
       oldestMessageCursor: null,
       isLoadingOlderMessages: false,
+      replyingTo: null,
     });
   },
 }));

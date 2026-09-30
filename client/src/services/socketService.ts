@@ -9,6 +9,7 @@ import type {
   MessageDeliveredEvent,
   MessagesReadEvent,
   GroupMessagesReadEvent,
+  ReplyToInfo,
 } from '../types';
 
 export interface IncomingDirectMessageEvent {
@@ -22,6 +23,7 @@ export interface IncomingDirectMessageEvent {
   };
   timestamp: string;
   clientMessageId?: string;
+  replyTo?: ReplyToInfo;
 }
 
 export interface SendMessageAck {
@@ -47,6 +49,7 @@ export interface IncomingGroupMessageEvent {
   clientMessageId?: string;
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: ReplyToInfo;
 }
 
 export interface SendGroupMessageAck {
@@ -251,6 +254,7 @@ class SocketService {
     recipientId: string,
     message: string,
     clientMessageId?: string,
+    options?: { replyTo?: ReplyToInfo },
   ): Promise<SendMessageAck> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
@@ -259,7 +263,12 @@ class SocketService {
 
       this.socket.emit(
         'send_direct_message',
-        { recipientId, message, clientMessageId },
+        {
+          recipientId,
+          message,
+          clientMessageId,
+          ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
+        },
         (ack: SendMessageAck) => {
           if (!ack) {
             return reject(new Error('No acknowledgement received from chat server'));
@@ -280,7 +289,7 @@ class SocketService {
     groupId: string,
     message: string,
     clientMessageId?: string,
-    options?: { isAnnouncement?: boolean; heading?: string },
+    options?: { isAnnouncement?: boolean; heading?: string; replyTo?: ReplyToInfo },
   ): Promise<SendGroupMessageAck> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
@@ -296,6 +305,7 @@ class SocketService {
           ...(options?.isAnnouncement
             ? { isAnnouncement: true, heading: options.heading }
             : {}),
+          ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
         },
         (ack: SendGroupMessageAck) => {
           if (!ack) {
