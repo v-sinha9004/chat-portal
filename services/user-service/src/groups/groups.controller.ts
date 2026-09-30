@@ -63,6 +63,15 @@ export class GroupsController {
   }
 
   /**
+   * Fast internal endpoint for chat-service to fetch user group IDs
+   * GET /api/users/groups/user/:userId/group-ids
+   */
+  @Get('user/:userId/group-ids')
+  async getUserGroupIds(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.groupsService.getUserGroupIds(userId);
+  }
+
+  /**
    * Get single group details with hydrated member profiles
    * GET /api/users/groups/:id
    */

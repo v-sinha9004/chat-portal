@@ -14,6 +14,7 @@ export const USER_SAFE_SELECT: Prisma.UserSelect = {
   avatarUrl: true,
   bio: true,
   isActive: true,
+  lastSeenAt: true,
   createdAt: true,
   updatedAt: true,
 };
@@ -189,6 +190,14 @@ export class UsersService {
     await this.findById(id);
     return this.prisma.user.delete({
       where: { id },
+      select: USER_SAFE_SELECT,
+    });
+  }
+
+  async updateLastSeen(id: string, lastSeenAt: Date = new Date()) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { lastSeenAt },
       select: USER_SAFE_SELECT,
     });
   }

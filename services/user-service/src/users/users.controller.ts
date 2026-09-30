@@ -88,6 +88,19 @@ export class UsersController {
   }
 
   /**
+   * Update user last seen timestamp
+   * PATCH /api/users/:id/last-seen
+   */
+  @Patch(':id/last-seen')
+  async updateLastSeen(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('lastSeenAt') lastSeenAt?: string,
+  ) {
+    const timestamp = lastSeenAt ? new Date(lastSeenAt) : new Date();
+    return this.usersService.updateLastSeen(id, timestamp);
+  }
+
+  /**
    * Permanently delete user
    * DELETE /api/users/:id
    */

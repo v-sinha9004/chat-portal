@@ -256,4 +256,20 @@ export class GroupsService {
       memberIds: members.map((m) => m.userId),
     };
   }
+
+  /**
+   * High-speed group IDs lookup endpoint for chat-service.
+   * Returns { userId, groupIds: string[] } for presence notifications.
+   */
+  async getUserGroupIds(userId: string) {
+    const memberships = await this.prisma.groupMember.findMany({
+      where: { userId },
+      select: { groupId: true },
+    });
+
+    return {
+      userId,
+      groupIds: memberships.map((m) => m.groupId),
+    };
+  }
 }
