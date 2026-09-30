@@ -8,6 +8,7 @@ import type {
   GroupPresence,
   UserPresenceChangedEvent,
   GroupPresenceChangedEvent,
+  UserTypingEvent,
 } from '../types';
 import { fetchUsers } from '../services/userService';
 import { fetchUserGroups } from '../services/groupService';
@@ -34,6 +35,9 @@ interface ChatState {
   activeGroupPresence: GroupPresence | null;
   isLoadingPresence: boolean;
 
+  // Real-time Typing Users (key: 'user:<userId>' or 'group:<groupId>')
+  typingUsersByConversation: Record<string, string[]>;
+
   // Unread Sets
   unreadUserIds: Set<string>;
   unreadGroupIds: Set<string>;
@@ -51,6 +55,8 @@ interface ChatState {
   selectConversation: (conversation: ActiveConversation) => void;
   fetchMessages: (targetConvo?: ActiveConversation) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
+  sendTypingStart: () => void;
+  sendTypingStop: () => void;
   addGroup: (newGroup: Group) => void;
   initSocket: () => void;
   disconnectSocket: () => void;
@@ -64,6 +70,8 @@ let unsubscribeDirect: (() => void) | null = null;
 let unsubscribeGroup: (() => void) | null = null;
 let unsubscribeUserPresence: (() => void) | null = null;
 let unsubscribeGroupPresence: (() => void) | null = null;
+let unsubscribeTyping: (() => void) | null = null;
+const typingSafetyTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export const useChatStore = create<ChatState>((set, get) => ({
   users: [],
@@ -75,6 +83,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activePresence: null,
   activeGroupPresence: null,
   isLoadingPresence: false,
+
+  typingUsersByConversation: {},
 
   unreadUserIds: new Set<string>(),
   unreadGroupIds: new Set<string>(),
@@ -165,8 +175,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const prevConvo = get().activeConversation;
     if (prevConvo) {
       if (prevConvo.type === 'direct') {
+        socketService.sendTypingStop({ recipientId: prevConvo.id });
         socketService.unsubscribeUserPresence(prevConvo.id);
       } else {
+        socketService.sendTypingStop({ groupId: prevConvo.id });
         socketService.unsubscribeGroupPresence(prevConvo.id);
       }
     }
@@ -390,6 +402,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  sendTypingStart: () => {
+    const active = get().activeConversation;
+    if (!active) return;
+    if (active.type === 'direct') {
+      socketService.sendTypingStart({ recipientId: active.id });
+    } else {
+      socketService.sendTypingStart({ groupId: active.id });
+    }
+  },
+
+  sendTypingStop: () => {
+    const active = get().activeConversation;
+    if (!active) return;
+    if (active.type === 'direct') {
+      socketService.sendTypingStop({ recipientId: active.id });
+    } else {
+      socketService.sendTypingStop({ groupId: active.id });
+    }
+  },
+
   addGroup: (newGroup: Group) => {
     const newConvo: ActiveConversation = {
       type: 'group',
@@ -475,7 +507,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
           status: 'sent',
         };
 
+        const directTimerKey = `user:${partnerId}:${partnerId}`;
+        if (typingSafetyTimers.has(directTimerKey)) {
+          clearTimeout(typingSafetyTimers.get(directTimerKey)!);
+          typingSafetyTimers.delete(directTimerKey);
+        }
+
         set((state) => {
+          const currentTyping = state.typingUsersByConversation[`user:${partnerId}`] || [];
+          const updatedTyping = currentTyping.filter((id) => id !== partnerId);
+
           if (
             state.messages.some(
               (m) =>
@@ -484,15 +525,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
                   m.clientMessageId === incomingMsg.clientMessageId),
             )
           ) {
-            return state;
+            return {
+              typingUsersByConversation: {
+                ...state.typingUsersByConversation,
+                [`user:${partnerId}`]: updatedTyping,
+              },
+            };
           }
-          return { messages: [...state.messages, incomingMsg] };
+          return {
+            messages: [...state.messages, incomingMsg],
+            typingUsersByConversation: {
+              ...state.typingUsersByConversation,
+              [`user:${partnerId}`]: updatedTyping,
+            },
+          };
         });
       } else {
+        const directTimerKey = `user:${partnerId}:${partnerId}`;
+        if (typingSafetyTimers.has(directTimerKey)) {
+          clearTimeout(typingSafetyTimers.get(directTimerKey)!);
+          typingSafetyTimers.delete(directTimerKey);
+        }
+
         set((state) => {
           const next = new Set(state.unreadUserIds);
           next.add(partnerId);
-          return { unreadUserIds: next };
+          const currentTyping = state.typingUsersByConversation[`user:${partnerId}`] || [];
+          return {
+            unreadUserIds: next,
+            typingUsersByConversation: {
+              ...state.typingUsersByConversation,
+              [`user:${partnerId}`]: currentTyping.filter((id) => id !== partnerId),
+            },
+          };
         });
       }
     });
@@ -500,9 +565,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     unsubscribeGroup = socketService.onGroupMessage((payload: IncomingGroupMessageEvent) => {
       const currentConvo = get().activeConversation;
       const { groupId } = payload;
+      const senderId = payload.senderId;
 
       const isCurrentGroup =
         currentConvo && currentConvo.type === 'group' && currentConvo.id === groupId;
+
+      const groupTimerKey = `group:${groupId}:${senderId}`;
+      if (typingSafetyTimers.has(groupTimerKey)) {
+        clearTimeout(typingSafetyTimers.get(groupTimerKey)!);
+        typingSafetyTimers.delete(groupTimerKey);
+      }
 
       if (isCurrentGroup) {
         const formattedTime = new Date(payload.timestamp).toLocaleTimeString([], {
@@ -522,6 +594,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
 
         set((state) => {
+          const currentTyping = state.typingUsersByConversation[`group:${groupId}`] || [];
+          const updatedTyping = currentTyping.filter((id) => id !== senderId);
+
           if (
             state.messages.some(
               (m) =>
@@ -530,15 +605,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
                   m.clientMessageId === incomingMsg.clientMessageId),
             )
           ) {
-            return state;
+            return {
+              typingUsersByConversation: {
+                ...state.typingUsersByConversation,
+                [`group:${groupId}`]: updatedTyping,
+              },
+            };
           }
-          return { messages: [...state.messages, incomingMsg] };
+          return {
+            messages: [...state.messages, incomingMsg],
+            typingUsersByConversation: {
+              ...state.typingUsersByConversation,
+              [`group:${groupId}`]: updatedTyping,
+            },
+          };
         });
       } else {
         set((state) => {
           const next = new Set(state.unreadGroupIds);
           next.add(groupId);
-          return { unreadGroupIds: next };
+          const currentTyping = state.typingUsersByConversation[`group:${groupId}`] || [];
+          return {
+            unreadGroupIds: next,
+            typingUsersByConversation: {
+              ...state.typingUsersByConversation,
+              [`group:${groupId}`]: currentTyping.filter((id) => id !== senderId),
+            },
+          };
         });
       }
     });
@@ -580,6 +673,63 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
       }
     });
+
+    unsubscribeTyping = socketService.onUserTyping((event: UserTypingEvent) => {
+      const myId = useAuthStore.getState().user?.id;
+      if (event.userId === myId) return;
+
+      const convKey = event.groupId
+        ? `group:${event.groupId}`
+        : `user:${event.userId}`;
+      const timerKey = `${convKey}:${event.userId}`;
+
+      if (event.isTyping) {
+        if (typingSafetyTimers.has(timerKey)) {
+          clearTimeout(typingSafetyTimers.get(timerKey)!);
+        }
+
+        const timer = setTimeout(() => {
+          typingSafetyTimers.delete(timerKey);
+          set((state) => {
+            const current = state.typingUsersByConversation[convKey] || [];
+            return {
+              typingUsersByConversation: {
+                ...state.typingUsersByConversation,
+                [convKey]: current.filter((id) => id !== event.userId),
+              },
+            };
+          });
+        }, 4000);
+        typingSafetyTimers.set(timerKey, timer);
+
+        set((state) => {
+          const current = state.typingUsersByConversation[convKey] || [];
+          if (current.includes(event.userId)) return state;
+          return {
+            typingUsersByConversation: {
+              ...state.typingUsersByConversation,
+              [convKey]: [...current, event.userId],
+            },
+          };
+        });
+      } else {
+        if (typingSafetyTimers.has(timerKey)) {
+          clearTimeout(typingSafetyTimers.get(timerKey)!);
+          typingSafetyTimers.delete(timerKey);
+        }
+
+        set((state) => {
+          const current = state.typingUsersByConversation[convKey] || [];
+          if (!current.includes(event.userId)) return state;
+          return {
+            typingUsersByConversation: {
+              ...state.typingUsersByConversation,
+              [convKey]: current.filter((id) => id !== event.userId),
+            },
+          };
+        });
+      }
+    });
   },
 
   disconnectSocket: () => {
@@ -603,6 +753,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       unsubscribeGroupPresence();
       unsubscribeGroupPresence = null;
     }
+    if (unsubscribeTyping) {
+      unsubscribeTyping();
+      unsubscribeTyping = null;
+    }
+    for (const timer of typingSafetyTimers.values()) {
+      clearTimeout(timer);
+    }
+    typingSafetyTimers.clear();
 
     const currentConvo = get().activeConversation;
     if (currentConvo) {
@@ -614,7 +772,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     socketService.disconnect();
-    set({ isSocketConnected: false });
+    set({ isSocketConnected: false, typingUsersByConversation: {} });
   },
 
   reset: () => {
@@ -636,6 +794,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activePresence: null,
       activeGroupPresence: null,
       isLoadingPresence: false,
+      typingUsersByConversation: {},
       unreadUserIds: new Set(),
       unreadGroupIds: new Set(),
       isSocketConnected: false,

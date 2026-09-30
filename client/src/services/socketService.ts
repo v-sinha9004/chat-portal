@@ -4,6 +4,7 @@ import type {
   GroupPresence,
   UserPresenceChangedEvent,
   GroupPresenceChangedEvent,
+  UserTypingEvent,
 } from '../types';
 
 export interface IncomingDirectMessageEvent {
@@ -55,6 +56,7 @@ type MessageListener = (event: IncomingDirectMessageEvent) => void;
 type GroupMessageListener = (event: IncomingGroupMessageEvent) => void;
 type UserPresenceListener = (event: UserPresenceChangedEvent) => void;
 type GroupPresenceListener = (event: GroupPresenceChangedEvent) => void;
+type UserTypingListener = (event: UserTypingEvent) => void;
 type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
@@ -65,6 +67,7 @@ class SocketService {
   private groupMessageListeners: Set<GroupMessageListener> = new Set();
   private userPresenceListeners: Set<UserPresenceListener> = new Set();
   private groupPresenceListeners: Set<GroupPresenceListener> = new Set();
+  private userTypingListeners: Set<UserTypingListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
 
 
@@ -147,6 +150,16 @@ class SocketService {
           listener(payload);
         } catch (err) {
           console.error('Error in group_presence_changed listener:', err);
+        }
+      });
+    });
+
+    this.socket.on('user_typing', (payload: UserTypingEvent) => {
+      this.userTypingListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in user_typing listener:', err);
         }
       });
     });
@@ -384,6 +397,34 @@ class SocketService {
     this.groupPresenceListeners.add(listener);
     return () => {
       this.groupPresenceListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Emit typing started event to server.
+   */
+  sendTypingStart(target: { recipientId?: string; groupId?: string }): void {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('typing_start', target);
+    }
+  }
+
+  /**
+   * Emit typing stopped event to server.
+   */
+  sendTypingStop(target: { recipientId?: string; groupId?: string }): void {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('typing_stop', target);
+    }
+  }
+
+  /**
+   * Register a listener for real-time typing events.
+   */
+  onUserTyping(listener: UserTypingListener): () => void {
+    this.userTypingListeners.add(listener);
+    return () => {
+      this.userTypingListeners.delete(listener);
     };
   }
 }

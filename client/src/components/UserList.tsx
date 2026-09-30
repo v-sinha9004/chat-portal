@@ -17,6 +17,7 @@ export const UserList: React.FC = () => {
   const isSocketConnected = useChatStore((s) => s.isSocketConnected);
   const unreadUserIds = useChatStore((s) => s.unreadUserIds);
   const unreadGroupIds = useChatStore((s) => s.unreadGroupIds);
+  const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
 
   const openCreateGroup = useUIStore((s) => s.openCreateGroup);
 
@@ -221,6 +222,9 @@ export const UserList: React.FC = () => {
               activeConversation?.type === 'group' && activeConversation.id === group.id;
             const hasUnread = unreadGroupIds.has(group.id);
 
+            const isGroupTyping =
+              (typingUsersByConversation[`group:${group.id}`] || []).length > 0;
+
             return (
               <div
                 key={`group-${group.id}`}
@@ -258,7 +262,18 @@ export const UserList: React.FC = () => {
                     </span>
                     {hasUnread && <span className="unread-dot" title="New group message" />}
                   </div>
-                  {group.description && <p className="user-bio">{group.description}</p>}
+                  {isGroupTyping ? (
+                    <p className="user-typing-indicator-sidebar">
+                      <span className="typing-dots mini">
+                        <span className="typing-dot" />
+                        <span className="typing-dot" />
+                        <span className="typing-dot" />
+                      </span>
+                      <span>typing...</span>
+                    </p>
+                  ) : group.description ? (
+                    <p className="user-bio">{group.description}</p>
+                  ) : null}
                 </div>
               </div>
             );
@@ -277,6 +292,8 @@ export const UserList: React.FC = () => {
             const isSelected =
               activeConversation?.type === 'direct' && activeConversation.id === contact.id;
             const hasUnread = unreadUserIds.has(contact.id);
+            const isContactTyping =
+              (typingUsersByConversation[`user:${contact.id}`] || []).length > 0;
 
             return (
               <div
@@ -313,7 +330,16 @@ export const UserList: React.FC = () => {
                     <span className="user-username">@{contact.username}</span>
                     {hasUnread && <span className="unread-dot" title="New direct message" />}
                   </div>
-                  {contact.bio ? (
+                  {isContactTyping ? (
+                    <p className="user-typing-indicator-sidebar">
+                      <span className="typing-dots mini">
+                        <span className="typing-dot" />
+                        <span className="typing-dot" />
+                        <span className="typing-dot" />
+                      </span>
+                      <span>typing...</span>
+                    </p>
+                  ) : contact.bio ? (
                     <p className="user-bio">{contact.bio}</p>
                   ) : (
                     <p className="user-email">{contact.email}</p>

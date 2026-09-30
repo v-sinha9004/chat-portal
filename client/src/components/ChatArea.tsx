@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 
@@ -55,23 +55,82 @@ export const ChatArea: React.FC = () => {
   const sendMessage = useChatStore((s) => s.sendMessage);
   const fetchMessages = useChatStore((s) => s.fetchMessages);
 
+  // Typing tracking from store
+  const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
+  const sendTypingStart = useChatStore((s) => s.sendTypingStart);
+  const sendTypingStop = useChatStore((s) => s.sendTypingStop);
+
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Throttling and inactivity timers
+  const isTypingRef = useRef(false);
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopTyping = useCallback(() => {
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      sendTypingStop();
+    }
+  }, [sendTypingStop]);
+
+  // Handle typing input changes with 2.5s debounce and 3s heartbeat
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputText(val);
+
+    if (!val.trim()) {
+      stopTyping();
+      return;
+    }
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      sendTypingStart();
+
+      // Refresh every 3 seconds while user continues typing continuously
+      heartbeatIntervalRef.current = setInterval(() => {
+        if (isTypingRef.current) {
+          sendTypingStart();
+        }
+      }, 3000);
+    }
+
+    // Reset 2.5s pause timeout
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+    }
+    pauseTimeoutRef.current = setTimeout(() => {
+      stopTyping();
+    }, 2500);
+  };
+
+  // Stop typing if user switches conversation or unmounts
+  useEffect(() => {
+    return () => {
+      stopTyping();
+    };
+  }, [activeConversation?.id, stopTyping]);
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
-
-  // Scroll down whenever messages change or conversation switches
-  useEffect(() => {
-    scrollToBottom('smooth');
-  }, [messages, activeConversation]);
 
   // Send message handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !activeConversation || !currentUserId) return;
 
+    stopTyping();
     const text = inputText;
     setInputText('');
     await sendMessage(text);
@@ -94,6 +153,36 @@ export const ChatArea: React.FC = () => {
     },
     [users],
   );
+
+  const activeKey = activeConversation
+    ? activeConversation.type === 'group'
+      ? `group:${activeConversation.id}`
+      : `user:${activeConversation.id}`
+    : null;
+
+  const activeTypingUserIds = useMemo(() => {
+    if (!activeKey) return [];
+    return (typingUsersByConversation[activeKey] || []).filter(
+      (id) => id !== currentUserId,
+    );
+  }, [activeKey, typingUsersByConversation, currentUserId]);
+
+  const typingText = useMemo(() => {
+    if (activeTypingUserIds.length === 0) return null;
+    const names = activeTypingUserIds.map((id) => getUserName(id));
+    if (names.length === 1) {
+      return `${names[0]} is typing...`;
+    } else if (names.length === 2) {
+      return `${names[0]} and ${names[1]} are typing...`;
+    } else {
+      return `${names[0]}, ${names[1]} and ${names.length - 2} ${names.length - 2 === 1 ? 'other' : 'others'} are typing...`;
+    }
+  }, [activeTypingUserIds, getUserName]);
+
+  // Scroll down whenever messages change, conversation switches, or typing indicator appears
+  useEffect(() => {
+    scrollToBottom('smooth');
+  }, [messages, activeConversation, typingText]);
 
   // Initial Empty / Loading States
   if (!activeConversation) {
@@ -171,6 +260,12 @@ export const ChatArea: React.FC = () => {
                       </span>
                     </>
                   )}
+                  {activeTypingUserIds.length > 0 && (
+                    <>
+                      <span className="dot-separator">•</span>
+                      <span className="group-typing-badge">{typingText}</span>
+                    </>
+                  )}
                   {group.description && (
                     <>
                       <span className="dot-separator">•</span>
@@ -211,7 +306,11 @@ export const ChatArea: React.FC = () => {
                   <span className="dot-separator">•</span>
                   <span className="user-email-text">{directUser.email}</span>
                   <span className="dot-separator">•</span>
-                  {isLoadingPresence ? (
+                  {activeTypingUserIds.length > 0 ? (
+                    <span className="status-text typing">
+                      <span className="presence-dot online mini" /> typing...
+                    </span>
+                  ) : isLoadingPresence ? (
                     <span className="status-text loading">Checking...</span>
                   ) : activePresence?.isOnline ? (
                     <span className="status-text online">
@@ -293,6 +392,18 @@ export const ChatArea: React.FC = () => {
         )}
       </div>
 
+      {/* Typing Indicator Bar */}
+      {typingText && (
+        <div className="typing-indicator-bar" aria-live="polite">
+          <div className="typing-dots">
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+          </div>
+          <span className="typing-indicator-text">{typingText}</span>
+        </div>
+      )}
+
       {/* Input Form */}
       <form className="chat-input-form" onSubmit={handleSubmit}>
         <input
@@ -308,7 +419,7 @@ export const ChatArea: React.FC = () => {
               : 'Connecting to chat server...'
           }
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          onChange={handleInputChange}
           disabled={!isSocketConnected}
           autoFocus
         />

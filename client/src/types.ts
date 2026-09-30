@@ -119,3 +119,9 @@ export interface GroupPresenceChangedEvent {
   isOnline: boolean;
 }
 
+export interface UserTypingEvent {
+  userId: string;
+  isTyping: boolean;
+  recipientId?: string;
+  groupId?: string;
+}
