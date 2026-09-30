@@ -50,6 +50,10 @@ interface ChatState {
   getConversationUnreadCount: (conversationId: string) => number;
   markConversationRead: (conversationId: string, lastReadMessageId?: string) => void;
 
+  // Read Watermarks
+  partnerLastReadMessageId: string | null;
+  groupMemberLastReadMap: Record<string, string>;
+
   // Socket State
   isSocketConnected: boolean;
 
@@ -80,6 +84,9 @@ let unsubscribeUserPresence: (() => void) | null = null;
 let unsubscribeGroupPresence: (() => void) | null = null;
 let unsubscribeTyping: (() => void) | null = null;
 let unsubscribeReadAck: (() => void) | null = null;
+let unsubscribeMessageDelivered: (() => void) | null = null;
+let unsubscribeMessagesRead: (() => void) | null = null;
+let unsubscribeGroupMessagesRead: (() => void) | null = null;
 const typingSafetyTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 let markReadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -103,6 +110,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activePresence: null,
   activeGroupPresence: null,
   isLoadingPresence: false,
+
+  partnerLastReadMessageId: null,
+  groupMemberLastReadMap: {},
 
   typingUsersByConversation: {},
 
@@ -280,6 +290,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         activePresence: null,
         activeGroupPresence: null,
         isLoadingPresence: true,
+        partnerLastReadMessageId: null,
+        groupMemberLastReadMap: {},
         messages: [],
         messageError: null,
       };
@@ -353,14 +365,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (signal.aborted) return;
 
+      const partnerLastRead = response.partnerLastReadMessageId || null;
+      const memberLastReadMap = response.memberLastReadMap || {};
+
       const pastMessages: ChatMessage[] = (response.messages || []).map((m) => {
+        const msgId = m.id || m.messageId;
+        const isMe = m.senderId === currentUserId;
         const formattedTime = new Date(m.timestamp).toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
         });
 
+        let status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' = 'sent';
+        if (isMe) {
+          if (!isGroup && partnerLastRead && msgId <= partnerLastRead) {
+            status = 'read';
+          } else if (isGroup && Object.keys(memberLastReadMap).length > 0) {
+            const otherMemberReadIds = Object.entries(memberLastReadMap)
+              .filter(([memberId]) => memberId !== currentUserId)
+              .map(([, lastRead]) => lastRead);
+            if (
+              otherMemberReadIds.length > 0 &&
+              otherMemberReadIds.every((lastRead) => lastRead && msgId <= lastRead)
+            ) {
+              status = 'read';
+            }
+          }
+        }
+
         return {
-          id: m.id || m.messageId,
+          id: msgId,
           conversationId: m.conversationId,
           clientMessageId: m.clientMessageId,
           senderId: m.senderId,
@@ -368,7 +402,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           groupId: m.groupId,
           text: m.text || m.content || '',
           timestamp: formattedTime,
-          status: 'sent',
+          status,
         };
       });
 
@@ -390,6 +424,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
         return {
           messages: merged,
+          partnerLastReadMessageId: partnerLastRead,
+          groupMemberLastReadMap: memberLastReadMap,
           isLoadingMessages: false,
           messageError: null,
         };
@@ -469,13 +505,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
           trimmedText,
           clientMessageId,
         );
+        const newStatus = ack?.delivered ? 'delivered' : 'sent';
         set((state) => ({
           messages: state.messages.map((msg) =>
             msg.clientMessageId === clientMessageId
               ? {
                   ...msg,
                   id: ack.messageId || msg.id,
-                  status: 'sent',
+                  status: newStatus,
                 }
               : msg,
           ),
@@ -578,6 +615,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const expectedConvoId = myId
         ? getDirectConversationId(myId, partnerId)
         : `direct:${partnerId}`;
+
+      // Acknowledge delivery to sender so sender receives double tick ✓✓
+      if (payload.id && partnerId !== myId) {
+        socketService.ackDelivery(
+          payload.conversationId || expectedConvoId,
+          payload.id,
+          partnerId,
+        );
+      }
 
       const isVisibleAndActive =
         isCurrentChat &&
@@ -904,6 +950,88 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
       });
     });
+
+    unsubscribeMessageDelivered = socketService.onMessageDelivered((payload) => {
+      set((state) => ({
+        messages: state.messages.map((msg) => {
+          if (
+            msg.id === payload.messageId &&
+            (msg.status === 'sent' || msg.status === 'sending' || !msg.status)
+          ) {
+            return { ...msg, status: 'delivered' };
+          }
+          return msg;
+        }),
+      }));
+    });
+
+    unsubscribeMessagesRead = socketService.onMessagesRead((payload) => {
+      const myId = useAuthStore.getState().user?.id;
+      const currentConvo = get().activeConversation;
+      const expectedConvoId = currentConvo
+        ? currentConvo.type === 'direct'
+          ? myId
+            ? getDirectConversationId(myId, currentConvo.id)
+            : `direct:${currentConvo.id}`
+          : getGroupConversationId(currentConvo.id)
+        : null;
+
+      set((state) => ({
+        partnerLastReadMessageId: payload.lastReadMessageId,
+        messages: state.messages.map((msg) => {
+          if (
+            (!msg.conversationId ||
+              msg.conversationId === payload.conversationId ||
+              msg.conversationId === expectedConvoId) &&
+            msg.senderId === myId &&
+            payload.lastReadMessageId &&
+            msg.id <= payload.lastReadMessageId
+          ) {
+            return { ...msg, status: 'read' };
+          }
+          return msg;
+        }),
+      }));
+    });
+
+    unsubscribeGroupMessagesRead = socketService.onGroupMessagesRead((payload) => {
+      const myId = useAuthStore.getState().user?.id;
+      const activeConvo = get().activeConversation;
+      if (!activeConvo || activeConvo.type !== 'group' || activeConvo.id !== payload.groupId) {
+        return;
+      }
+
+      set((state) => {
+        const updatedGroupReadMap = {
+          ...state.groupMemberLastReadMap,
+          [payload.readerId]: payload.lastReadMessageId,
+        };
+
+        const activeGroup = activeConvo.group;
+        const allMemberIds =
+          activeGroup?.members?.map((m) => m.userId) || Object.keys(updatedGroupReadMap);
+        const otherMemberIds = allMemberIds.filter((id) => id !== myId);
+
+        return {
+          groupMemberLastReadMap: updatedGroupReadMap,
+          messages: state.messages.map((msg) => {
+            if (msg.senderId === myId && msg.status !== 'read') {
+              const allRead =
+                otherMemberIds.length > 0 &&
+                otherMemberIds.every((id) => {
+                  const memberWatermark = updatedGroupReadMap[id];
+                  return memberWatermark && msg.id <= memberWatermark;
+                });
+
+              if (allRead) {
+                return { ...msg, status: 'read' };
+              }
+            }
+            return msg;
+          }),
+        };
+      });
+    });
   },
 
   disconnectSocket: () => {
@@ -934,6 +1062,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (unsubscribeReadAck) {
       unsubscribeReadAck();
       unsubscribeReadAck = null;
+    }
+    if (unsubscribeMessageDelivered) {
+      unsubscribeMessageDelivered();
+      unsubscribeMessageDelivered = null;
+    }
+    if (unsubscribeMessagesRead) {
+      unsubscribeMessagesRead();
+      unsubscribeMessagesRead = null;
+    }
+    if (unsubscribeGroupMessagesRead) {
+      unsubscribeGroupMessagesRead();
+      unsubscribeGroupMessagesRead = null;
     }
     for (const timer of typingSafetyTimers.values()) {
       clearTimeout(timer);

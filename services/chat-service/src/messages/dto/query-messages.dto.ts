@@ -21,7 +21,10 @@ export interface ChatMessageResponse {
 export interface ConversationHistoryResponse {
   conversationId: string;
   groupId?: string;
+  partnerLastReadMessageId?: string | null;
+  memberLastReadMap?: Record<string, string>;
   messages: ChatMessageResponse[];
   hasMore: boolean;
   oldestCursor?: string;
 }
+

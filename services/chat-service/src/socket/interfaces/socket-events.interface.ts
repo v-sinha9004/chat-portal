@@ -111,3 +111,32 @@ export interface ConversationReadAckEvent {
   conversationId: string;
   lastReadMessageId: string;
 }
+
+export interface AckDeliveryPayload {
+  conversationId: string;
+  messageId: string;
+  senderId?: string;
+}
+
+export interface MessageDeliveredEvent {
+  conversationId: string;
+  messageId: string;
+  recipientId: string;
+  deliveredAt: string;
+}
+
+export interface MessagesReadEvent {
+  conversationId: string;
+  readerId: string;
+  lastReadMessageId: string;
+  readAt: string;
+}
+
+export interface GroupMessagesReadEvent {
+  conversationId: string;
+  groupId: string;
+  readerId: string;
+  lastReadMessageId: string;
+  readAt: string;
+}
+

@@ -18,6 +18,8 @@ export interface ChatHistoryMessage {
 export interface ChatHistoryResponse {
   conversationId: string;
   groupId?: string;
+  partnerLastReadMessageId?: string | null;
+  memberLastReadMap?: Record<string, string>;
   messages: ChatHistoryMessage[];
   hasMore: boolean;
   oldestCursor?: string;

@@ -377,9 +377,13 @@ export const ChatArea: React.FC = () => {
                       {isMe && msg.status && (
                         <span
                           className={`message-status status-${msg.status}`}
-                          title={`Status: ${msg.status}`}
+                          title={`Status: ${msg.status.charAt(0).toUpperCase() + msg.status.slice(1)}`}
                         >
-                          {msg.status === 'sending' ? '⏱' : msg.status === 'sent' ? '✓' : '⚠️'}
+                          {msg.status === 'sending' && '⏱'}
+                          {msg.status === 'sent' && '✓'}
+                          {msg.status === 'delivered' && '✓✓'}
+                          {msg.status === 'read' && '✓✓'}
+                          {msg.status === 'failed' && '⚠️'}
                         </span>
                       )}
                     </div>

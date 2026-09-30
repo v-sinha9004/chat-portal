@@ -31,7 +31,7 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   clientMessageId?: string;
-  status?: 'sending' | 'sent' | 'failed';
+  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 }
 
 export interface GroupMember {
@@ -141,6 +141,56 @@ export interface ConversationReadAckEvent {
   lastReadMessageId: string;
 }
 
+export interface AckDeliveryPayload {
+  conversationId: string;
+  messageId: string;
+  senderId?: string;
+}
+
+export interface MessageDeliveredEvent {
+  conversationId: string;
+  messageId: string;
+  recipientId: string;
+  deliveredAt: string;
+}
+
+export interface MessagesReadEvent {
+  conversationId: string;
+  readerId: string;
+  lastReadMessageId: string;
+  readAt: string;
+}
+
+export interface GroupMessagesReadEvent {
+  conversationId: string;
+  groupId: string;
+  readerId: string;
+  lastReadMessageId: string;
+  readAt: string;
+}
+
+export interface ConversationHistoryResponse {
+  conversationId: string;
+  groupId?: string;
+  partnerLastReadMessageId?: string | null;
+  memberLastReadMap?: Record<string, string>;
+  messages: Array<{
+    id: string;
+    messageId?: string;
+    conversationId?: string;
+    clientMessageId?: string;
+    senderId: string;
+    recipientId?: string;
+    groupId?: string;
+    text?: string;
+    content?: string;
+    timestamp: string;
+    status?: string;
+  }>;
+  hasMore: boolean;
+  oldestCursor?: string;
+}
+
 export function getDirectConversationId(userId1: string, userId2: string): string {
   return `direct:${[userId1, userId2].sort().join(':')}`;
 }
@@ -148,3 +198,4 @@ export function getDirectConversationId(userId1: string, userId2: string): strin
 export function getGroupConversationId(groupId: string): string {
   return `group:${groupId}`;
 }
+

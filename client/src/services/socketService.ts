@@ -6,6 +6,9 @@ import type {
   GroupPresenceChangedEvent,
   UserTypingEvent,
   ConversationReadAckEvent,
+  MessageDeliveredEvent,
+  MessagesReadEvent,
+  GroupMessagesReadEvent,
 } from '../types';
 
 export interface IncomingDirectMessageEvent {
@@ -27,6 +30,7 @@ export interface SendMessageAck {
   conversationId?: string;
   clientMessageId?: string;
   message?: string;
+  delivered?: boolean;
   data?: IncomingDirectMessageEvent;
 }
 
@@ -59,6 +63,9 @@ type UserPresenceListener = (event: UserPresenceChangedEvent) => void;
 type GroupPresenceListener = (event: GroupPresenceChangedEvent) => void;
 type UserTypingListener = (event: UserTypingEvent) => void;
 type ReadAckListener = (event: ConversationReadAckEvent) => void;
+type MessageDeliveredListener = (event: MessageDeliveredEvent) => void;
+type MessagesReadListener = (event: MessagesReadEvent) => void;
+type GroupMessagesReadListener = (event: GroupMessagesReadEvent) => void;
 type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
@@ -71,6 +78,9 @@ class SocketService {
   private groupPresenceListeners: Set<GroupPresenceListener> = new Set();
   private userTypingListeners: Set<UserTypingListener> = new Set();
   private readAckListeners: Set<ReadAckListener> = new Set();
+  private messageDeliveredListeners: Set<MessageDeliveredListener> = new Set();
+  private messagesReadListeners: Set<MessagesReadListener> = new Set();
+  private groupMessagesReadListeners: Set<GroupMessagesReadListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
 
 
@@ -173,6 +183,36 @@ class SocketService {
           listener(payload);
         } catch (err) {
           console.error('Error in conversation_read_ack listener:', err);
+        }
+      });
+    });
+
+    this.socket.on('message_delivered', (payload: MessageDeliveredEvent) => {
+      this.messageDeliveredListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in message_delivered listener:', err);
+        }
+      });
+    });
+
+    this.socket.on('messages_read', (payload: MessagesReadEvent) => {
+      this.messagesReadListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in messages_read listener:', err);
+        }
+      });
+    });
+
+    this.socket.on('group_messages_read', (payload: GroupMessagesReadEvent) => {
+      this.groupMessagesReadListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in group_messages_read listener:', err);
         }
       });
     });
@@ -457,6 +497,45 @@ class SocketService {
     this.readAckListeners.add(listener);
     return () => {
       this.readAckListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Emit ack_delivery to server when a direct message arrives on this device.
+   */
+  ackDelivery(conversationId: string, messageId: string, senderId?: string): void {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('ack_delivery', { conversationId, messageId, senderId });
+    }
+  }
+
+  /**
+   * Register a listener for message_delivered events.
+   */
+  onMessageDelivered(listener: MessageDeliveredListener): () => void {
+    this.messageDeliveredListeners.add(listener);
+    return () => {
+      this.messageDeliveredListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Register a listener for direct messages_read events.
+   */
+  onMessagesRead(listener: MessagesReadListener): () => void {
+    this.messagesReadListeners.add(listener);
+    return () => {
+      this.messagesReadListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Register a listener for group_messages_read events.
+   */
+  onGroupMessagesRead(listener: GroupMessagesReadListener): () => void {
+    this.groupMessagesReadListeners.add(listener);
+    return () => {
+      this.groupMessagesReadListeners.delete(listener);
     };
   }
 }

@@ -18,6 +18,7 @@ import {
   ConversationHistoryResponse,
   ChatMessageResponse,
 } from './dto/query-messages.dto';
+import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 
 @Injectable()
 export class MessagesService {
@@ -27,6 +28,7 @@ export class MessagesService {
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
     private readonly socketService: SocketService,
+    private readonly readTrackingService: ReadTrackingService,
   ) {}
 
   /**
@@ -81,8 +83,14 @@ export class MessagesService {
       `Retrieved ${messages.length} direct messages for conversation "${conversationId}" (hasMore: ${hasMore})`,
     );
 
+    const partnerLastReadMessageId = await this.readTrackingService.getLastRead(
+      targetUserId.trim(),
+      conversationId,
+    );
+
     return {
       conversationId,
+      partnerLastReadMessageId,
       messages,
       hasMore,
       oldestCursor,
@@ -152,9 +160,20 @@ export class MessagesService {
       `Retrieved ${messages.length} group messages for group "${cleanGroupId}" (hasMore: ${hasMore})`,
     );
 
+    const memberLastReadMap: Record<string, string> = {};
+    await Promise.all(
+      memberIds.map(async (memberId) => {
+        const lastRead = await this.readTrackingService.getLastRead(memberId, conversationId);
+        if (lastRead) {
+          memberLastReadMap[memberId] = lastRead;
+        }
+      }),
+    );
+
     return {
       conversationId,
       groupId: cleanGroupId,
+      memberLastReadMap,
       messages,
       hasMore,
       oldestCursor,

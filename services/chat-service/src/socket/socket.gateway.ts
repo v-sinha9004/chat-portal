@@ -31,6 +31,10 @@ import {
   UserTypingEvent,
   MarkReadPayload,
   ConversationReadAckEvent,
+  AckDeliveryPayload,
+  MessageDeliveredEvent,
+  MessagesReadEvent,
+  GroupMessagesReadEvent,
 } from './interfaces/socket-events.interface';
 import { ChatQueueProducer } from '../queue/chat-queue.producer';
 import { PresenceService } from '../presence/presence.service';
@@ -229,11 +233,38 @@ export class SocketGateway
       lastReadMessageId: messageId,
     });
 
+    // Real-time delivery detection: check if recipient is online
+    const recipientPresence = await this.presenceService.getUserPresence(recipientId);
+    const isRecipientOnline = recipientPresence?.isOnline || false;
+    if (isRecipientOnline) {
+      const deliveredEvent: MessageDeliveredEvent = {
+        conversationId,
+        messageId,
+        recipientId,
+        deliveredAt: new Date().toISOString(),
+      };
+      this.server
+        .to(this.socketService.getUserRoom(senderId))
+        .emit('message_delivered', deliveredEvent);
+    }
+
+    // Sender has read up to messageId; notify recipient that previous messages are read
+    const readEvent: MessagesReadEvent = {
+      conversationId,
+      readerId: senderId,
+      lastReadMessageId: messageId,
+      readAt: new Date().toISOString(),
+    };
+    this.server
+      .to(this.socketService.getUserRoom(recipientId))
+      .emit('messages_read', readEvent);
+
     return {
       status: 'ok',
       messageId: eventPayload.id,
       conversationId,
       clientMessageId,
+      delivered: isRecipientOnline,
       message: `Message dispatched to user ${recipientId}`,
       data: eventPayload,
     };
@@ -330,6 +361,18 @@ export class SocketGateway
       conversationId,
       lastReadMessageId: messageId,
     });
+
+    // Sender read up to messageId; broadcast read watermark to group members
+    if (recipientIds.length > 0) {
+      const groupReadEvent: GroupMessagesReadEvent = {
+        conversationId,
+        groupId,
+        readerId: senderId,
+        lastReadMessageId: messageId,
+        readAt: new Date().toISOString(),
+      };
+      this.socketService.emitToUsers(recipientIds, 'group_messages_read', groupReadEvent);
+    }
 
     return {
       status: 'ok',
@@ -532,11 +575,90 @@ export class SocketGateway
         });
     }
 
+    // 4. Real-time read receipt notification to chat partner(s)
+    if (conversationId.startsWith('direct:')) {
+      const parts = conversationId.slice(7).split(':');
+      const partnerId = parts.find((id) => id !== userId);
+      if (partnerId && lastReadMessageId) {
+        const readEvent: MessagesReadEvent = {
+          conversationId,
+          readerId: userId,
+          lastReadMessageId,
+          readAt: new Date().toISOString(),
+        };
+        this.server
+          .to(this.socketService.getUserRoom(partnerId))
+          .emit('messages_read', readEvent);
+      }
+    } else if (conversationId.startsWith('group:')) {
+      const groupId = conversationId.slice(6);
+      this.socketService
+        .getGroupMemberIds(groupId)
+        .then((memberIds) => {
+          const otherMembers = memberIds.filter((id) => id !== userId);
+          if (otherMembers.length > 0 && lastReadMessageId) {
+            const groupReadEvent: GroupMessagesReadEvent = {
+              conversationId,
+              groupId,
+              readerId: userId,
+              lastReadMessageId,
+              readAt: new Date().toISOString(),
+            };
+            this.socketService.emitToUsers(
+              otherMembers,
+              'group_messages_read',
+              groupReadEvent,
+            );
+          }
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Failed to emit group_messages_read for group ${groupId}: ${err.message}`,
+          );
+        });
+    }
+
     return {
       status: 'ok',
       conversationId,
       lastReadMessageId,
     };
+  }
+
+  /**
+   * Real-time delivery receipt from recipient client device.
+   * Notifies the message sender that the message has arrived on recipient's device.
+   */
+  @SubscribeMessage('ack_delivery')
+  async handleAckDelivery(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: AckDeliveryPayload,
+  ) {
+    const recipientId = client.data.userId;
+    if (!recipientId) return { status: 'error', message: 'Unauthorized' };
+
+    const { conversationId, messageId, senderId: explicitSenderId } = payload || {};
+    if (!conversationId || !messageId) {
+      return { status: 'error', message: 'conversationId and messageId are required' };
+    }
+
+    if (conversationId.startsWith('direct:')) {
+      const parts = conversationId.slice(7).split(':');
+      const senderId = explicitSenderId || parts.find((id) => id !== recipientId);
+      if (senderId) {
+        const deliveredEvent: MessageDeliveredEvent = {
+          conversationId,
+          messageId,
+          recipientId,
+          deliveredAt: new Date().toISOString(),
+        };
+        this.server
+          .to(this.socketService.getUserRoom(senderId))
+          .emit('message_delivered', deliveredEvent);
+      }
+    }
+
+    return { status: 'ok' };
   }
 }
 
