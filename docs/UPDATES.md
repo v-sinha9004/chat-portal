@@ -81,6 +81,19 @@
 
 ---
 
+## 🗓️ September 29, 2026
+
+| # | Task Description | Status |
+| :-: | :--- | :-: |  
+| 1 | Show past chats in UI | ✅ |
+| 2 | Introduce zustand in client for state management | ✅ |
+| 3 | Refactor - move from context store to zustand for auth states for code consistency | ✅ |
+| 4 | Test zustand changes | ✅ |
+| 5 | Looking into the idea of introducing Tailwind CSS for client UI for speed and ease of use | ⏳ |
+
+
+---
+
 ## ⏳ Upcoming tasks
 
 | # | Task Description | Status |
