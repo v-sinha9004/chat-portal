@@ -26,6 +26,9 @@ import {
   GroupPresenceChangedEvent,
   SubscribeUserPresencePayload,
   SubscribeGroupPresencePayload,
+  TypingStartPayload,
+  TypingStopPayload,
+  UserTypingEvent,
 } from './interfaces/socket-events.interface';
 import { ChatQueueProducer } from '../queue/chat-queue.producer';
 import { PresenceService } from '../presence/presence.service';
@@ -356,6 +359,65 @@ export class SocketGateway
     if (groupId) {
       client.leave(getGroupPresenceRoom(groupId));
     }
+    return { status: 'ok' };
+  }
+
+  /**
+   * Real-time typing start indicator.
+   * - In direct chat: emitted directly to recipient's user room.
+   * - In group chat: emitted strictly to active group presence room (users actively viewing).
+   */
+  @SubscribeMessage('typing_start')
+  handleTypingStart(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: TypingStartPayload,
+  ) {
+    const senderId = client.data.userId;
+    if (!senderId) return { status: 'error', message: 'Unauthorized' };
+
+    const { recipientId, groupId } = payload || {};
+    const eventPayload: UserTypingEvent = {
+      userId: senderId,
+      isTyping: true,
+      ...(recipientId ? { recipientId } : {}),
+      ...(groupId ? { groupId } : {}),
+    };
+
+    if (recipientId) {
+      this.socketService.emitToUser(recipientId, 'user_typing', eventPayload);
+    } else if (groupId) {
+      // Scoped fan-out: strictly emit to users actively viewing this group chat (excludes sender)
+      client.to(getGroupPresenceRoom(groupId)).emit('user_typing', eventPayload);
+    }
+
+    return { status: 'ok' };
+  }
+
+  /**
+   * Real-time typing stop indicator.
+   */
+  @SubscribeMessage('typing_stop')
+  handleTypingStop(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: TypingStopPayload,
+  ) {
+    const senderId = client.data.userId;
+    if (!senderId) return { status: 'error', message: 'Unauthorized' };
+
+    const { recipientId, groupId } = payload || {};
+    const eventPayload: UserTypingEvent = {
+      userId: senderId,
+      isTyping: false,
+      ...(recipientId ? { recipientId } : {}),
+      ...(groupId ? { groupId } : {}),
+    };
+
+    if (recipientId) {
+      this.socketService.emitToUser(recipientId, 'user_typing', eventPayload);
+    } else if (groupId) {
+      client.to(getGroupPresenceRoom(groupId)).emit('user_typing', eventPayload);
+    }
+
     return { status: 'ok' };
   }
 }

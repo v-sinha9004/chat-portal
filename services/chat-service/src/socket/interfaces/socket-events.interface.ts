@@ -85,3 +85,19 @@ export interface SubscribeGroupPresencePayload {
   groupId: string;
 }
 
+export interface TypingStartPayload {
+  recipientId?: string;
+  groupId?: string;
+}
+
+export interface TypingStopPayload {
+  recipientId?: string;
+  groupId?: string;
+}
+
+export interface UserTypingEvent {
+  userId: string;
+  isTyping: boolean;
+  recipientId?: string;
+  groupId?: string;
+}
