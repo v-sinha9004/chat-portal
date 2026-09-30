@@ -8,6 +8,7 @@ import { DoubtCard } from './doubts/DoubtCard';
 import { DoubtComposer } from './doubts/DoubtComposer';
 import { CHAT_ACTION_ITEMS } from '../config/chatActionsConfig';
 import { navigateToMessage } from '../utils/messageNavigation';
+import { PinnedMessageCarousel } from './pins/PinnedMessageCarousel';
 
 function formatLastSeen(timestamp?: string | null): string {
   if (!timestamp) return '';
@@ -80,6 +81,9 @@ export const ChatArea: React.FC = () => {
   const jumpToMessage = useChatStore((s) => s.jumpToMessage);
   const jumpToLatest = useChatStore((s) => s.jumpToLatest);
   const updateDoubtStatus = useChatStore((s) => s.updateDoubtStatus);
+  const pinnedMessages = useChatStore((s) => s.pinnedMessages);
+  const pinMessage = useChatStore((s) => s.pinMessage);
+  const unpinMessage = useChatStore((s) => s.unpinMessage);
 
   // Typing tracking from store
   const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
@@ -393,6 +397,22 @@ export const ChatArea: React.FC = () => {
       });
     },
     [jumpToMessage],
+  );
+
+  const canManagePins = Boolean(activeConversation?.type === 'direct' || isMentor);
+
+  const handlePinMessage = useCallback(
+    async (msg: ChatMessage) => {
+      await pinMessage(msg.id);
+    },
+    [pinMessage],
+  );
+
+  const handleUnpinMessage = useCallback(
+    async (msg: ChatMessage) => {
+      await unpinMessage(msg.id);
+    },
+    [unpinMessage],
   );
 
   const handleJumpToRecent = useCallback(async () => {
@@ -709,6 +729,12 @@ export const ChatArea: React.FC = () => {
         </div>
       </header>
 
+      {/* Pinned Messages Carousel */}
+      <PinnedMessageCarousel
+        onPinClick={handleQuoteClick}
+        canManagePins={canManagePins}
+      />
+
       {/* Messages Container */}
       <div
         className="chat-messages-container"
@@ -774,6 +800,8 @@ export const ChatArea: React.FC = () => {
               const senderDisplayName =
                 msg.senderName || (isGroup ? getDisplayName(msg.senderId) : '');
 
+              const isMsgPinned = pinnedMessages.some((p) => p.messageId === msg.id);
+
               if (msg.isAnnouncement) {
                 return (
                   <AnnouncementCard
@@ -784,6 +812,12 @@ export const ChatArea: React.FC = () => {
                     onReply={handleInitiateReply}
                     onQuoteClick={handleQuoteClick}
                     getDisplayName={getDisplayName}
+                    isPinned={isMsgPinned}
+                    onPin={
+                      canManagePins
+                        ? () => (isMsgPinned ? handleUnpinMessage(msg) : handlePinMessage(msg))
+                        : undefined
+                    }
                   />
                 );
               }
@@ -808,6 +842,12 @@ export const ChatArea: React.FC = () => {
                     onReply={handleInitiateReply}
                     onQuoteClick={handleQuoteClick}
                     getDisplayName={getDisplayName}
+                    isPinned={isMsgPinned}
+                    onPin={
+                      canManagePins
+                        ? () => (isMsgPinned ? handleUnpinMessage(msg) : handlePinMessage(msg))
+                        : undefined
+                    }
                   />
                 );
               }
@@ -862,6 +902,33 @@ export const ChatArea: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Hover Pin Action Button */}
+                    {canManagePins && (
+                      <button
+                        type="button"
+                        className={`message-pin-btn ${isMsgPinned ? 'pinned' : ''}`}
+                        onClick={() =>
+                          isMsgPinned ? handleUnpinMessage(msg) : handlePinMessage(msg)
+                        }
+                        title={isMsgPinned ? 'Unpin message' : 'Pin message'}
+                        aria-label={isMsgPinned ? 'Unpin message' : 'Pin message'}
+                      >
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill={isMsgPinned ? 'currentColor' : 'none'}
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <line x1="12" y1="17" x2="12" y2="22" />
+                          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+                        </svg>
+                      </button>
+                    )}
+
                     {/* Hover Reply Action Button */}
                     <button
                       type="button"
@@ -888,6 +955,7 @@ export const ChatArea: React.FC = () => {
                 </div>
               );
             })}
+
 
             {hasNewerMessages && (
               <div className="messages-load-newer-wrapper">

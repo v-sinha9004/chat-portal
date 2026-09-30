@@ -9,6 +9,8 @@ interface AnnouncementCardProps {
   onReply?: (message: ChatMessage) => void;
   onQuoteClick?: (messageId: string) => void;
   getDisplayName?: (userId: string) => string;
+  onPin?: (message: ChatMessage) => void;
+  isPinned?: boolean;
 }
 
 export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
@@ -18,6 +20,8 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
   onReply,
   onQuoteClick,
   getDisplayName,
+  onPin,
+  isPinned = false,
 }) => {
   return (
     <div
@@ -89,6 +93,29 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
           </div>
         </div>
       </div>
+      {onPin && (
+        <button
+          type="button"
+          className={`message-pin-btn ${isPinned ? 'pinned' : ''}`}
+          onClick={() => onPin(message)}
+          title={isPinned ? 'Unpin message' : 'Pin message'}
+          aria-label={isPinned ? 'Unpin message' : 'Pin message'}
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill={isPinned ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="12" y1="17" x2="12" y2="22" />
+            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+          </svg>
+        </button>
+      )}
       {onReply && (
         <button
           type="button"
@@ -116,3 +143,4 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
   </div>
   );
 };
+
