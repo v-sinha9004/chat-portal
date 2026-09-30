@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Message, MessageDocument } from './schemas/message.schema';
+import {
+  ConversationRead,
+  ConversationReadDocument,
+} from './schemas/conversation-read.schema';
 
 export interface SaveMessageDto {
   type: 'direct' | 'group';
@@ -15,6 +19,13 @@ export interface SaveMessageDto {
   timestamp: string;
 }
 
+export interface SaveLastReadDto {
+  userId: string;
+  conversationId: string;
+  lastReadMessageId: string;
+  lastReadAt?: string;
+}
+
 @Injectable()
 export class MessagesService {
   private readonly logger = new Logger(MessagesService.name);
@@ -22,6 +33,8 @@ export class MessagesService {
   constructor(
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
+    @InjectModel(ConversationRead.name)
+    private readonly conversationReadModel: Model<ConversationReadDocument>,
   ) {}
 
   async saveMessage(dto: SaveMessageDto): Promise<MessageDocument> {
@@ -58,6 +71,34 @@ export class MessagesService {
       }
       this.logger.error(
         `Failed to persist message [${dto.messageId}] to MongoDB: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async saveLastRead(dto: SaveLastReadDto): Promise<ConversationReadDocument> {
+    try {
+      const readAt = dto.lastReadAt ? new Date(dto.lastReadAt) : new Date();
+      const result = await this.conversationReadModel.findOneAndUpdate(
+        { conversationId: dto.conversationId, userId: dto.userId },
+        {
+          $set: {
+            lastReadMessageId: dto.lastReadMessageId,
+            lastReadAt: readAt,
+            unreadCount: 0,
+          },
+        },
+        { upsert: true, new: true },
+      );
+
+      this.logger.log(
+        `Successfully persisted lastRead [${dto.lastReadMessageId}] for user [${dto.userId}] in convo [${dto.conversationId}] to MongoDB`,
+      );
+      return result;
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to persist lastRead for user [${dto.userId}] in convo [${dto.conversationId}]: ${error.message}`,
         error.stack,
       );
       throw error;
