@@ -33,14 +33,20 @@
     "start:message-worker": "npm run start:prod --prefix services/message-worker",
     "build:worker": "npm run build --prefix services/message-worker",
     "build:message-worker": "npm run build --prefix services/message-worker",
+    "dev:media": "npm run start:dev --prefix services/media-service",
+    "dev:media-service": "npm run start:dev --prefix services/media-service",
+    "start:media": "npm run start:prod --prefix services/media-service",
+    "start:media-service": "npm run start:prod --prefix services/media-service",
+    "build:media": "npm run build --prefix services/media-service",
+    "build:media-service": "npm run build --prefix services/media-service",
     "dev:client": "npm run dev --prefix client",
     "build:client": "npm run build --prefix client",
     "prisma:generate:auth": "npm run prisma:generate --prefix services/auth-service",
     "prisma:generate:user": "npm run prisma:generate --prefix services/user-service",
     "prisma:generate:all": "npm run prisma:generate:auth && npm run prisma:generate:user",
-    "install:all": "npm install --prefix services/api-gateway && npm install --prefix services/auth-service && npm install --prefix services/chat-service && npm install --prefix services/user-service && npm install --prefix services/message-worker && npm install --prefix client",
-    "build:all": "npm run build:gateway && npm run build:auth && npm run build:user && npm run build:chat && npm run build:worker",
-    "dev:all": "concurrently -c \"cyan,magenta,yellow,blue,green,red\" -n \"api-gateway,chat-service,user-service,auth-service,message-worker\" \"npm run dev:gateway\" \"npm run dev:chat\" \"npm run dev:user\" \"npm run dev:auth\" \"npm run dev:worker\""
+    "install:all": "npm install --prefix services/api-gateway && npm install --prefix services/auth-service && npm install --prefix services/chat-service && npm install --prefix services/user-service && npm install --prefix services/message-worker && npm install --prefix services/media-service && npm install --prefix client",
+    "build:all": "npm run build:gateway && npm run build:auth && npm run build:user && npm run build:chat && npm run build:worker && npm run build:media",
+    "dev:all": "concurrently -c \"cyan,magenta,yellow,blue,green,gray\" -n \"api-gateway,chat-service,user-service,auth-service,message-worker,media-service\" \"npm run dev:gateway\" \"npm run dev:chat\" \"npm run dev:user\" \"npm run dev:auth\" \"npm run dev:worker\" \"npm run dev:media\""
   },
 
   "devDependencies": {
