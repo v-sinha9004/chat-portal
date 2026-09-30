@@ -481,6 +481,7 @@ export class MessagesService {
       groupId: doc.groupId,
       text: doc.content,
       content: doc.content,
+      attachments: doc.attachments || [],
       status: doc.status || 'sent',
       timestamp: timestampIso,
       isAnnouncement: !!doc.isAnnouncement,

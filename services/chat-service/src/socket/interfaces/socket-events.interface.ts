@@ -21,9 +21,23 @@ export interface ReplyToPayload {
   text: string;
 }
 
+export interface AttachmentPayload {
+  fileId: string;
+  type: 'image' | 'file';
+  url: string;
+  thumbnailUrl?: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  width?: number;
+  height?: number;
+  blurhash?: string;
+}
+
 export interface DirectMessagePayload {
   recipientId: string;
-  message: string;
+  message?: string;
+  attachments?: AttachmentPayload[];
   clientMessageId?: string;
   isAnnouncement?: boolean;
   heading?: string;
@@ -39,6 +53,7 @@ export interface NewMessageEvent<T = any> {
   senderId: string;
   recipientId: string;
   data: T;
+  attachments?: AttachmentPayload[];
   timestamp: string;
   clientMessageId?: string;
   isAnnouncement?: boolean;
@@ -54,7 +69,8 @@ export interface NewMessageEvent<T = any> {
 
 export interface GroupMessagePayload {
   groupId: string;
-  message: string;
+  message?: string;
+  attachments?: AttachmentPayload[];
   clientMessageId?: string;
   isAnnouncement?: boolean;
   heading?: string;
@@ -70,6 +86,7 @@ export interface GroupMessageEvent<T = any> {
   groupId: string;
   senderId: string;
   data: T;
+  attachments?: AttachmentPayload[];
   timestamp: string;
   clientMessageId?: string;
   isAnnouncement?: boolean;

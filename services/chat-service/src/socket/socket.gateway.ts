@@ -187,17 +187,18 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: DirectMessagePayload,
   ) {
-    const { recipientId, message, clientMessageId, isAnnouncement, replyTo, isDoubt, doubtTopic } = payload || {};
+    const { recipientId, message, clientMessageId, isAnnouncement, replyTo, isDoubt, doubtTopic, attachments } = payload || {};
     if (isAnnouncement) {
       return {
         status: 'error',
         message: 'Announcements can only be posted in group chats.',
       };
     }
-    if (!recipientId || !message) {
+    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+    if (!recipientId || (!message && !hasAttachments)) {
       return {
         status: 'error',
-        message: 'Both recipientId and message are required',
+        message: 'RecipientId and either message or attachments are required',
       };
     }
 
@@ -210,7 +211,8 @@ export class SocketGateway
       conversationId,
       senderId,
       recipientId,
-      data: { message },
+      data: { message: message || '' },
+      attachments: attachments || [],
       timestamp: new Date().toISOString(),
       ...(clientMessageId ? { clientMessageId } : {}),
       ...(replyTo ? { replyTo } : {}),
@@ -304,11 +306,12 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: GroupMessagePayload,
   ) {
-    const { groupId, message, clientMessageId, isAnnouncement, heading, replyTo, isDoubt, doubtTopic } = payload || {};
-    if (!groupId || !message) {
+    const { groupId, message, clientMessageId, isAnnouncement, heading, replyTo, isDoubt, doubtTopic, attachments } = payload || {};
+    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+    if (!groupId || (!message && !hasAttachments)) {
       return {
         status: 'error',
-        message: 'Both groupId and message are required',
+        message: 'GroupId and either message or attachments are required',
       };
     }
 
@@ -367,7 +370,8 @@ export class SocketGateway
       conversationId,
       groupId,
       senderId,
-      data: { message },
+      data: { message: message || '' },
+      attachments: attachments || [],
       timestamp: new Date().toISOString(),
       ...(clientMessageId ? { clientMessageId } : {}),
       ...(isAnnouncement ? { isAnnouncement: true, heading: heading.trim() } : {}),

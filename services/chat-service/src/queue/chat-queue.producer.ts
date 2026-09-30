@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import {
   NewMessageEvent,
   GroupMessageEvent,
+  AttachmentPayload,
 } from '../socket/interfaces/socket-events.interface';
 
 export interface ChatPersistenceJobData {
@@ -15,6 +16,7 @@ export interface ChatPersistenceJobData {
   recipientId?: string;
   groupId?: string;
   content: string;
+  attachments?: AttachmentPayload[];
   timestamp: string;
   isAnnouncement?: boolean;
   heading?: string;
@@ -49,6 +51,7 @@ export class ChatQueueProducer {
       senderId: event.senderId,
       recipientId: event.recipientId,
       content: event.data?.message || '',
+      attachments: event.attachments,
       timestamp: event.timestamp,
       replyTo: event.replyTo,
       isDoubt: event.isDoubt,
@@ -83,6 +86,7 @@ export class ChatQueueProducer {
       senderId: event.senderId,
       groupId: event.groupId,
       content: event.data?.message || '',
+      attachments: event.attachments,
       timestamp: event.timestamp,
       isAnnouncement: event.isAnnouncement,
       heading: event.heading,

@@ -16,6 +16,7 @@ export interface SaveMessageDto {
   recipientId?: string;
   groupId?: string;
   content: string;
+  attachments?: any[];
   timestamp: string;
   isAnnouncement?: boolean;
   heading?: string;
@@ -64,6 +65,7 @@ export class MessagesService {
             recipientId: dto.recipientId,
             groupId: dto.groupId,
             content: dto.content,
+            attachments: dto.attachments || [],
             status: 'sent',
             timestamp: new Date(dto.timestamp),
             isAnnouncement: dto.isAnnouncement || false,

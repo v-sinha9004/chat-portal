@@ -4,6 +4,19 @@ export interface QueryMessagesDto {
   after?: string;
 }
 
+export interface AttachmentResponse {
+  fileId: string;
+  type: 'image' | 'file';
+  url: string;
+  thumbnailUrl?: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  width?: number;
+  height?: number;
+  blurhash?: string;
+}
+
 export interface ChatMessageResponse {
   id: string;
   messageId: string;
@@ -15,6 +28,7 @@ export interface ChatMessageResponse {
   groupId?: string;
   text: string;
   content: string;
+  attachments?: AttachmentResponse[];
   status: string;
   timestamp: string;
   isAnnouncement?: boolean;

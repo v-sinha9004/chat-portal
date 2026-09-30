@@ -3,6 +3,19 @@ import { Document } from 'mongoose';
 
 export type MessageDocument = Message & Document;
 
+export interface Attachment {
+  fileId: string;
+  type: 'image' | 'file';
+  url: string;
+  thumbnailUrl?: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  width?: number;
+  height?: number;
+  blurhash?: string;
+}
+
 @Schema({ timestamps: true, collection: 'messages' })
 export class Message {
   @Prop({ required: true, unique: true, index: true })
@@ -26,8 +39,28 @@ export class Message {
   @Prop()
   groupId?: string;
 
-  @Prop({ required: true })
+  @Prop({ default: '' })
   content: string;
+
+  @Prop({
+    type: [
+      {
+        fileId: { type: String, required: true },
+        type: { type: String, required: true, enum: ['image', 'file'] },
+        url: { type: String, required: true },
+        thumbnailUrl: { type: String, required: false },
+        fileName: { type: String, required: true },
+        fileSize: { type: Number, required: true },
+        mimeType: { type: String, required: true },
+        width: { type: Number, required: false },
+        height: { type: Number, required: false },
+        blurhash: { type: String, required: false },
+      },
+    ],
+    default: [],
+    _id: false,
+  })
+  attachments?: Attachment[];
 
   @Prop({ default: 'sent', enum: ['sent', 'delivered', 'read'] })
   status: string;

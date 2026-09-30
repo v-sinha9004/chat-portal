@@ -100,8 +100,9 @@
 | 13 | Pin message feature | ⏳ |
 | 14 | Save opened chat messages in memory, even when user navigates to other chats | ⏳ |
 | 15 | Initialise media service | ✅ |
-| 16 | Scroll to older messages even when message is not loaded in the memory | ⏳ |
+| 16 | Scroll to older messages even when message is not loaded in the memory | ✅ |
 | 17 | Setting up minIO for file storage - local development | ⏳ |
+| 18 | Implementing basic upload, delete endpoints in media service | ⏳ |
 
 ---
 
