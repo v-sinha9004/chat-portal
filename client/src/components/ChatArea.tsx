@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 
@@ -63,6 +63,9 @@ export const ChatArea: React.FC = () => {
 
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const lastLoadedConvoKeyRef = useRef<string | null>(null);
+  const justLoadedInitialRef = useRef<boolean>(false);
 
   // Throttling and inactivity timers
   const isTypingRef = useRef(false);
@@ -123,6 +126,11 @@ export const ChatArea: React.FC = () => {
   }, [activeConversation?.id, stopTyping]);
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (behavior === 'auto' || behavior === 'instant') {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
@@ -180,10 +188,45 @@ export const ChatArea: React.FC = () => {
     }
   }, [activeTypingUserIds, getUserName]);
 
-  // Scroll down whenever messages change, conversation switches, or typing indicator appears
+  // Instant scroll to bottom on initial message load for a conversation
+  useLayoutEffect(() => {
+    if (!activeKey || isLoadingMessages) return;
+
+    if (lastLoadedConvoKeyRef.current !== activeKey) {
+      const scrollToBottomInstant = () => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      };
+
+      scrollToBottomInstant();
+      const rafId = requestAnimationFrame(scrollToBottomInstant);
+      lastLoadedConvoKeyRef.current = activeKey;
+      justLoadedInitialRef.current = true;
+
+      return () => cancelAnimationFrame(rafId);
+    }
+  }, [activeKey, isLoadingMessages, messages]);
+
+  // Smooth scroll for subsequent message updates or typing indicator
   useEffect(() => {
+    if (!activeKey || isLoadingMessages) return;
+
+    if (justLoadedInitialRef.current) {
+      justLoadedInitialRef.current = false;
+      return;
+    }
+
     scrollToBottom('smooth');
-  }, [messages, activeConversation, typingText]);
+  }, [messages, typingText, activeKey, isLoadingMessages]);
+
+  // Reset tracked conversation if none is selected
+  useEffect(() => {
+    if (!activeKey) {
+      lastLoadedConvoKeyRef.current = null;
+    }
+  }, [activeKey]);
 
   // Initial Empty / Loading States
   if (!activeConversation) {
@@ -353,7 +396,7 @@ export const ChatArea: React.FC = () => {
       </header>
 
       {/* Messages Container */}
-      <div className="chat-messages-container">
+      <div className="chat-messages-container" ref={messagesContainerRef}>
         {isLoadingMessages ? (
           <div className="messages-loading-state">
             <div className="loading-spinner" />
