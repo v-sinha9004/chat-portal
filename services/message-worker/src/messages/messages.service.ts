@@ -17,6 +17,8 @@ export interface SaveMessageDto {
   groupId?: string;
   content: string;
   timestamp: string;
+  isAnnouncement?: boolean;
+  heading?: string;
 }
 
 export interface SaveLastReadDto {
@@ -53,6 +55,8 @@ export class MessagesService {
             content: dto.content,
             status: 'sent',
             timestamp: new Date(dto.timestamp),
+            isAnnouncement: dto.isAnnouncement || false,
+            heading: dto.heading,
           },
         },
         { upsert: true, new: true },
