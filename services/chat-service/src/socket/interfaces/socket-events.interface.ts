@@ -57,3 +57,31 @@ export function getGroupConversationId(groupId: string): string {
   return `group:${groupId}`;
 }
 
+export function getUserPresenceRoom(userId: string): string {
+  return `presence:user:${userId}`;
+}
+
+export function getGroupPresenceRoom(groupId: string): string {
+  return `presence:group:${groupId}`;
+}
+
+export interface UserPresenceChangedEvent {
+  userId: string;
+  isOnline: boolean;
+  lastSeen: string | null;
+}
+
+export interface GroupPresenceChangedEvent {
+  groupId: string;
+  userId: string;
+  isOnline: boolean;
+}
+
+export interface SubscribeUserPresencePayload {
+  targetUserId: string;
+}
+
+export interface SubscribeGroupPresencePayload {
+  groupId: string;
+}
+

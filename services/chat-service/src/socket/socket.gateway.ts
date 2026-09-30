@@ -20,14 +20,22 @@ import {
   NewMessageEvent,
   getDirectConversationId,
   getGroupConversationId,
+  getUserPresenceRoom,
+  getGroupPresenceRoom,
+  UserPresenceChangedEvent,
+  GroupPresenceChangedEvent,
+  SubscribeUserPresencePayload,
+  SubscribeGroupPresencePayload,
 } from './interfaces/socket-events.interface';
 import { ChatQueueProducer } from '../queue/chat-queue.producer';
-
+import { PresenceService } from '../presence/presence.service';
 
 @WebSocketGateway({
   cors: {
     origin: '*',
   },
+  pingInterval: 25000,
+  pingTimeout: 20000,
 })
 export class SocketGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
@@ -40,8 +48,8 @@ export class SocketGateway
   constructor(
     private readonly socketService: SocketService,
     private readonly chatQueueProducer: ChatQueueProducer,
+    private readonly presenceService: PresenceService,
   ) { }
-
 
   afterInit(server: Server) {
     this.socketService.setServer(server);
@@ -51,10 +59,10 @@ export class SocketGateway
   /**
    * One-time handshake authentication.
    * Runs ONLY ONCE when client connects. Validates the JWT access token.
-   * If invalid or missing, connection is rejected immediately.
-   * If valid, attaches verified userId to client.data in memory and joins room.
+   * If valid, attaches verified userId to client.data in memory, joins user room,
+   * and tracks active connection in PresenceService.
    */
-  handleConnection(client: AuthenticatedSocket) {
+  async handleConnection(client: AuthenticatedSocket) {
     const token = (client.handshake.auth?.token ||
       client.handshake.query?.token) as string | undefined;
 
@@ -78,6 +86,32 @@ export class SocketGateway
       this.logger.log(
         `Client authenticated: ${client.id} (User: "${userId}", Role: "${payload.role}") -> Auto-joined room "${userRoom}"`,
       );
+
+      // Track active presence in Redis
+      const { isFirstSocket } = await this.presenceService.addSocket(userId, client.id);
+      if (isFirstSocket) {
+        // Notify direct chat subscribers who have this user open
+        const presenceEvent: UserPresenceChangedEvent = {
+          userId,
+          isOnline: true,
+          lastSeen: null,
+        };
+        this.server.to(getUserPresenceRoom(userId)).emit('user_presence_changed', presenceEvent);
+
+        // Notify active group presence rooms that this user belongs to
+        this.socketService.getUserGroupIds(userId).then((groupIds) => {
+          for (const groupId of groupIds) {
+            const groupEvent: GroupPresenceChangedEvent = {
+              groupId,
+              userId,
+              isOnline: true,
+            };
+            this.server.to(getGroupPresenceRoom(groupId)).emit('group_presence_changed', groupEvent);
+          }
+        }).catch((err) => {
+          this.logger.warn(`Could not emit group presence for user ${userId}: ${err.message}`);
+        });
+      }
     } catch (err: any) {
       this.logger.warn(
         `Socket connection rejected: Invalid or expired token (Client: ${client.id}) - ${err.message}`,
@@ -94,6 +128,34 @@ export class SocketGateway
     this.logger.log(
       `Client disconnected: ${client.id}${userId ? ` (User: "${userId}")` : ''}`,
     );
+
+    if (userId) {
+      this.presenceService.removeSocket(userId, client.id, (lastSeen) => {
+        // Triggered only after 10-second grace period if 0 sockets remain
+        const presenceEvent: UserPresenceChangedEvent = {
+          userId,
+          isOnline: false,
+          lastSeen,
+        };
+        this.server.to(getUserPresenceRoom(userId)).emit('user_presence_changed', presenceEvent);
+
+        // Notify active group presence rooms that this user belongs to
+        this.socketService.getUserGroupIds(userId).then((groupIds) => {
+          for (const groupId of groupIds) {
+            const groupEvent: GroupPresenceChangedEvent = {
+              groupId,
+              userId,
+              isOnline: false,
+            };
+            this.server.to(getGroupPresenceRoom(groupId)).emit('group_presence_changed', groupEvent);
+          }
+        }).catch((err) => {
+          this.logger.warn(`Could not emit group offline presence for user ${userId}: ${err.message}`);
+        });
+      }).catch((err) => {
+        this.logger.error(`Error in presence removeSocket for user ${userId}: ${err.message}`);
+      });
+    }
   }
 
   /**
@@ -217,5 +279,85 @@ export class SocketGateway
       data: eventPayload,
     };
   }
+
+  /**
+   * On-demand presence subscription for a single user (active direct chat).
+   * Joins room: presence:user:<targetUserId>
+   * Returns immediate presence status.
+   */
+  @SubscribeMessage('subscribe_user_presence')
+  async handleSubscribeUserPresence(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: SubscribeUserPresencePayload,
+  ) {
+    const { targetUserId } = payload || {};
+    if (!targetUserId) {
+      return { status: 'error', message: 'targetUserId is required' };
+    }
+    const room = getUserPresenceRoom(targetUserId);
+    client.join(room);
+
+    const presence = await this.presenceService.getUserPresence(targetUserId);
+    return {
+      status: 'ok',
+      ...presence,
+    };
+  }
+
+  /**
+   * Leave presence room when switching away from direct chat.
+   */
+  @SubscribeMessage('unsubscribe_user_presence')
+  handleUnsubscribeUserPresence(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: SubscribeUserPresencePayload,
+  ) {
+    const { targetUserId } = payload || {};
+    if (targetUserId) {
+      client.leave(getUserPresenceRoom(targetUserId));
+    }
+    return { status: 'ok' };
+  }
+
+  /**
+   * On-demand presence subscription for a group (active group chat).
+   * Joins room: presence:group:<groupId>
+   * Returns total members, online count, and list of online member IDs.
+   */
+  @SubscribeMessage('subscribe_group_presence')
+  async handleSubscribeGroupPresence(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: SubscribeGroupPresencePayload,
+  ) {
+    const { groupId } = payload || {};
+    if (!groupId) {
+      return { status: 'error', message: 'groupId is required' };
+    }
+    const room = getGroupPresenceRoom(groupId);
+    client.join(room);
+
+    const memberIds = await this.socketService.getGroupMemberIds(groupId);
+    const presence = await this.presenceService.getGroupPresence(groupId, memberIds);
+    return {
+      status: 'ok',
+      ...presence,
+    };
+  }
+
+  /**
+   * Leave group presence room when switching away from group chat.
+   */
+  @SubscribeMessage('unsubscribe_group_presence')
+  handleUnsubscribeGroupPresence(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: SubscribeGroupPresencePayload,
+  ) {
+    const { groupId } = payload || {};
+    if (groupId) {
+      client.leave(getGroupPresenceRoom(groupId));
+    }
+    return { status: 'ok' };
+  }
 }
+
 

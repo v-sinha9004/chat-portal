@@ -112,5 +112,34 @@ export class SocketService {
       return [];
     }
   }
+
+  /**
+   * Fetches group IDs that a user belongs to from user-service.
+   */
+  async getUserGroupIds(userId: string): Promise<string[]> {
+    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
+    const url = `${userServiceUrl}/api/users/groups/user/${encodeURIComponent(userId)}/group-ids`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = (await response.json()) as { userId: string; groupIds: string[] };
+      return data?.groupIds || [];
+    } catch (err: any) {
+      this.logger.error(
+        `Error calling user-service for user ${userId} group IDs: ${err.message}`,
+      );
+      return [];
+    }
+  }
 }
 
