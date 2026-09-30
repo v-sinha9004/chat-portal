@@ -7,7 +7,7 @@ import { AnnouncementComposer } from './announcements/AnnouncementComposer';
 import { DoubtCard } from './doubts/DoubtCard';
 import { DoubtComposer } from './doubts/DoubtComposer';
 import { CHAT_ACTION_ITEMS } from '../config/chatActionsConfig';
-import { scrollToAndHighlightMessage } from '../utils/messageNavigation';
+import { navigateToMessage } from '../utils/messageNavigation';
 
 function formatLastSeen(timestamp?: string | null): string {
   if (!timestamp) return '';
@@ -386,23 +386,11 @@ export const ChatArea: React.FC = () => {
 
   const handleQuoteClick = useCallback(
     async (targetMessageId: string) => {
-      // 1. Try scrolling if target already rendered in DOM
-      const scrolled = scrollToAndHighlightMessage(targetMessageId);
-      if (scrolled) return;
-
-      // 2. Fetch context slice around message
-      isJumpingToLatestRef.current = true;
-      const success = await jumpToMessage(targetMessageId);
-      if (success) {
-        requestAnimationFrame(() => {
-          scrollToAndHighlightMessage(targetMessageId);
-          setTimeout(() => {
-            isJumpingToLatestRef.current = false;
-          }, 400);
-        });
-      } else {
-        isJumpingToLatestRef.current = false;
-      }
+      await navigateToMessage(targetMessageId, jumpToMessage, {
+        onJumpingStateChange: (isJumping) => {
+          isJumpingToLatestRef.current = isJumping;
+        },
+      });
     },
     [jumpToMessage],
   );
