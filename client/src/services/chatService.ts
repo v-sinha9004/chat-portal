@@ -1,4 +1,4 @@
-import type { ReplyToInfo } from '../types';
+import type { ReplyToInfo, PinnedMessage } from '../types';
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/chat';
 
@@ -283,3 +283,91 @@ export async function updateDoubtStatusRest(
 
   return response.json();
 }
+
+/**
+ * Fetch active pinned messages for a specific conversation.
+ */
+export async function fetchPinnedMessages(
+  token: string,
+  conversationId: string,
+  signal?: AbortSignal,
+): Promise<PinnedMessage[]> {
+  const queryParams = new URLSearchParams({ conversationId });
+  const response = await fetch(`${CHAT_API_URL}/messages/pins?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to fetch pinned messages: HTTP ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Pin a message in a conversation.
+ */
+export async function pinMessageRest(
+  token: string,
+  conversationId: string,
+  messageId: string,
+): Promise<PinnedMessage> {
+  const response = await fetch(
+    `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/pin`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ conversationId }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to pin message: HTTP ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Unpin a message in a conversation.
+ */
+export async function unpinMessageRest(
+  token: string,
+  conversationId: string,
+  messageId: string,
+): Promise<void> {
+  const queryParams = new URLSearchParams({ conversationId });
+  const response = await fetch(
+    `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/pin?${queryParams.toString()}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to unpin message: HTTP ${response.status}`,
+    );
+  }
+}
+

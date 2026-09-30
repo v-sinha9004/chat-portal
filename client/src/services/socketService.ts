@@ -12,6 +12,8 @@ import type {
   ReplyToInfo,
   UpdateDoubtStatusPayload,
   DoubtStatusChangedEvent,
+  MessagePinnedSocketEvent,
+  MessageUnpinnedSocketEvent,
 } from '../types';
 
 export interface IncomingDirectMessageEvent {
@@ -86,6 +88,8 @@ type MessageDeliveredListener = (event: MessageDeliveredEvent) => void;
 type MessagesReadListener = (event: MessagesReadEvent) => void;
 type GroupMessagesReadListener = (event: GroupMessagesReadEvent) => void;
 type DoubtStatusListener = (event: DoubtStatusChangedEvent) => void;
+type MessagePinnedListener = (event: MessagePinnedSocketEvent) => void;
+type MessageUnpinnedListener = (event: MessageUnpinnedSocketEvent) => void;
 type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
@@ -102,6 +106,8 @@ class SocketService {
   private messagesReadListeners: Set<MessagesReadListener> = new Set();
   private groupMessagesReadListeners: Set<GroupMessagesReadListener> = new Set();
   private doubtStatusListeners: Set<DoubtStatusListener> = new Set();
+  private messagePinnedListeners: Set<MessagePinnedListener> = new Set();
+  private messageUnpinnedListeners: Set<MessageUnpinnedListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
 
 
@@ -248,8 +254,29 @@ class SocketService {
       });
     });
 
+    this.socket.on('message_pinned', (payload: MessagePinnedSocketEvent) => {
+      this.messagePinnedListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in message_pinned listener:', err);
+        }
+      });
+    });
+
+    this.socket.on('message_unpinned', (payload: MessageUnpinnedSocketEvent) => {
+      this.messageUnpinnedListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in message_unpinned listener:', err);
+        }
+      });
+    });
+
     return this.socket;
   }
+
 
   /**
    * Disconnects the socket and clears the active user.
@@ -639,6 +666,27 @@ class SocketService {
       this.groupMessagesReadListeners.delete(listener);
     };
   }
+
+  /**
+   * Register a listener for message_pinned events.
+   */
+  onMessagePinned(listener: MessagePinnedListener): () => void {
+    this.messagePinnedListeners.add(listener);
+    return () => {
+      this.messagePinnedListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Register a listener for message_unpinned events.
+   */
+  onMessageUnpinned(listener: MessageUnpinnedListener): () => void {
+    this.messageUnpinnedListeners.add(listener);
+    return () => {
+      this.messageUnpinnedListeners.delete(listener);
+    };
+  }
 }
+
 
 export const socketService = new SocketService();

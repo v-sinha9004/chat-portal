@@ -246,3 +246,37 @@ export function getGroupConversationId(groupId: string): string {
   return `group:${groupId}`;
 }
 
+export interface PinnedMessageSnapshot {
+  senderId: string;
+  senderName?: string;
+  content: string;
+  heading?: string;
+  isAnnouncement?: boolean;
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  timestamp: string;
+  attachments?: any[];
+}
+
+export interface PinnedMessage {
+  id: string;
+  conversationId: string;
+  messageId: string;
+  pinnedBy: string;
+  pinnedByName?: string;
+  pinnedAt: string;
+  snapshot: PinnedMessageSnapshot;
+}
+
+export interface MessagePinnedSocketEvent {
+  conversationId: string;
+  pin: PinnedMessage;
+}
+
+export interface MessageUnpinnedSocketEvent {
+  conversationId: string;
+  messageId: string;
+}
+
+
