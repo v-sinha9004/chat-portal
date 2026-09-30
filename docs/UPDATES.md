@@ -105,6 +105,7 @@
 | 18 | Implementing basic upload, delete endpoints in media service | ✅ |
 | 19 | Pin feature | ⏳ |
 | 20 | Doubt feature | ✅ |
+| 21 | File sharing feature | ⏳ |
 
 ---
 
@@ -112,38 +113,23 @@
 
 | # | Task Description | Status |
 | :-: | :--- | :-: |
-| 1 | Show past chats in UI | ⏳ |
-| 2 | Add central redis for caching  | ⏳ |
 | 3 | Message deliver when user is connected to different chat server | ⏳ |
 | 4 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
 | 5 | Role based access | ⏳ |
-| 6 | Typing Indicator | ⏳ |
-| 7 | Online/Offline Status | ⏳ |
 | 8 | Group Chat Management | ⏳ |
-| 9 | Read receipts| ⏳ |
-| 10 | Announcement feature | ⏳ |
-| 11 | Pin message feature | ⏳ |
-| 12 | Doubt feature | ⏳ |
 | 13 | Report message feature | ⏳ |
 | 14 | Message search feature | ⏳ |
 | 15 | Message edit feature | ⏳ |
 | 16 | Message delete feature | ⏳ |
-| 17 | File sharing feature | ⏳ |
-| 18 | Message reaction feature | ⏳ |
-| 19 | Image preview | ⏳ |
-| 20 | Implement Media Service | ⏳ |
-| 21 | In app notification | ⏳ |
-| 22 | Enqueue before emitting message | ⏳ |
-| 23 | Catch enqueue errors | ⏳ |
-| 24 | Smooth Data Load on UI | ⏳ |
-| 25 | Resposive UI | ⏳ |
-| 26 | Test on mobile view | ⏳ |
-| 27 | Test on real devices | ⏳ |
-| 28 | Deployment of all services | ⏳ |
-| 29 | Clean Up Codebase & documentation | ⏳ |
-| 30 | Cache implementation at multiple levels for smooth loading and functioning | ⏳ |
-| 31 | Cache invalidation when needed | ⏳ |
-| 32 | Monitoring system | ⏳ |
+| 17 | Message reaction feature | ⏳ |
+| 18 | Image preview | ⏳ |
+| 19 | In app notification | ⏳ |
+| 20 | Test on real devices | ⏳ |
+| 21 | Deployment of all services | ⏳ |
+| 22 | Clean Up Codebase & documentation | ⏳ |
+| 23 | Cache implementation at multiple levels for smooth loading and functioning | ⏳ |
+| 24 | Cache invalidation when needed | ⏳ |
+| 25 | Monitoring system | ⏳ |
 | 33 | Limit character count of messages | ⏳ |
 | 34 | Merge groups and direct chats | ⏳ |
 | 35 | Sort groups and direct chats by last message time | ⏳ |

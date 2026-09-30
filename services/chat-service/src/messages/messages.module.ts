@@ -5,6 +5,10 @@ import {
   ConversationRead,
   ConversationReadSchema,
 } from './schemas/conversation-read.schema';
+import {
+  PinnedMessage,
+  PinnedMessageSchema,
+} from './schemas/pinned-message.schema';
 import { MessagesService } from './messages.service';
 import { MessagesController } from './messages.controller';
 import { SocketModule } from '../socket/socket.module';
@@ -15,6 +19,7 @@ import { ReadTrackingModule } from '../read-tracking/read-tracking.module';
     MongooseModule.forFeature([
       { name: Message.name, schema: MessageSchema },
       { name: ConversationRead.name, schema: ConversationReadSchema },
+      { name: PinnedMessage.name, schema: PinnedMessageSchema },
     ]),
     forwardRef(() => SocketModule),
     ReadTrackingModule,

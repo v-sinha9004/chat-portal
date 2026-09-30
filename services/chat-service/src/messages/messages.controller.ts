@@ -1,6 +1,8 @@
 import {
   Controller,
   Get,
+  Post,
+  Delete,
   Patch,
   Body,
   Param,
@@ -18,6 +20,8 @@ import {
   MessageContextResponse,
   QueryDoubtsDto,
   DoubtsListResponse,
+  PinnedMessageResponse,
+  PinMessageDto,
 } from './dto/query-messages.dto';
 
 @Controller('messages')
@@ -140,4 +144,68 @@ export class MessagesController {
       body?.status,
     );
   }
+
+  /**
+   * Fetch active pinned messages for a conversation.
+   * GET /api/chat/messages/pins?conversationId=xxx
+   */
+  @Get('pins')
+  async getPinnedMessages(
+    @Headers('x-user-id') currentUserId: string,
+    @Query('conversationId') conversationId: string,
+  ): Promise<PinnedMessageResponse[]> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    return this.messagesService.getPinnedMessages(currentUserId, conversationId);
+  }
+
+  /**
+   * Pin a message in a conversation.
+   * POST /api/chat/messages/:messageId/pin
+   */
+  @Post(':messageId/pin')
+  async pinMessage(
+    @Headers('x-user-id') currentUserId: string,
+    @Headers('x-user-role') currentUserRole: string,
+    @Headers('x-user-name') currentUserName: string,
+    @Param('messageId') messageId: string,
+    @Body() body: PinMessageDto,
+  ): Promise<PinnedMessageResponse> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    return this.messagesService.pinMessage(
+      currentUserId,
+      currentUserRole || '',
+      currentUserName || '',
+      body?.conversationId,
+      messageId,
+    );
+  }
+
+  /**
+   * Unpin a message in a conversation.
+   * DELETE /api/chat/messages/:messageId/pin?conversationId=xxx
+   */
+  @Delete(':messageId/pin')
+  async unpinMessage(
+    @Headers('x-user-id') currentUserId: string,
+    @Headers('x-user-role') currentUserRole: string,
+    @Param('messageId') messageId: string,
+    @Query('conversationId') conversationIdQuery?: string,
+    @Body('conversationId') conversationIdBody?: string,
+  ): Promise<{ success: boolean; conversationId: string; messageId: string }> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    const conversationId = conversationIdQuery || conversationIdBody || '';
+    return this.messagesService.unpinMessage(
+      currentUserId,
+      currentUserRole || '',
+      conversationId,
+      messageId,
+    );
+  }
 }
+

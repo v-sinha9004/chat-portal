@@ -206,3 +206,22 @@ export interface GroupMessagesReadEvent {
   readAt: string;
 }
 
+export interface MessagePinnedEvent {
+  conversationId: string;
+  pin: {
+    id: string;
+    conversationId: string;
+    messageId: string;
+    pinnedBy: string;
+    pinnedByName?: string;
+    pinnedAt: string;
+    snapshot: any;
+  };
+}
+
+export interface MessageUnpinnedEvent {
+  conversationId: string;
+  messageId: string;
+}
+
+
