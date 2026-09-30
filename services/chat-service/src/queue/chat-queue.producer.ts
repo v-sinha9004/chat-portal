@@ -79,4 +79,31 @@ export class ChatQueueProducer {
       removeOnFail: 1000,
     });
   }
+
+  async enqueuePersistLastRead(data: {
+    userId: string;
+    conversationId: string;
+    lastReadMessageId: string;
+  }) {
+    const jobData = {
+      userId: data.userId,
+      conversationId: data.conversationId,
+      lastReadMessageId: data.lastReadMessageId,
+      lastReadAt: new Date().toISOString(),
+    };
+
+    this.logger.log(
+      `Enqueueing persist-lastread job for user ${data.userId} in convo ${data.conversationId}`,
+    );
+
+    return this.queue.add('persist-lastread', jobData, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+      removeOnComplete: true,
+      removeOnFail: 1000,
+    });
+  }
 }

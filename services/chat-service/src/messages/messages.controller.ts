@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { MessagesService } from './messages.service';
+import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 import {
   QueryMessagesDto,
   ConversationHistoryResponse,
@@ -14,7 +15,29 @@ import {
 
 @Controller('messages')
 export class MessagesController {
-  constructor(private readonly messagesService: MessagesService) {}
+  constructor(
+    private readonly messagesService: MessagesService,
+    private readonly readTrackingService: ReadTrackingService,
+  ) {}
+
+  /**
+   * Fetch real-time unread message counts for all conversations for authenticated user.
+   * GET /api/chat/messages/unread-counts
+   */
+  @Get('unread-counts')
+  async getUnreadCounts(
+    @Headers('x-user-id') currentUserId: string,
+  ): Promise<{ status: string; unreadCounts: Record<string, number> }> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    const unreadCounts =
+      await this.readTrackingService.getUnreadCounts(currentUserId);
+    return {
+      status: 'ok',
+      unreadCounts,
+    };
+  }
 
   /**
    * Fetch past direct messages between authenticated user and specified user.

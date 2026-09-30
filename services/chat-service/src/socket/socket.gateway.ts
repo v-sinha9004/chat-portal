@@ -29,9 +29,12 @@ import {
   TypingStartPayload,
   TypingStopPayload,
   UserTypingEvent,
+  MarkReadPayload,
+  ConversationReadAckEvent,
 } from './interfaces/socket-events.interface';
 import { ChatQueueProducer } from '../queue/chat-queue.producer';
 import { PresenceService } from '../presence/presence.service';
+import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 
 @WebSocketGateway({
   cors: {
@@ -52,6 +55,7 @@ export class SocketGateway
     private readonly socketService: SocketService,
     private readonly chatQueueProducer: ChatQueueProducer,
     private readonly presenceService: PresenceService,
+    private readonly readTrackingService: ReadTrackingService,
   ) { }
 
   afterInit(server: Server) {
@@ -196,6 +200,9 @@ export class SocketGateway
     // Delegates to SocketService.emitToUser
     this.socketService.emitToUser(recipientId, 'direct_message', eventPayload);
 
+    // Increment recipient's unread count in Redis RAM (~0.1ms)
+    await this.readTrackingService.incrementUnreadCount(recipientId, conversationId);
+
     // Enqueue message into BullMQ for asynchronous persistence
     await this.chatQueueProducer.enqueueDirectMessage(eventPayload);
 
@@ -268,6 +275,12 @@ export class SocketGateway
 
     // 3. Dispatch ONLY to member user rooms
     this.socketService.emitToUsers(memberIds, 'group_message', eventPayload);
+
+    // Batch increment group members' unread count in Redis (excluding sender) via pipeline (<1ms)
+    const recipientIds = memberIds.filter((id) => id !== senderId);
+    if (recipientIds.length > 0) {
+      await this.readTrackingService.incrementUnreadCountBatch(recipientIds, conversationId);
+    }
 
     // 4. Enqueue group message into BullMQ for asynchronous persistence
     await this.chatQueueProducer.enqueueGroupMessage(eventPayload);
@@ -419,6 +432,65 @@ export class SocketGateway
     }
 
     return { status: 'ok' };
+  }
+
+  /**
+   * Real-time read receipt and unread counter reset.
+   * Resets this conversation's unread counter to 0 and stores lastReadMessageId in Redis.
+   * Broadcasts conversation_read_ack to all open tabs for this user.
+   * Enqueues durable persistence to MongoDB via BullMQ.
+   */
+  @SubscribeMessage('mark_read')
+  async handleMarkRead(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: MarkReadPayload,
+  ) {
+    const userId = client.data.userId;
+    if (!userId) {
+      return { status: 'error', message: 'Unauthorized socket session' };
+    }
+
+    const { conversationId, lastReadMessageId } = payload || {};
+    if (!conversationId) {
+      return { status: 'error', message: 'conversationId is required' };
+    }
+
+    // 1. Reset unread count to 0 and update lastRead in Redis (~0.1ms)
+    await this.readTrackingService.resetUnreadAndSetLastRead(
+      userId,
+      conversationId,
+      lastReadMessageId || '',
+    );
+
+    // 2. Multi-tab synchronization: broadcast ack to user's room
+    const ackPayload: ConversationReadAckEvent = {
+      conversationId,
+      lastReadMessageId: lastReadMessageId || '',
+    };
+    this.server
+      .to(this.socketService.getUserRoom(userId))
+      .emit('conversation_read_ack', ackPayload);
+
+    // 3. Asynchronously enqueue durable persistence to MongoDB
+    if (lastReadMessageId) {
+      this.chatQueueProducer
+        .enqueuePersistLastRead({
+          userId,
+          conversationId,
+          lastReadMessageId,
+        })
+        .catch((err) => {
+          this.logger.error(
+            `Failed to enqueue persist-lastread job for ${userId}: ${err.message}`,
+          );
+        });
+    }
+
+    return {
+      status: 'ok',
+      conversationId,
+      lastReadMessageId,
+    };
   }
 }
 

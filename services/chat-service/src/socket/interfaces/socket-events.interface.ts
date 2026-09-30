@@ -101,3 +101,13 @@ export interface UserTypingEvent {
   recipientId?: string;
   groupId?: string;
 }
+
+export interface MarkReadPayload {
+  conversationId: string;
+  lastReadMessageId?: string;
+}
+
+export interface ConversationReadAckEvent {
+  conversationId: string;
+  lastReadMessageId: string;
+}

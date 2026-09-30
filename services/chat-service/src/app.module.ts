@@ -6,6 +6,7 @@ import { SocketModule } from './socket/socket.module';
 import { ChatQueueModule } from './queue/chat-queue.module';
 import { MessagesModule } from './messages/messages.module';
 import { PresenceModule } from './presence/presence.module';
+import { ReadTrackingModule } from './read-tracking/read-tracking.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PresenceModule } from './presence/presence.module';
     SocketModule,
     MessagesModule,
     PresenceModule,
+    ReadTrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
