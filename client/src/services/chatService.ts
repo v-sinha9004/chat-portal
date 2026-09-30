@@ -27,13 +27,62 @@ export interface ChatHistoryResponse {
   memberLastReadMap?: Record<string, string>;
   messages: ChatHistoryMessage[];
   hasMore: boolean;
+  hasNewer?: boolean;
   oldestCursor?: string;
+  newestCursor?: string;
 }
 
 export interface FetchMessagesOptions {
   limit?: number;
   before?: string;
+  after?: string;
   signal?: AbortSignal;
+}
+
+export interface MessageContextResponse {
+  conversationId: string;
+  targetMessageId: string;
+  messages: ChatHistoryMessage[];
+  hasOlder: boolean;
+  hasNewer: boolean;
+  oldestCursor?: string;
+  newestCursor?: string;
+  partnerLastReadMessageId?: string | null;
+  memberLastReadMap?: Record<string, string>;
+}
+
+/**
+ * Fetch a slice of messages surrounding a specific messageId.
+ * Modular primitive used by reply quotes, pinned messages, and search jumps.
+ */
+export async function fetchMessageContext(
+  token: string,
+  messageId: string,
+  surrounding = 25,
+  signal?: AbortSignal,
+): Promise<MessageContextResponse> {
+  const queryParams = new URLSearchParams({
+    messageId,
+    surrounding: String(surrounding),
+  });
+
+  const response = await fetch(`${CHAT_API_URL}/messages/context?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to fetch message context: HTTP ${response.status}`,
+    );
+  }
+
+  return response.json();
 }
 
 /**
@@ -55,6 +104,9 @@ export async function fetchDirectMessages(
   }
   if (options.before) {
     queryParams.set('before', options.before);
+  }
+  if (options.after) {
+    queryParams.set('after', options.after);
   }
   const queryString = queryParams.toString();
   const url = `${CHAT_API_URL}/messages/direct/${encodeURIComponent(targetUserId)}${
@@ -99,6 +151,9 @@ export async function fetchGroupMessages(
   }
   if (options.before) {
     queryParams.set('before', options.before);
+  }
+  if (options.after) {
+    queryParams.set('after', options.after);
   }
   const queryString = queryParams.toString();
   const url = `${CHAT_API_URL}/messages/group/${encodeURIComponent(groupId)}${

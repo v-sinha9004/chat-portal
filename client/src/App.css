@@ -200,6 +200,7 @@
 
 /* Chat Main Area */
 .chat-main {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -686,6 +687,126 @@
 .highlight-pulse .announcement-card {
   animation: highlightPulse 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   border-radius: 12px;
+}
+
+/* Floating Jump to Recent Messages Pill */
+.jump-to-recent-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  bottom: 84px;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  pointer-events: none;
+  animation: slideUpPill 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpPill {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.jump-to-recent-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  backdrop-filter: blur(8px);
+}
+
+.jump-to-recent-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+.jump-to-recent-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent-color);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 9999px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+}
+
+/* Load Newer Messages Button */
+.messages-load-newer-wrapper {
+  display: flex;
+  justify-content: center;
+  margin: 14px 0 6px 0;
+}
+
+.load-newer-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.load-newer-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+}
+
+.load-newer-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Context Slice Loading Indicator */
+.context-loading-indicator {
+  position: sticky;
+  top: 10px;
+  margin: 0 auto 12px auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  width: fit-content;
+}
+
+.announcement-quote-card {
+  margin: 0 16px 12px 16px;
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
 .message-text {

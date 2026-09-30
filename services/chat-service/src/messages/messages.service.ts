@@ -17,6 +17,8 @@ import {
   QueryMessagesDto,
   ConversationHistoryResponse,
   ChatMessageResponse,
+  QueryMessageContextDto,
+  MessageContextResponse,
 } from './dto/query-messages.dto';
 import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 
@@ -52,16 +54,21 @@ export class MessagesService {
     const conversationId = getDirectConversationId(currentUserId, targetUserId.trim());
     const limit = this.sanitizeLimit(query.limit);
     const before = query.before?.trim();
+    const after = query.after?.trim();
 
     const filter: Record<string, any> = { conversationId };
-    if (before) {
+    if (after) {
+      filter.messageId = { $gt: after };
+    } else if (before) {
       filter.messageId = { $lt: before };
     }
 
-    // Fetch limit + 1 to reliably detect if older messages exist
+    const sortOrder = after ? 1 : -1;
+
+    // Fetch limit + 1 to reliably detect if more messages exist
     const rawDocs = await this.messageModel
       .find(filter)
-      .sort({ messageId: -1 })
+      .sort({ messageId: sortOrder })
       .limit(limit + 1)
       .lean()
       .exec();
@@ -69,11 +76,18 @@ export class MessagesService {
     const hasMore = rawDocs.length > limit;
     const docs = hasMore ? rawDocs.slice(0, limit) : rawDocs;
 
-    // Track oldest cursor before reversing (since docs are sorted newest first)
-    const oldestCursor = docs.length > 0 ? docs[docs.length - 1].messageId : undefined;
+    let oldestCursor: string | undefined;
+    let newestCursor: string | undefined;
 
-    // Reverse to chronological order (oldest -> newest) for client rendering
-    docs.reverse();
+    if (after) {
+      oldestCursor = docs.length > 0 ? docs[0].messageId : undefined;
+      newestCursor = docs.length > 0 ? docs[docs.length - 1].messageId : undefined;
+    } else {
+      oldestCursor = docs.length > 0 ? docs[docs.length - 1].messageId : undefined;
+      newestCursor = docs.length > 0 ? docs[0].messageId : undefined;
+      // Reverse to chronological order (oldest -> newest) for client rendering
+      docs.reverse();
+    }
 
     const messages: ChatMessageResponse[] = docs.map((doc) =>
       this.formatMessageResponse(doc),
@@ -92,8 +106,10 @@ export class MessagesService {
       conversationId,
       partnerLastReadMessageId,
       messages,
-      hasMore,
+      hasMore: !after ? hasMore : false,
+      hasNewer: after ? hasMore : false,
       oldestCursor,
+      newestCursor,
     };
   }
 
@@ -129,16 +145,21 @@ export class MessagesService {
     const conversationId = getGroupConversationId(cleanGroupId);
     const limit = this.sanitizeLimit(query.limit);
     const before = query.before?.trim();
+    const after = query.after?.trim();
 
     const filter: Record<string, any> = { conversationId };
-    if (before) {
+    if (after) {
+      filter.messageId = { $gt: after };
+    } else if (before) {
       filter.messageId = { $lt: before };
     }
 
-    // Fetch limit + 1 to detect older messages
+    const sortOrder = after ? 1 : -1;
+
+    // Fetch limit + 1 to detect older/newer messages
     const rawDocs = await this.messageModel
       .find(filter)
-      .sort({ messageId: -1 })
+      .sort({ messageId: sortOrder })
       .limit(limit + 1)
       .lean()
       .exec();
@@ -146,11 +167,18 @@ export class MessagesService {
     const hasMore = rawDocs.length > limit;
     const docs = hasMore ? rawDocs.slice(0, limit) : rawDocs;
 
-    // Track oldest cursor before reversing
-    const oldestCursor = docs.length > 0 ? docs[docs.length - 1].messageId : undefined;
+    let oldestCursor: string | undefined;
+    let newestCursor: string | undefined;
 
-    // Reverse to chronological order (oldest -> newest)
-    docs.reverse();
+    if (after) {
+      oldestCursor = docs.length > 0 ? docs[0].messageId : undefined;
+      newestCursor = docs.length > 0 ? docs[docs.length - 1].messageId : undefined;
+    } else {
+      oldestCursor = docs.length > 0 ? docs[docs.length - 1].messageId : undefined;
+      newestCursor = docs.length > 0 ? docs[0].messageId : undefined;
+      // Reverse to chronological order (oldest -> newest)
+      docs.reverse();
+    }
 
     const messages: ChatMessageResponse[] = docs.map((doc) =>
       this.formatMessageResponse(doc),
@@ -175,8 +203,119 @@ export class MessagesService {
       groupId: cleanGroupId,
       memberLastReadMap,
       messages,
-      hasMore,
+      hasMore: !after ? hasMore : false,
+      hasNewer: after ? hasMore : false,
       oldestCursor,
+      newestCursor,
+    };
+  }
+
+  /**
+   * Fetches a slice of messages surrounding a specific target messageId.
+   * Modular navigation primitive: used for jumping to replies, pinned messages, search results.
+   */
+  async getMessageContext(
+    currentUserId: string,
+    query: QueryMessageContextDto,
+  ): Promise<MessageContextResponse> {
+    const { messageId } = query || {};
+    if (!messageId || typeof messageId !== 'string' || !messageId.trim()) {
+      throw new BadRequestException('messageId is required');
+    }
+
+    const cleanMessageId = messageId.trim();
+    const targetDoc = await this.messageModel.findOne({ messageId: cleanMessageId }).lean().exec();
+    if (!targetDoc) {
+      throw new NotFoundException(`Message "${cleanMessageId}" not found`);
+    }
+
+    // 1. Authorize user access to this conversation
+    if (targetDoc.type === 'direct') {
+      if (targetDoc.senderId !== currentUserId && targetDoc.recipientId !== currentUserId) {
+        throw new ForbiddenException('Forbidden: You are not a participant in this direct chat');
+      }
+    } else if (targetDoc.type === 'group') {
+      const groupId = targetDoc.groupId || targetDoc.conversationId.replace('group:', '');
+      const memberIds = await this.socketService.getGroupMemberIds(groupId);
+      if (!memberIds || !memberIds.includes(currentUserId)) {
+        throw new ForbiddenException('Forbidden: You are not a member of this group');
+      }
+    }
+
+    const surrounding = Math.max(
+      5,
+      Math.min(parseInt(String(query.surrounding || '25'), 10) || 25, 50),
+    );
+    const conversationId = targetDoc.conversationId;
+
+    // 2. Fetch older and newer slices in parallel
+    const [rawOlder, rawNewer] = await Promise.all([
+      this.messageModel
+        .find({ conversationId, messageId: { $lt: cleanMessageId } })
+        .sort({ messageId: -1 })
+        .limit(surrounding + 1)
+        .lean()
+        .exec(),
+      this.messageModel
+        .find({ conversationId, messageId: { $gt: cleanMessageId } })
+        .sort({ messageId: 1 })
+        .limit(surrounding + 1)
+        .lean()
+        .exec(),
+    ]);
+
+    const hasOlder = rawOlder.length > surrounding;
+    const olderDocs = hasOlder ? rawOlder.slice(0, surrounding) : rawOlder;
+    olderDocs.reverse(); // back to chronological (oldest to newest)
+
+    const hasNewer = rawNewer.length > surrounding;
+    const newerDocs = hasNewer ? rawNewer.slice(0, surrounding) : rawNewer;
+
+    const allDocs = [...olderDocs, targetDoc, ...newerDocs];
+    const messages = allDocs.map((doc) => this.formatMessageResponse(doc));
+
+    const oldestCursor = allDocs.length > 0 ? allDocs[0].messageId : undefined;
+    const newestCursor = allDocs.length > 0 ? allDocs[allDocs.length - 1].messageId : undefined;
+
+    // 3. Fetch read watermarks
+    let partnerLastReadMessageId: string | null | undefined;
+    let memberLastReadMap: Record<string, string> | undefined;
+
+    if (targetDoc.type === 'direct') {
+      const partnerId =
+        targetDoc.senderId === currentUserId ? targetDoc.recipientId : targetDoc.senderId;
+      if (partnerId) {
+        partnerLastReadMessageId = await this.readTrackingService.getLastRead(
+          partnerId,
+          conversationId,
+        );
+      }
+    } else if (targetDoc.type === 'group') {
+      const groupId = targetDoc.groupId || conversationId.replace('group:', '');
+      const memberIds = await this.socketService.getGroupMemberIds(groupId);
+      if (memberIds && memberIds.length > 0) {
+        memberLastReadMap = {};
+        await Promise.all(
+          memberIds.map(async (mId) => {
+            const lastRead = await this.readTrackingService.getLastRead(mId, conversationId);
+            if (lastRead && memberLastReadMap) {
+              memberLastReadMap[mId] = lastRead;
+            }
+          }),
+        );
+      }
+    }
+
+    return {
+      conversationId,
+      targetMessageId: cleanMessageId,
+      messages,
+      hasOlder,
+      hasNewer,
+      oldestCursor,
+      newestCursor,
+      partnerLastReadMessageId,
+      memberLastReadMap,
     };
   }
 

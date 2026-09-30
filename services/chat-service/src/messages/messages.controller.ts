@@ -11,6 +11,8 @@ import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 import {
   QueryMessagesDto,
   ConversationHistoryResponse,
+  QueryMessageContextDto,
+  MessageContextResponse,
 } from './dto/query-messages.dto';
 
 @Controller('messages')
@@ -37,6 +39,21 @@ export class MessagesController {
       status: 'ok',
       unreadCounts,
     };
+  }
+
+  /**
+   * Fetch a slice of messages surrounding a specific target messageId (for replies, pins, search jumps).
+   * GET /api/chat/messages/context?messageId=xxx&surrounding=25
+   */
+  @Get('context')
+  async getMessageContext(
+    @Headers('x-user-id') currentUserId: string,
+    @Query() query: QueryMessageContextDto,
+  ): Promise<MessageContextResponse> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    return this.messagesService.getMessageContext(currentUserId, query);
   }
 
   /**

@@ -18,6 +18,7 @@ import {
   fetchDirectMessages,
   fetchGroupMessages,
   fetchUnreadCounts,
+  fetchMessageContext,
 } from '../services/chatService';
 import {
   socketService,
@@ -67,12 +68,22 @@ interface ChatState {
   isLoadingOlderMessages: boolean;
   replyingTo: ChatMessage | null;
 
+  // Bidirectional Window State (Modular: replies, pins, search jumps)
+  hasNewerMessages: boolean;
+  newestMessageCursor: string | null;
+  isLoadingNewerMessages: boolean;
+  isLoadingContext: boolean;
+  unseenLiveCountWhileInHistory: number;
+
   // Actions
   setReplyingTo: (message: ChatMessage | null) => void;
   fetchConversations: () => Promise<void>;
   selectConversation: (conversation: ActiveConversation | null) => void;
   fetchMessages: (targetConvo?: ActiveConversation) => Promise<void>;
   loadOlderMessages: () => Promise<void>;
+  loadNewerMessages: () => Promise<void>;
+  jumpToMessage: (messageId: string) => Promise<boolean>;
+  jumpToLatest: () => Promise<void>;
   sendMessage: (
     text: string,
     options?: { isAnnouncement?: boolean; heading?: string },
@@ -108,6 +119,53 @@ function debouncedMarkRead(conversationId: string, lastReadMessageId?: string) {
     socketService.markRead(conversationId, lastReadMessageId);
     markReadDebounceTimer = null;
   }, 250);
+}
+
+function mapHistoryMessageToChatMessage(
+  m: any,
+  currentUserId: string | null,
+  isGroup: boolean,
+  partnerLastRead?: string | null,
+  memberLastReadMap: Record<string, string> = {},
+): ChatMessage {
+  const msgId = m.id || m.messageId;
+  const isMe = m.senderId === currentUserId;
+  const formattedTime = new Date(m.timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  let status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' = 'sent';
+  if (isMe) {
+    if (!isGroup && partnerLastRead && msgId <= partnerLastRead) {
+      status = 'read';
+    } else if (isGroup && Object.keys(memberLastReadMap).length > 0) {
+      const otherMemberReadIds = Object.entries(memberLastReadMap)
+        .filter(([memberId]) => memberId !== currentUserId)
+        .map(([, lastRead]) => lastRead);
+      if (
+        otherMemberReadIds.length > 0 &&
+        otherMemberReadIds.every((lastRead) => lastRead && msgId <= lastRead)
+      ) {
+        status = 'read';
+      }
+    }
+  }
+
+  return {
+    id: msgId,
+    conversationId: m.conversationId,
+    clientMessageId: m.clientMessageId,
+    senderId: m.senderId,
+    receiverId: m.recipientId,
+    groupId: m.groupId,
+    text: m.text || m.content || '',
+    timestamp: formattedTime,
+    status,
+    isAnnouncement: m.isAnnouncement,
+    heading: m.heading,
+    replyTo: m.replyTo,
+  };
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -167,6 +225,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   oldestMessageCursor: null,
   isLoadingOlderMessages: false,
   replyingTo: null,
+
+  hasNewerMessages: false,
+  newestMessageCursor: null,
+  isLoadingNewerMessages: false,
+  isLoadingContext: false,
+  unseenLiveCountWhileInHistory: 0,
 
   setReplyingTo: (message) => set({ replyingTo: message }),
 
@@ -297,6 +361,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         hasMoreMessages: false,
         oldestMessageCursor: null,
         isLoadingOlderMessages: false,
+        hasNewerMessages: false,
+        newestMessageCursor: null,
+        isLoadingNewerMessages: false,
+        isLoadingContext: false,
+        unseenLiveCountWhileInHistory: 0,
         replyingTo: null,
       });
       return;
@@ -336,6 +405,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         hasMoreMessages: false,
         oldestMessageCursor: null,
         isLoadingOlderMessages: false,
+        hasNewerMessages: false,
+        newestMessageCursor: null,
+        isLoadingNewerMessages: false,
+        isLoadingContext: false,
+        unseenLiveCountWhileInHistory: 0,
         replyingTo: null,
       };
     });
@@ -438,58 +512,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const partnerLastRead = response.partnerLastReadMessageId || null;
       const memberLastReadMap = response.memberLastReadMap || {};
 
-      const pastMessages: ChatMessage[] = (response.messages || []).map((m) => {
-        const msgId = m.id || m.messageId;
-        const isMe = m.senderId === currentUserId;
-        const formattedTime = new Date(m.timestamp).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-
-        let status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' = 'sent';
-        if (isMe) {
-          if (!isGroup && partnerLastRead && msgId <= partnerLastRead) {
-            status = 'read';
-          } else if (isGroup && Object.keys(memberLastReadMap).length > 0) {
-            const otherMemberReadIds = Object.entries(memberLastReadMap)
-              .filter(([memberId]) => memberId !== currentUserId)
-              .map(([, lastRead]) => lastRead);
-            if (
-              otherMemberReadIds.length > 0 &&
-              otherMemberReadIds.every((lastRead) => lastRead && msgId <= lastRead)
-            ) {
-              status = 'read';
-            }
-          }
-        }
-
-        return {
-          id: msgId,
-          conversationId: m.conversationId,
-          clientMessageId: m.clientMessageId,
-          senderId: m.senderId,
-          receiverId: m.recipientId,
-          groupId: m.groupId,
-          text: m.text || m.content || '',
-          timestamp: formattedTime,
-          status,
-          isAnnouncement: m.isAnnouncement,
-          heading: m.heading,
-          replyTo: m.replyTo,
-        };
-      });
+      const pastMessages: ChatMessage[] = (response.messages || []).map((m) =>
+        mapHistoryMessageToChatMessage(
+          m,
+          currentUserId,
+          isGroup,
+          partnerLastRead,
+          memberLastReadMap,
+        ),
+      );
 
       set((state) => {
-        const existingThisConvo = state.messages.filter(
-          (m) => !expectedConvoId || m.conversationId === expectedConvoId,
+        const pendingSending = state.messages.filter(
+          (m) =>
+            (!expectedConvoId || m.conversationId === expectedConvoId) &&
+            m.status === 'sending',
         );
         const merged = [...pastMessages];
-        for (const msg of existingThisConvo) {
+        for (const msg of pendingSending) {
           if (
             !merged.some(
               (m) =>
-                m.id === msg.id ||
-                (msg.clientMessageId && m.clientMessageId === msg.clientMessageId),
+                (msg.clientMessageId && m.clientMessageId === msg.clientMessageId) ||
+                m.id === msg.id,
             )
           ) {
             merged.push(msg);
@@ -501,8 +546,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           groupMemberLastReadMap: memberLastReadMap,
           hasMoreMessages: Boolean(response.hasMore),
           oldestMessageCursor: response.oldestCursor || null,
+          hasNewerMessages: false,
+          newestMessageCursor: null,
           isLoadingMessages: false,
           isLoadingOlderMessages: false,
+          isLoadingNewerMessages: false,
+          isLoadingContext: false,
+          unseenLiveCountWhileInHistory: 0,
           messageError: null,
         };
       });
@@ -521,6 +571,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({
         isLoadingMessages: false,
         isLoadingOlderMessages: false,
+        isLoadingNewerMessages: false,
+        isLoadingContext: false,
         messageError: errorMsg,
       });
     }
@@ -576,46 +628,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ...(response.memberLastReadMap || {}),
       };
 
-      const olderMessages: ChatMessage[] = (response.messages || []).map((m) => {
-        const msgId = m.id || m.messageId;
-        const isMe = m.senderId === currentUserId;
-        const formattedTime = new Date(m.timestamp).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-
-        let status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' = 'sent';
-        if (isMe) {
-          if (!isGroup && partnerLastRead && msgId <= partnerLastRead) {
-            status = 'read';
-          } else if (isGroup && Object.keys(memberLastReadMap).length > 0) {
-            const otherMemberReadIds = Object.entries(memberLastReadMap)
-              .filter(([memberId]) => memberId !== currentUserId)
-              .map(([, lastRead]) => lastRead);
-            if (
-              otherMemberReadIds.length > 0 &&
-              otherMemberReadIds.every((lastRead) => lastRead && msgId <= lastRead)
-            ) {
-              status = 'read';
-            }
-          }
-        }
-
-        return {
-          id: msgId,
-          conversationId: m.conversationId,
-          clientMessageId: m.clientMessageId,
-          senderId: m.senderId,
-          receiverId: m.recipientId,
-          groupId: m.groupId,
-          text: m.text || m.content || '',
-          timestamp: formattedTime,
-          status,
-          isAnnouncement: m.isAnnouncement,
-          heading: m.heading,
-          replyTo: m.replyTo,
-        };
-      });
+      const olderMessages: ChatMessage[] = (response.messages || []).map((m) =>
+        mapHistoryMessageToChatMessage(
+          m,
+          currentUserId,
+          isGroup,
+          partnerLastRead,
+          memberLastReadMap,
+        ),
+      );
 
       set((state) => {
         const existingIds = new Set(state.messages.map((m) => m.id));
@@ -641,10 +662,171 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  loadNewerMessages: async () => {
+    const {
+      activeConversation: convo,
+      hasNewerMessages,
+      newestMessageCursor,
+      isLoadingNewerMessages,
+      isLoadingMessages,
+    } = get();
+
+    const token = useAuthStore.getState().accessToken;
+    const currentUserId = useAuthStore.getState().user?.id || null;
+
+    if (
+      !convo ||
+      !token ||
+      !hasNewerMessages ||
+      !newestMessageCursor ||
+      isLoadingNewerMessages ||
+      isLoadingMessages
+    ) {
+      return;
+    }
+
+    set({ isLoadingNewerMessages: true });
+
+    const isGroup = convo.type === 'group';
+    const targetId = convo.id;
+
+    try {
+      const response = isGroup
+        ? await fetchGroupMessages(token, targetId, {
+            limit: 50,
+            after: newestMessageCursor,
+          })
+        : await fetchDirectMessages(token, targetId, {
+            limit: 50,
+            after: newestMessageCursor,
+          });
+
+      if (get().activeConversation?.id !== targetId) {
+        set({ isLoadingNewerMessages: false });
+        return;
+      }
+
+      const partnerLastRead = response.partnerLastReadMessageId || get().partnerLastReadMessageId;
+      const memberLastReadMap = {
+        ...get().groupMemberLastReadMap,
+        ...(response.memberLastReadMap || {}),
+      };
+
+      const newerMessages: ChatMessage[] = (response.messages || []).map((m) =>
+        mapHistoryMessageToChatMessage(
+          m,
+          currentUserId,
+          isGroup,
+          partnerLastRead,
+          memberLastReadMap,
+        ),
+      );
+
+      set((state) => {
+        const existingIds = new Set(state.messages.map((m) => m.id));
+        const filteredNewer = newerMessages.filter(
+          (m) =>
+            !existingIds.has(m.id) &&
+            (!m.clientMessageId ||
+              !state.messages.some((cur) => cur.clientMessageId === m.clientMessageId)),
+        );
+
+        const stillHasNewer = Boolean(response.hasNewer);
+
+        return {
+          messages: [...state.messages, ...filteredNewer],
+          hasNewerMessages: stillHasNewer,
+          newestMessageCursor: response.newestCursor || null,
+          partnerLastReadMessageId: partnerLastRead,
+          groupMemberLastReadMap: memberLastReadMap,
+          isLoadingNewerMessages: false,
+          unseenLiveCountWhileInHistory: stillHasNewer ? state.unseenLiveCountWhileInHistory : 0,
+        };
+      });
+    } catch (err) {
+      console.error('Failed to load newer messages:', err);
+      set({ isLoadingNewerMessages: false });
+    }
+  },
+
+  jumpToMessage: async (messageId: string): Promise<boolean> => {
+    const cleanId = messageId?.trim();
+    if (!cleanId) return false;
+
+    // Fast path: already present in active window
+    if (get().messages.some((m) => m.id === cleanId)) {
+      return true;
+    }
+
+    const convo = get().activeConversation;
+    const token = useAuthStore.getState().accessToken;
+    const currentUserId = useAuthStore.getState().user?.id || null;
+    if (!convo || !token) return false;
+
+    set({ isLoadingContext: true, messageError: null });
+
+    try {
+      const response = await fetchMessageContext(token, cleanId, 25);
+      if (get().activeConversation?.id !== convo.id) {
+        set({ isLoadingContext: false });
+        return false;
+      }
+
+      const partnerLastRead = response.partnerLastReadMessageId || get().partnerLastReadMessageId;
+      const memberLastReadMap = {
+        ...get().groupMemberLastReadMap,
+        ...(response.memberLastReadMap || {}),
+      };
+      const isGroup = convo.type === 'group';
+
+      const mappedMessages = (response.messages || []).map((m) =>
+        mapHistoryMessageToChatMessage(
+          m,
+          currentUserId,
+          isGroup,
+          partnerLastRead,
+          memberLastReadMap,
+        ),
+      );
+
+      set({
+        messages: mappedMessages,
+        hasMoreMessages: Boolean(response.hasOlder),
+        hasNewerMessages: Boolean(response.hasNewer),
+        oldestMessageCursor: response.oldestCursor || null,
+        newestMessageCursor: response.newestCursor || null,
+        partnerLastReadMessageId: partnerLastRead,
+        groupMemberLastReadMap: memberLastReadMap,
+        unseenLiveCountWhileInHistory: 0,
+        isLoadingContext: false,
+      });
+
+      return true;
+    } catch (err: unknown) {
+      console.error('Failed to fetch message context:', err);
+      const errorMsg =
+        err instanceof Error ? err.message : 'Failed to fetch message context';
+      set({ isLoadingContext: false, messageError: errorMsg });
+      return false;
+    }
+  },
+
+  jumpToLatest: async () => {
+    set({
+      hasNewerMessages: false,
+      newestMessageCursor: null,
+      unseenLiveCountWhileInHistory: 0,
+    });
+    await get().fetchMessages();
+  },
+
   sendMessage: async (
     text: string,
     options?: { isAnnouncement?: boolean; heading?: string },
   ) => {
+    if (get().hasNewerMessages) {
+      await get().jumpToLatest();
+    }
     const activeConversation = get().activeConversation;
     const currentUserId = useAuthStore.getState().user?.id;
     if (!text.trim() || !activeConversation || !currentUserId) return;
@@ -882,15 +1064,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
             nextUnreadUsers.add(partnerId);
           }
 
-          if (
-            state.messages.some(
-              (m) =>
-                m.id === incomingMsg.id ||
-                (incomingMsg.clientMessageId &&
-                  m.clientMessageId === incomingMsg.clientMessageId),
-            )
-          ) {
+          const existingIndex = state.messages.findIndex(
+            (m) =>
+              m.id === incomingMsg.id ||
+              (incomingMsg.clientMessageId &&
+                m.clientMessageId === incomingMsg.clientMessageId),
+          );
+
+          if (existingIndex !== -1) {
+            const nextMessages = [...state.messages];
+            nextMessages[existingIndex] = {
+              ...nextMessages[existingIndex],
+              ...incomingMsg,
+            };
             return {
+              messages: nextMessages,
               unreadCountsByConversation: nextCounts,
               unreadUserIds: nextUnreadUsers,
               typingUsersByConversation: {
@@ -899,6 +1087,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
               },
             };
           }
+
+          if (state.hasNewerMessages) {
+            return {
+              unseenLiveCountWhileInHistory: state.unseenLiveCountWhileInHistory + 1,
+              unreadCountsByConversation: nextCounts,
+              unreadUserIds: nextUnreadUsers,
+              typingUsersByConversation: {
+                ...state.typingUsersByConversation,
+                [`user:${partnerId}`]: updatedTyping,
+              },
+            };
+          }
+
           return {
             messages: [...state.messages, incomingMsg],
             unreadCountsByConversation: nextCounts,
@@ -1019,6 +1220,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
               },
             };
           }
+
+          if (state.hasNewerMessages) {
+            return {
+              unseenLiveCountWhileInHistory: state.unseenLiveCountWhileInHistory + 1,
+              unreadCountsByConversation: nextCounts,
+              unreadGroupIds: nextUnreadGroups,
+              typingUsersByConversation: {
+                ...state.typingUsersByConversation,
+                [`group:${groupId}`]: updatedTyping,
+              },
+            };
+          }
+
           return {
             messages: [...state.messages, incomingMsg],
             unreadCountsByConversation: nextCounts,
@@ -1343,6 +1557,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       hasMoreMessages: false,
       oldestMessageCursor: null,
       isLoadingOlderMessages: false,
+      hasNewerMessages: false,
+      newestMessageCursor: null,
+      isLoadingNewerMessages: false,
+      isLoadingContext: false,
+      unseenLiveCountWhileInHistory: 0,
       replyingTo: null,
     });
   },

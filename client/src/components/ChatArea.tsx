@@ -5,6 +5,7 @@ import type { ChatMessage } from '../types';
 import { AnnouncementCard } from './announcements/AnnouncementCard';
 import { AnnouncementComposer } from './announcements/AnnouncementComposer';
 import { MegaphoneIcon } from './announcements/MegaphoneIcon';
+import { scrollToAndHighlightMessage } from '../utils/messageNavigation';
 
 function formatLastSeen(timestamp?: string | null): string {
   if (!timestamp) return '';
@@ -68,6 +69,15 @@ export const ChatArea: React.FC = () => {
   const replyingTo = useChatStore((s) => s.replyingTo);
   const setReplyingTo = useChatStore((s) => s.setReplyingTo);
 
+  // Bidirectional window state and actions
+  const hasNewerMessages = useChatStore((s) => s.hasNewerMessages);
+  const isLoadingNewerMessages = useChatStore((s) => s.isLoadingNewerMessages);
+  const isLoadingContext = useChatStore((s) => s.isLoadingContext);
+  const unseenLiveCountWhileInHistory = useChatStore((s) => s.unseenLiveCountWhileInHistory);
+  const loadNewerMessages = useChatStore((s) => s.loadNewerMessages);
+  const jumpToMessage = useChatStore((s) => s.jumpToMessage);
+  const jumpToLatest = useChatStore((s) => s.jumpToLatest);
+
   // Typing tracking from store
   const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
   const sendTypingStart = useChatStore((s) => s.sendTypingStart);
@@ -85,6 +95,7 @@ export const ChatArea: React.FC = () => {
   const prevScrollHeightRef = useRef<number>(0);
   const prevScrollTopRef = useRef<number>(0);
   const isPrependingOlderRef = useRef<boolean>(false);
+  const isJumpingToLatestRef = useRef<boolean>(false);
 
   // Throttling and inactivity timers
   const isTypingRef = useRef(false);
@@ -155,7 +166,14 @@ export const ChatArea: React.FC = () => {
 
   // Handler to load earlier messages with scroll position retention
   const triggerLoadOlder = useCallback(() => {
-    if (isLoadingOlderMessages || !hasMoreMessages || isLoadingMessages) return;
+    if (
+      isJumpingToLatestRef.current ||
+      isLoadingOlderMessages ||
+      !hasMoreMessages ||
+      isLoadingMessages
+    ) {
+      return;
+    }
     const container = messagesContainerRef.current;
     if (container) {
       prevScrollHeightRef.current = container.scrollHeight;
@@ -166,6 +184,7 @@ export const ChatArea: React.FC = () => {
   }, [hasMoreMessages, isLoadingOlderMessages, isLoadingMessages, loadOlderMessages]);
 
   const handleScroll = useCallback(() => {
+    if (isJumpingToLatestRef.current) return;
     const container = messagesContainerRef.current;
     if (!container) return;
 
@@ -173,7 +192,21 @@ export const ChatArea: React.FC = () => {
     if (container.scrollTop <= 60) {
       triggerLoadOlder();
     }
-  }, [triggerLoadOlder]);
+
+    // Trigger load newer messages when scrolled near bottom while in historical view
+    if (
+      hasNewerMessages &&
+      !isLoadingNewerMessages &&
+      !isLoadingMessages &&
+      !isJumpingToLatestRef.current
+    ) {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom <= 50) {
+        loadNewerMessages();
+      }
+    }
+  }, [triggerLoadOlder, hasNewerMessages, isLoadingNewerMessages, isLoadingMessages, loadNewerMessages]);
 
   // Reset announcement mode when active conversation changes
   useEffect(() => {
@@ -257,18 +290,49 @@ export const ChatArea: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [replyingTo, setReplyingTo]);
 
-  const scrollToMessage = useCallback((targetMessageId: string) => {
-    const element = document.getElementById(`msg-${targetMessageId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.remove('highlight-pulse');
-      void element.offsetWidth;
-      element.classList.add('highlight-pulse');
+  const handleQuoteClick = useCallback(
+    async (targetMessageId: string) => {
+      // 1. Try scrolling if target already rendered in DOM
+      const scrolled = scrollToAndHighlightMessage(targetMessageId);
+      if (scrolled) return;
+
+      // 2. Fetch context slice around message
+      isJumpingToLatestRef.current = true;
+      const success = await jumpToMessage(targetMessageId);
+      if (success) {
+        requestAnimationFrame(() => {
+          scrollToAndHighlightMessage(targetMessageId);
+          setTimeout(() => {
+            isJumpingToLatestRef.current = false;
+          }, 400);
+        });
+      } else {
+        isJumpingToLatestRef.current = false;
+      }
+    },
+    [jumpToMessage],
+  );
+
+  const handleJumpToRecent = useCallback(async () => {
+    isJumpingToLatestRef.current = true;
+    lastLoadedConvoKeyRef.current = null; // Forces layout effect to scroll to bottom instantly when loaded
+    await jumpToLatest();
+
+    const doScrollToBottom = () => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    };
+
+    doScrollToBottom();
+    requestAnimationFrame(() => {
+      doScrollToBottom();
       setTimeout(() => {
-        element.classList.remove('highlight-pulse');
-      }, 1500);
-    }
-  }, []);
+        isJumpingToLatestRef.current = false;
+      }, 400);
+    });
+  }, [jumpToLatest]);
 
   const activeKey = activeConversation
     ? activeConversation.type === 'group'
@@ -347,12 +411,29 @@ export const ChatArea: React.FC = () => {
     lastSeenTailMessageIdRef.current = currentTailId;
 
     if (hasNewTailMessage) {
-      scrollToBottom('smooth');
+      // In historical mode or while actively jumping/loading newer, DO NOT auto-scroll to the bottom!
+      // This allows the user to browse downward without the view abruptly teleporting to the bottom.
+      if (hasNewerMessages || isLoadingNewerMessages || isJumpingToLatestRef.current) {
+        return;
+      }
+
+      // In live mode (!hasNewerMessages): only auto-scroll if user is already near bottom or sent own message
+      const container = messagesContainerRef.current;
+      if (container) {
+        const distanceFromBottom =
+          container.scrollHeight - container.scrollTop - container.clientHeight;
+        const isLatestMine = messages[messages.length - 1]?.senderId === currentUserId;
+        if (isLatestMine || distanceFromBottom < 150) {
+          scrollToBottom('smooth');
+        }
+      } else {
+        scrollToBottom('smooth');
+      }
       return;
     }
 
-    // If typing text appeared, only scroll to bottom if user is already near bottom
-    if (typingText && messagesContainerRef.current) {
+    // If typing text appeared, only scroll to bottom if user is already near bottom and in live mode
+    if (typingText && messagesContainerRef.current && !hasNewerMessages) {
       const container = messagesContainerRef.current;
       const distanceFromBottom =
         container.scrollHeight - container.scrollTop - container.clientHeight;
@@ -360,7 +441,16 @@ export const ChatArea: React.FC = () => {
         scrollToBottom('smooth');
       }
     }
-  }, [messages, typingText, activeKey, isLoadingMessages, scrollToBottom]);
+  }, [
+    messages,
+    typingText,
+    activeKey,
+    isLoadingMessages,
+    hasNewerMessages,
+    isLoadingNewerMessages,
+    currentUserId,
+    scrollToBottom,
+  ]);
 
   // Reset tracked conversation if none is selected
   useEffect(() => {
@@ -543,6 +633,13 @@ export const ChatArea: React.FC = () => {
         ref={messagesContainerRef}
         onScroll={handleScroll}
       >
+        {isLoadingContext && (
+          <div className="context-loading-indicator">
+            <div className="loading-spinner small" />
+            <span>Jumping to message...</span>
+          </div>
+        )}
+
         {isLoadingMessages ? (
           <div className="messages-loading-state">
             <div className="loading-spinner" />
@@ -603,6 +700,8 @@ export const ChatArea: React.FC = () => {
                     senderDisplayName={senderDisplayName}
                     isMe={isMe}
                     onReply={handleInitiateReply}
+                    onQuoteClick={handleQuoteClick}
+                    getDisplayName={getDisplayName}
                   />
                 );
               }
@@ -619,7 +718,7 @@ export const ChatArea: React.FC = () => {
                       {msg.replyTo && (
                         <div
                           className="reply-quote-card"
-                          onClick={() => scrollToMessage(msg.replyTo!.messageId)}
+                          onClick={() => handleQuoteClick(msg.replyTo!.messageId)}
                           role="button"
                           tabIndex={0}
                           title="Click to jump to quoted message"
@@ -683,10 +782,43 @@ export const ChatArea: React.FC = () => {
                 </div>
               );
             })}
+
+            {hasNewerMessages && (
+              <div className="messages-load-newer-wrapper">
+                <button
+                  type="button"
+                  className="load-newer-btn"
+                  onClick={() => loadNewerMessages()}
+                  disabled={isLoadingNewerMessages}
+                >
+                  {isLoadingNewerMessages ? 'Loading newer messages...' : '↓ Load newer messages'}
+                </button>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         )}
       </div>
+
+      {/* Floating Jump to Recent Messages Pill */}
+      {hasNewerMessages && (
+        <div className="jump-to-recent-container">
+          <button
+            type="button"
+            className="jump-to-recent-btn"
+            onClick={handleJumpToRecent}
+            title="Jump to latest messages"
+          >
+            <span>Jump to Recent Messages ↓</span>
+            {unseenLiveCountWhileInHistory > 0 && (
+              <span className="jump-to-recent-badge">
+                {unseenLiveCountWhileInHistory > 99 ? '99+' : unseenLiveCountWhileInHistory}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Typing Indicator Bar */}
       {typingText && (

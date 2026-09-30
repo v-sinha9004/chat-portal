@@ -7,6 +7,8 @@ interface AnnouncementCardProps {
   senderDisplayName?: string;
   isMe: boolean;
   onReply?: (message: ChatMessage) => void;
+  onQuoteClick?: (messageId: string) => void;
+  getDisplayName?: (userId: string) => string;
 }
 
 export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
@@ -14,6 +16,8 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
   senderDisplayName,
   isMe,
   onReply,
+  onQuoteClick,
+  getDisplayName,
 }) => {
   return (
     <div
@@ -34,6 +38,25 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
 
           <h4 className="announcement-headline">{message.heading || 'Announcement'}</h4>
         </div>
+
+        {/* Quoted Reply Card if Announcement is replying to a message */}
+        {message.replyTo && (
+          <div
+            className="reply-quote-card announcement-quote-card"
+            onClick={() => onQuoteClick?.(message.replyTo!.messageId)}
+            role="button"
+            tabIndex={0}
+            title="Click to jump to quoted message"
+          >
+            <div className="reply-quote-bar" />
+            <div className="reply-quote-body">
+              <span className="reply-quote-sender">
+                {getDisplayName ? getDisplayName(message.replyTo.senderId) : message.replyTo.senderId}
+              </span>
+              <p className="reply-quote-snippet">{message.replyTo.text}</p>
+            </div>
+          </div>
+        )}
 
         {/* Announcement Message Body */}
         <div className="announcement-body">
