@@ -11,6 +11,7 @@ import type {
   UserTypingEvent,
   ReplyToInfo,
   PinnedMessage,
+  AttachmentInfo,
 } from '../types';
 import { getDirectConversationId, getGroupConversationId } from '../types';
 import { fetchUsers } from '../services/userService';
@@ -107,6 +108,7 @@ interface ChatState {
       heading?: string;
       isDoubt?: boolean;
       doubtTopic?: string;
+      attachments?: AttachmentInfo[];
     },
   ) => Promise<void>;
   updateDoubtStatus: (
@@ -189,6 +191,7 @@ function mapHistoryMessageToChatMessage(
     receiverId: m.recipientId,
     groupId: m.groupId,
     text: m.text || m.content || '',
+    attachments: m.attachments || [],
     timestamp: formattedTime,
     status,
     isAnnouncement: m.isAnnouncement,
@@ -980,6 +983,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       heading?: string;
       isDoubt?: boolean;
       doubtTopic?: string;
+      attachments?: AttachmentInfo[];
     },
   ) => {
     if (get().hasNewerMessages) {
@@ -987,9 +991,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     const activeConversation = get().activeConversation;
     const currentUserId = useAuthStore.getState().user?.id;
-    if (!text.trim() || !activeConversation || !currentUserId) return;
-
+    const hasAttachments = !!(options?.attachments && options.attachments.length > 0);
     const trimmedText = text.trim();
+    if ((!trimmedText && !hasAttachments) || !activeConversation || !currentUserId) return;
+
     const clientMessageId = `client-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const now = new Date();
     const formattedTime = now.toLocaleTimeString([], {
@@ -1019,6 +1024,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       receiverId: !isGroup ? activeConversation.id : undefined,
       groupId: isGroup ? activeConversation.id : undefined,
       text: trimmedText,
+      attachments: options?.attachments,
       timestamp: formattedTime,
       status: 'sending',
       isAnnouncement: options?.isAnnouncement,
@@ -1059,6 +1065,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             replyTo: replyToPayload,
             isDoubt: options?.isDoubt,
             doubtTopic: options?.doubtTopic,
+            attachments: options?.attachments,
           },
         );
         const newStatus = ack?.delivered ? 'delivered' : 'sent';
@@ -1243,6 +1250,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           senderId: payload.senderId,
           receiverId: payload.recipientId,
           text: payload.data?.message || '',
+          attachments: payload.attachments || [],
           timestamp: formattedTime,
           status: 'sent',
           replyTo: payload.replyTo,
@@ -1385,6 +1393,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           senderId: payload.senderId,
           groupId: payload.groupId,
           text: payload.data?.message || '',
+          attachments: payload.attachments || [],
           timestamp: formattedTime,
           status: 'sent',
           isAnnouncement: payload.isAnnouncement,

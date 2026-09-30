@@ -1,4 +1,4 @@
-import type { ReplyToInfo, PinnedMessage } from '../types';
+import type { ReplyToInfo, PinnedMessage, AttachmentInfo } from '../types';
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/chat';
 
@@ -13,6 +13,7 @@ export interface ChatHistoryMessage {
   groupId?: string;
   text: string;
   content: string;
+  attachments?: AttachmentInfo[];
   status: string;
   timestamp: string;
   isAnnouncement?: boolean;

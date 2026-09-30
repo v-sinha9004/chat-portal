@@ -1,6 +1,7 @@
 import React from 'react';
-import type { ChatMessage } from '../../types';
+import type { ChatMessage, AttachmentInfo } from '../../types';
 import { QuestionMarkIcon } from './QuestionMarkIcon';
+import { AttachmentRenderer } from '../media/AttachmentRenderer';
 
 interface DoubtCardProps {
   message: ChatMessage;
@@ -14,6 +15,7 @@ interface DoubtCardProps {
   getDisplayName?: (userId: string) => string;
   onPin?: (message: ChatMessage) => void;
   isPinned?: boolean;
+  onOpenLightbox?: (attachment: AttachmentInfo) => void;
 }
 
 export const DoubtCard: React.FC<DoubtCardProps> = ({
@@ -28,6 +30,7 @@ export const DoubtCard: React.FC<DoubtCardProps> = ({
   getDisplayName,
   onPin,
   isPinned = false,
+  onOpenLightbox,
 }) => {
   const isResolved = message.doubtStatus === 'RESOLVED';
 
@@ -99,7 +102,14 @@ export const DoubtCard: React.FC<DoubtCardProps> = ({
 
           {/* Doubt Message Body */}
           <div className="doubt-body">
-            <p className="doubt-text">{message.text}</p>
+            {message.attachments && message.attachments.length > 0 && (
+              <AttachmentRenderer
+                attachments={message.attachments}
+                onOpenLightbox={onOpenLightbox}
+                isSentByMe={isMe}
+              />
+            )}
+            {message.text && <p className="doubt-text">{message.text}</p>}
           </div>
 
           {/* Resolution Action Row */}

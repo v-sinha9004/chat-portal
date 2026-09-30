@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, AttachmentInfo } from '../types';
 import { AnnouncementCard } from './announcements/AnnouncementCard';
 import { AnnouncementComposer } from './announcements/AnnouncementComposer';
 import { DoubtCard } from './doubts/DoubtCard';
@@ -9,6 +9,28 @@ import { DoubtComposer } from './doubts/DoubtComposer';
 import { CHAT_ACTION_ITEMS } from '../config/chatActionsConfig';
 import { navigateToMessage } from '../utils/messageNavigation';
 import { PinnedMessageCarousel } from './pins/PinnedMessageCarousel';
+import { validateMediaFile, uploadMediaAttachment } from '../utils/mediaUpload';
+import { AttachmentRenderer } from './media/AttachmentRenderer';
+import { MediaLightbox } from './media/MediaLightbox';
+
+interface PendingAttachmentState {
+  file: File;
+  previewUrl: string;
+  isImage: boolean;
+  fileName: string;
+  fileSize: number;
+  isUploading: boolean;
+  uploadProgress: number;
+  error?: string | null;
+  attachmentInfo?: AttachmentInfo | null;
+  abortController?: AbortController;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function formatLastSeen(timestamp?: string | null): string {
   if (!timestamp) return '';
@@ -98,6 +120,11 @@ export const ChatArea: React.FC = () => {
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachmentState | null>(null);
+  const [lightboxAttachment, setLightboxAttachment] = useState<AttachmentInfo | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dragCounterRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastLoadedConvoKeyRef = useRef<string | null>(null);
@@ -281,10 +308,184 @@ export const ChatArea: React.FC = () => {
     }
   };
 
+  const handleRemovePendingAttachment = useCallback(() => {
+    setPendingAttachment((prev) => {
+      if (prev) {
+        if (prev.abortController) {
+          prev.abortController.abort();
+        }
+        if (prev.previewUrl) {
+          URL.revokeObjectURL(prev.previewUrl);
+        }
+      }
+      return null;
+    });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
+  const processSelectedFile = useCallback(
+    async (file: File) => {
+      if (!activeConversation) return;
+
+      const validation = validateMediaFile(file);
+      if (!validation.valid) {
+        alert(validation.error || 'Invalid file');
+        return;
+      }
+
+      // If there's an existing upload, abort and cleanup
+      handleRemovePendingAttachment();
+
+      const isImage = file.type.startsWith('image/');
+      const previewUrl = URL.createObjectURL(file);
+      const abortController = new AbortController();
+
+      setPendingAttachment({
+        file,
+        previewUrl,
+        isImage,
+        fileName: file.name,
+        fileSize: file.size,
+        isUploading: true,
+        uploadProgress: 0,
+        abortController,
+      });
+
+      try {
+        const token = useAuthStore.getState().accessToken;
+        if (!token) throw new Error('Not authenticated');
+
+        const attachmentInfo = await uploadMediaAttachment(
+          file,
+          activeConversation.id,
+          token,
+          {
+            onProgress: (percent) => {
+              setPendingAttachment((prev) =>
+                prev ? { ...prev, uploadProgress: percent } : null,
+              );
+            },
+            signal: abortController.signal,
+          },
+        );
+
+        setPendingAttachment((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            isUploading: false,
+            uploadProgress: 100,
+            attachmentInfo,
+          };
+        });
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        const message = err instanceof Error ? err.message : 'Upload failed';
+        setPendingAttachment((prev) =>
+          prev
+            ? {
+                ...prev,
+                isUploading: false,
+                error: message,
+              }
+            : null,
+        );
+      }
+    },
+    [activeConversation, handleRemovePendingAttachment],
+  );
+
+  // Clean up pending attachment if conversation switches
+  useEffect(() => {
+    handleRemovePendingAttachment();
+  }, [activeConversation?.id, handleRemovePendingAttachment]);
+
+  // Clean up object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingAttachment?.previewUrl) {
+        URL.revokeObjectURL(pendingAttachment.previewUrl);
+      }
+    };
+  }, [pendingAttachment?.previewUrl]);
+
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      setIsDraggingOver(false);
+      dragCounterRef.current = 0;
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    dragCounterRef.current = 0;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      processSelectedFile(file);
+    }
+  };
+
+  // Clipboard paste handler
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+      const file = e.clipboardData.files[0];
+      if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+        e.preventDefault();
+        processSelectedFile(file);
+      }
+    }
+  };
+
+  const canSubmit =
+    (inputText.trim().length > 0 ||
+      (pendingAttachment?.attachmentInfo != null && !pendingAttachment.isUploading)) &&
+    !pendingAttachment?.isUploading &&
+    !pendingAttachment?.error &&
+    isSocketConnected &&
+    (!isAnnouncementMode || announcementHeading.trim().length > 0);
+
   // Send message handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeConversation || !currentUserId) return;
+    if (!canSubmit || !activeConversation || !currentUserId) return;
+
+    const attachments = pendingAttachment?.attachmentInfo
+      ? [pendingAttachment.attachmentInfo]
+      : undefined;
+
+    // Reset pending attachment state and revoke preview
+    if (pendingAttachment?.previewUrl) {
+      URL.revokeObjectURL(pendingAttachment.previewUrl);
+    }
+    setPendingAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
 
     if (isAnnouncementMode) {
       if (!announcementHeading.trim()) return;
@@ -294,7 +495,7 @@ export const ChatArea: React.FC = () => {
       setInputText('');
       setAnnouncementHeading('');
       setIsAnnouncementMode(false);
-      await sendMessage(text, { isAnnouncement: true, heading });
+      await sendMessage(text, { isAnnouncement: true, heading, attachments });
       return;
     }
 
@@ -305,14 +506,14 @@ export const ChatArea: React.FC = () => {
       setInputText('');
       setDoubtTopic('');
       setIsDoubtMode(false);
-      await sendMessage(text, { isDoubt: true, doubtTopic: topic });
+      await sendMessage(text, { isDoubt: true, doubtTopic: topic, attachments });
       return;
     }
 
     stopTyping();
     const text = inputText;
     setInputText('');
-    await sendMessage(text);
+    await sendMessage(text, { attachments });
   };
 
   const getInitials = (name?: string) => {
@@ -604,7 +805,38 @@ export const ChatArea: React.FC = () => {
   const directUser = !isGroup ? activeConversation.user : null;
 
   return (
-    <main className="chat-main">
+    <main
+      className={`chat-main ${isDraggingOver ? 'dragging-active' : ''}`}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag & Drop Visual Overlay */}
+      {isDraggingOver && (
+        <div className="chat-drop-overlay">
+          <div className="chat-drop-overlay-content">
+            <svg
+              width="44"
+              height="44"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="chat-drop-icon"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <h4 className="chat-drop-title">Drop file to attach</h4>
+            <p className="chat-drop-desc">Supports images (JPG, PNG, WebP, GIF) and PDF up to 5 MB</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="chat-header">
         <div className="chat-header-user">
@@ -813,6 +1045,7 @@ export const ChatArea: React.FC = () => {
                     onQuoteClick={handleQuoteClick}
                     getDisplayName={getDisplayName}
                     isPinned={isMsgPinned}
+                    onOpenLightbox={(att) => setLightboxAttachment(att)}
                     onPin={
                       canManagePins
                         ? () => (isMsgPinned ? handleUnpinMessage(msg) : handlePinMessage(msg))
@@ -843,6 +1076,7 @@ export const ChatArea: React.FC = () => {
                     onQuoteClick={handleQuoteClick}
                     getDisplayName={getDisplayName}
                     isPinned={isMsgPinned}
+                    onOpenLightbox={(att) => setLightboxAttachment(att)}
                     onPin={
                       canManagePins
                         ? () => (isMsgPinned ? handleUnpinMessage(msg) : handlePinMessage(msg))
@@ -884,7 +1118,17 @@ export const ChatArea: React.FC = () => {
                         <span className="message-sender-name">{senderDisplayName}</span>
                       )}
 
-                      <p className="message-text">{msg.text}</p>
+                      {/* Media Attachments (Images, PDFs) */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <AttachmentRenderer
+                          attachments={msg.attachments}
+                          onOpenLightbox={(att) => setLightboxAttachment(att)}
+                          isSentByMe={isMe}
+                        />
+                      )}
+
+                      {/* Message Text (if non-empty) */}
+                      {msg.text ? <p className="message-text">{msg.text}</p> : null}
                       <div className="message-meta">
                         <span className="message-timestamp">{msg.timestamp}</span>
                         {isMe && msg.status && (
@@ -1057,6 +1301,78 @@ export const ChatArea: React.FC = () => {
         />
       )}
 
+      {/* Docked Attachment Staging Bar */}
+      {pendingAttachment && (
+        <div className={`attachment-staging-bar ${pendingAttachment.error ? 'staging-error' : ''}`}>
+          <div className="attachment-staging-chip">
+            {pendingAttachment.isImage ? (
+              <div className="attachment-staging-thumb-wrapper">
+                <img
+                  src={pendingAttachment.previewUrl}
+                  alt={pendingAttachment.fileName}
+                  className="attachment-staging-thumb"
+                />
+                {pendingAttachment.isUploading && (
+                  <div className="attachment-staging-spinner-overlay">
+                    <div className="attachment-staging-spinner" />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="attachment-staging-pdf-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+              </div>
+            )}
+            <div className="attachment-staging-info">
+              <span className="attachment-staging-name" title={pendingAttachment.fileName}>
+                {pendingAttachment.fileName}
+              </span>
+              <div className="attachment-staging-meta">
+                <span className="attachment-staging-size">
+                  {formatFileSize(pendingAttachment.fileSize)}
+                </span>
+                {pendingAttachment.isUploading && (
+                  <span className="attachment-staging-status uploading">
+                    Uploading {pendingAttachment.uploadProgress}%
+                  </span>
+                )}
+                {!pendingAttachment.isUploading && !pendingAttachment.error && (
+                  <span className="attachment-staging-status ready">✓ Ready to send</span>
+                )}
+                {pendingAttachment.error && (
+                  <span className="attachment-staging-status error">
+                    ⚠️ {pendingAttachment.error}
+                  </span>
+                )}
+              </div>
+              {pendingAttachment.isUploading && (
+                <div className="attachment-staging-progress-bar-bg">
+                  <div
+                    className="attachment-staging-progress-bar-fill"
+                    style={{ width: `${pendingAttachment.uploadProgress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="attachment-staging-remove-btn"
+              onClick={handleRemovePendingAttachment}
+              title="Remove attachment"
+              aria-label="Remove attachment"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Input Form */}
       <form
         className={`chat-input-form ${isAnnouncementMode ? 'announcement-form-active' : ''} ${
@@ -1064,6 +1380,20 @@ export const ChatArea: React.FC = () => {
         }`}
         onSubmit={handleSubmit}
       >
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) {
+              processSelectedFile(files[0]);
+            }
+          }}
+        />
+
         {/* Plus Action Button & Dropdown Menu */}
         {availableActions.length > 0 && (
           <div className="chat-action-menu-container" ref={actionMenuRef}>
@@ -1126,6 +1456,29 @@ export const ChatArea: React.FC = () => {
           </div>
         )}
 
+        {/* Paperclip Attachment Button */}
+        <button
+          type="button"
+          className="chat-attach-btn"
+          onClick={() => fileInputRef.current?.click()}
+          title="Attach image or PDF (max 5 MB)"
+          aria-label="Attach file"
+          disabled={!isSocketConnected || pendingAttachment?.isUploading}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+        </button>
+
         <input
           ref={inputRef}
           type="text"
@@ -1147,6 +1500,7 @@ export const ChatArea: React.FC = () => {
           }
           value={inputText}
           onChange={handleInputChange}
+          onPaste={handlePaste}
           disabled={!isSocketConnected}
           autoFocus
         />
@@ -1155,15 +1509,17 @@ export const ChatArea: React.FC = () => {
           className={`chat-send-button ${isAnnouncementMode ? 'announcement-send-btn' : ''} ${
             isDoubtMode ? 'doubt-send-btn' : ''
           }`}
-          disabled={
-            !inputText.trim() ||
-            !isSocketConnected ||
-            (isAnnouncementMode && !announcementHeading.trim())
-          }
+          disabled={!canSubmit}
         >
           {isAnnouncementMode ? 'Announce' : isDoubtMode ? 'Ask Doubt' : 'Send'}
         </button>
       </form>
+
+      {/* Full-Screen Lightbox Modal for Images */}
+      <MediaLightbox
+        attachment={lightboxAttachment}
+        onClose={() => setLightboxAttachment(null)}
+      />
     </main>
   );
 };

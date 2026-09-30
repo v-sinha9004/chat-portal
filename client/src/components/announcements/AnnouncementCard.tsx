@@ -1,6 +1,7 @@
 import React from 'react';
-import type { ChatMessage } from '../../types';
+import type { ChatMessage, AttachmentInfo } from '../../types';
 import { MegaphoneIcon } from './MegaphoneIcon';
+import { AttachmentRenderer } from '../media/AttachmentRenderer';
 
 interface AnnouncementCardProps {
   message: ChatMessage;
@@ -11,6 +12,7 @@ interface AnnouncementCardProps {
   getDisplayName?: (userId: string) => string;
   onPin?: (message: ChatMessage) => void;
   isPinned?: boolean;
+  onOpenLightbox?: (attachment: AttachmentInfo) => void;
 }
 
 export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
@@ -22,6 +24,7 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
   getDisplayName,
   onPin,
   isPinned = false,
+  onOpenLightbox,
 }) => {
   return (
     <div
@@ -64,7 +67,14 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
 
         {/* Announcement Message Body */}
         <div className="announcement-body">
-          <p className="announcement-text">{message.text}</p>
+          {message.attachments && message.attachments.length > 0 && (
+            <AttachmentRenderer
+              attachments={message.attachments}
+              onOpenLightbox={onOpenLightbox}
+              isSentByMe={isMe}
+            />
+          )}
+          {message.text && <p className="announcement-text">{message.text}</p>}
         </div>
 
         {/* Card Footer: Sender Meta & Timestamp */}

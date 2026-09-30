@@ -14,6 +14,7 @@ import type {
   DoubtStatusChangedEvent,
   MessagePinnedSocketEvent,
   MessageUnpinnedSocketEvent,
+  AttachmentInfo,
 } from '../types';
 
 export interface IncomingDirectMessageEvent {
@@ -25,6 +26,7 @@ export interface IncomingDirectMessageEvent {
     message: string;
     [key: string]: unknown;
   };
+  attachments?: AttachmentInfo[];
   timestamp: string;
   clientMessageId?: string;
   replyTo?: ReplyToInfo;
@@ -55,6 +57,7 @@ export interface IncomingGroupMessageEvent {
     message: string;
     [key: string]: unknown;
   };
+  attachments?: AttachmentInfo[];
   timestamp: string;
   clientMessageId?: string;
   isAnnouncement?: boolean;
@@ -311,6 +314,7 @@ class SocketService {
       replyTo?: ReplyToInfo;
       isDoubt?: boolean;
       doubtTopic?: string;
+      attachments?: AttachmentInfo[];
     },
   ): Promise<SendMessageAck> {
     return new Promise((resolve, reject) => {
@@ -327,6 +331,9 @@ class SocketService {
           ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
           ...(options?.isDoubt
             ? { isDoubt: true, doubtTopic: options.doubtTopic }
+            : {}),
+          ...(options?.attachments?.length
+            ? { attachments: options.attachments }
             : {}),
         },
         (ack: SendMessageAck) => {
@@ -355,6 +362,7 @@ class SocketService {
       replyTo?: ReplyToInfo;
       isDoubt?: boolean;
       doubtTopic?: string;
+      attachments?: AttachmentInfo[];
     },
   ): Promise<SendGroupMessageAck> {
     return new Promise((resolve, reject) => {
@@ -374,6 +382,9 @@ class SocketService {
           ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
           ...(options?.isDoubt
             ? { isDoubt: true, doubtTopic: options.doubtTopic }
+            : {}),
+          ...(options?.attachments?.length
+            ? { attachments: options.attachments }
             : {}),
         },
         (ack: SendGroupMessageAck) => {

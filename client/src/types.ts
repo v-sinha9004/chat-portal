@@ -27,6 +27,19 @@ export interface ReplyToInfo {
   text: string;
 }
 
+export interface AttachmentInfo {
+  fileId: string;
+  type: 'image' | 'file';
+  url: string;
+  thumbnailUrl?: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  width?: number;
+  height?: number;
+  blurhash?: string;
+}
+
 export interface ChatMessage {
   id: string;
   conversationId?: string;
@@ -35,6 +48,7 @@ export interface ChatMessage {
   groupId?: string;
   senderName?: string;
   text: string;
+  attachments?: AttachmentInfo[];
   timestamp: string;
   clientMessageId?: string;
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
@@ -199,6 +213,7 @@ export interface ConversationHistoryResponse {
     groupId?: string;
     text?: string;
     content?: string;
+    attachments?: AttachmentInfo[];
     timestamp: string;
     status?: string;
     isAnnouncement?: boolean;
