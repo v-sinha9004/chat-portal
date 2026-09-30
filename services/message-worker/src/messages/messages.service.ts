@@ -19,6 +19,11 @@ export interface SaveMessageDto {
   timestamp: string;
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: {
+    messageId: string;
+    senderId: string;
+    text: string;
+  };
 }
 
 export interface SaveLastReadDto {
@@ -57,6 +62,7 @@ export class MessagesService {
             timestamp: new Date(dto.timestamp),
             isAnnouncement: dto.isAnnouncement || false,
             heading: dto.heading,
+            replyTo: dto.replyTo,
           },
         },
         { upsert: true, new: true },

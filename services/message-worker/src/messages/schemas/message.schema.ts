@@ -38,6 +38,21 @@ export class Message {
   @Prop()
   heading?: string;
 
+  @Prop({
+    type: {
+      messageId: { type: String, required: true },
+      senderId: { type: String, required: true },
+      text: { type: String, required: true },
+    },
+    _id: false,
+    required: false,
+  })
+  replyTo?: {
+    messageId: string;
+    senderId: string;
+    text: string;
+  };
+
   @Prop({ required: true })
   timestamp: Date;
 }
@@ -46,3 +61,4 @@ export const MessageSchema = SchemaFactory.createForClass(Message);
 
 // Optimized compound index for all conversation history and cursor pagination queries
 MessageSchema.index({ conversationId: 1, messageId: -1 });
+MessageSchema.index({ 'replyTo.messageId': 1 }, { sparse: true });
