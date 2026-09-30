@@ -51,11 +51,29 @@ services:
     networks:
       - chat-network
 
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: chat-portal-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    networks:
+      - chat-network
+
 volumes:
   postgres_data:
     name: chat-portal-postgres-data
   mongodb_data:
     name: chat-portal-mongodb-data
+  minio_data:
+    name: chat-portal-minio-data
 
 networks:
   chat-network:
