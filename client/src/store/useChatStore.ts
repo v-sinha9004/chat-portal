@@ -19,6 +19,7 @@ import {
   fetchGroupMessages,
   fetchUnreadCounts,
   fetchMessageContext,
+  updateDoubtStatusRest,
 } from '../services/chatService';
 import {
   socketService,
@@ -86,7 +87,16 @@ interface ChatState {
   jumpToLatest: () => Promise<void>;
   sendMessage: (
     text: string,
-    options?: { isAnnouncement?: boolean; heading?: string },
+    options?: {
+      isAnnouncement?: boolean;
+      heading?: string;
+      isDoubt?: boolean;
+      doubtTopic?: string;
+    },
+  ) => Promise<void>;
+  updateDoubtStatus: (
+    messageId: string,
+    status: 'OPEN' | 'RESOLVED',
   ) => Promise<void>;
   sendTypingStart: () => void;
   sendTypingStop: () => void;
@@ -108,6 +118,7 @@ let unsubscribeReadAck: (() => void) | null = null;
 let unsubscribeMessageDelivered: (() => void) | null = null;
 let unsubscribeMessagesRead: (() => void) | null = null;
 let unsubscribeGroupMessagesRead: (() => void) | null = null;
+let unsubscribeDoubtStatus: (() => void) | null = null;
 const typingSafetyTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 let markReadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -165,6 +176,12 @@ function mapHistoryMessageToChatMessage(
     isAnnouncement: m.isAnnouncement,
     heading: m.heading,
     replyTo: m.replyTo,
+    isDoubt: m.isDoubt,
+    doubtStatus: m.doubtStatus,
+    doubtTopic: m.doubtTopic,
+    resolvedBy: m.resolvedBy,
+    resolvedByName: m.resolvedByName,
+    resolvedAt: m.resolvedAt,
   };
 }
 
@@ -822,7 +839,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: async (
     text: string,
-    options?: { isAnnouncement?: boolean; heading?: string },
+    options?: {
+      isAnnouncement?: boolean;
+      heading?: string;
+      isDoubt?: boolean;
+      doubtTopic?: string;
+    },
   ) => {
     if (get().hasNewerMessages) {
       await get().jumpToLatest();
@@ -866,6 +888,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isAnnouncement: options?.isAnnouncement,
       heading: options?.heading,
       replyTo: replyToPayload,
+      isDoubt: options?.isDoubt,
+      doubtStatus: options?.isDoubt ? 'OPEN' : undefined,
+      doubtTopic: options?.doubtTopic,
     };
 
     set((state) => ({ messages: [...state.messages, optimisticMessage], replyingTo: null }));
@@ -894,7 +919,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           activeConversation.id,
           trimmedText,
           clientMessageId,
-          { replyTo: replyToPayload },
+          {
+            replyTo: replyToPayload,
+            isDoubt: options?.isDoubt,
+            doubtTopic: options?.doubtTopic,
+          },
         );
         const newStatus = ack?.delivered ? 'delivered' : 'sent';
         set((state) => ({
@@ -916,6 +945,50 @@ export const useChatStore = create<ChatState>((set, get) => ({
           msg.clientMessageId === clientMessageId ? { ...msg, status: 'failed' } : msg,
         ),
       }));
+    }
+  },
+
+  updateDoubtStatus: async (messageId: string, status: 'OPEN' | 'RESOLVED') => {
+    const active = get().activeConversation;
+    if (!active) return;
+    const currentUserId = useAuthStore.getState().user?.id;
+    const currentUserName = useAuthStore.getState().user?.name || 'User';
+    const token = useAuthStore.getState().accessToken;
+    const isGroup = active.type === 'group';
+    const convoId = isGroup
+      ? `group:${active.id}`
+      : `direct:${[currentUserId, active.id].sort().join(':')}`;
+
+    // Optimistically update message in active view
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId
+          ? {
+              ...m,
+              doubtStatus: status,
+              resolvedBy: status === 'RESOLVED' ? currentUserId : undefined,
+              resolvedByName: status === 'RESOLVED' ? currentUserName : undefined,
+              resolvedAt: status === 'RESOLVED' ? new Date().toISOString() : undefined,
+            }
+          : m,
+      ),
+    }));
+
+    try {
+      await socketService.updateDoubtStatus({
+        conversationId: convoId,
+        messageId,
+        status,
+      });
+    } catch (socketErr) {
+      console.warn('Socket update_doubt_status failed, trying REST fallback:', socketErr);
+      if (token) {
+        try {
+          await updateDoubtStatusRest(token, messageId, convoId, status);
+        } catch (restErr) {
+          console.error('REST updateDoubtStatus fallback failed:', restErr);
+        }
+      }
     }
   },
 
@@ -1037,6 +1110,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
           timestamp: formattedTime,
           status: 'sent',
           replyTo: payload.replyTo,
+          isDoubt: payload.isDoubt,
+          doubtStatus: payload.doubtStatus,
+          doubtTopic: payload.doubtTopic,
+          resolvedBy: payload.resolvedBy,
+          resolvedByName: payload.resolvedByName,
+          resolvedAt: payload.resolvedAt,
         };
 
         const directTimerKey = `user:${partnerId}:${partnerId}`;
@@ -1175,6 +1254,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
           isAnnouncement: payload.isAnnouncement,
           heading: payload.heading,
           replyTo: payload.replyTo,
+          isDoubt: payload.isDoubt,
+          doubtStatus: payload.doubtStatus,
+          doubtTopic: payload.doubtTopic,
+          resolvedBy: payload.resolvedBy,
+          resolvedByName: payload.resolvedByName,
+          resolvedAt: payload.resolvedAt,
         };
 
         if (isVisibleAndActive) {
@@ -1466,6 +1551,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
       });
     });
+
+    unsubscribeDoubtStatus = socketService.onDoubtStatusChanged((payload) => {
+      set((state) => ({
+        messages: state.messages.map((msg) => {
+          if (msg.id === payload.messageId) {
+            return {
+              ...msg,
+              doubtStatus: payload.status,
+              resolvedBy: payload.resolvedBy,
+              resolvedByName: payload.resolvedByName,
+              resolvedAt: payload.resolvedAt,
+            };
+          }
+          return msg;
+        }),
+      }));
+    });
   },
 
   disconnectSocket: (isLogout = false) => {
@@ -1508,6 +1610,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (unsubscribeGroupMessagesRead) {
       unsubscribeGroupMessagesRead();
       unsubscribeGroupMessagesRead = null;
+    }
+    if (unsubscribeDoubtStatus) {
+      unsubscribeDoubtStatus();
+      unsubscribeDoubtStatus = null;
     }
     for (const timer of typingSafetyTimers.values()) {
       clearTimeout(timer);

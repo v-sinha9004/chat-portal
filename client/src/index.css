@@ -38,6 +38,19 @@
   --announcement-subtext: #9a3412;
   --announcement-badge-bg: #ea580c;
   --announcement-badge-text: #ffffff;
+
+  --doubt-banner-bg: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  --doubt-card-bg: #faf5ff;
+  --doubt-card-border: #8b5cf6;
+  --doubt-card-glow: rgba(139, 92, 246, 0.16);
+  --doubt-text: #2e1065;
+  --doubt-subtext: #6b21a8;
+  --doubt-badge-bg: #7c3aed;
+  --doubt-badge-text: #ffffff;
+  --doubt-resolved-banner-bg: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --doubt-resolved-card-bg: #f0fdf4;
+  --doubt-resolved-card-border: #10b981;
+  --doubt-resolved-card-glow: rgba(16, 185, 129, 0.16);
   
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
@@ -80,6 +93,19 @@
     --announcement-subtext: #fdba74;
     --announcement-badge-bg: #f97316;
     --announcement-badge-text: #0f172a;
+
+    --doubt-banner-bg: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+    --doubt-card-bg: #1e1338;
+    --doubt-card-border: #7c3aed;
+    --doubt-card-glow: rgba(124, 58, 237, 0.28);
+    --doubt-text: #f3e8ff;
+    --doubt-subtext: #d8b4fe;
+    --doubt-badge-bg: #8b5cf6;
+    --doubt-badge-text: #ffffff;
+    --doubt-resolved-banner-bg: linear-gradient(135deg, #059669 0%, #047857 100%);
+    --doubt-resolved-card-bg: #062b1a;
+    --doubt-resolved-card-border: #059669;
+    --doubt-resolved-card-glow: rgba(5, 150, 105, 0.28);
   }
 }
 

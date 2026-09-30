@@ -24,6 +24,26 @@ export interface ChatMessageResponse {
     senderId: string;
     text: string;
   };
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
+}
+
+export interface QueryDoubtsDto {
+  conversationId: string;
+  status?: 'OPEN' | 'RESOLVED' | 'ALL';
+  limit?: string | number;
+}
+
+export interface DoubtsListResponse {
+  conversationId: string;
+  doubts: ChatMessageResponse[];
+  total: number;
+  openCount: number;
+  resolvedCount: number;
 }
 
 export interface ConversationHistoryResponse {

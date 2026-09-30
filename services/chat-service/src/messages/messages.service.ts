@@ -19,6 +19,8 @@ import {
   ChatMessageResponse,
   QueryMessageContextDto,
   MessageContextResponse,
+  QueryDoubtsDto,
+  DoubtsListResponse,
 } from './dto/query-messages.dto';
 import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 
@@ -320,6 +322,129 @@ export class MessagesService {
   }
 
   /**
+   * Updates doubt status (OPEN <-> RESOLVED) with authorization validation.
+   */
+  async updateDoubtStatus(
+    currentUserId: string,
+    userRole: string,
+    userName: string,
+    conversationId: string,
+    messageId: string,
+    status: 'OPEN' | 'RESOLVED',
+  ): Promise<ChatMessageResponse> {
+    if (!messageId || !conversationId || !status) {
+      throw new BadRequestException('messageId, conversationId, and status are required');
+    }
+
+    const message = await this.messageModel.findOne({ messageId, conversationId });
+    if (!message) {
+      throw new NotFoundException(`Message "${messageId}" not found in conversation`);
+    }
+
+    if (!message.isDoubt) {
+      throw new BadRequestException('This message is not marked as a doubt');
+    }
+
+    // Authorization checks
+    const roleNormalized = (userRole || '').toUpperCase();
+    const isMentorOrAdmin = roleNormalized === 'MENTOR' || roleNormalized === 'ADMIN';
+
+    if (message.type === 'direct') {
+      if (message.senderId !== currentUserId && message.recipientId !== currentUserId) {
+        throw new ForbiddenException('Forbidden: You are not a participant in this direct chat');
+      }
+    } else if (message.type === 'group') {
+      const groupId = message.groupId || conversationId.replace('group:', '');
+      const memberIds = await this.socketService.getGroupMemberIds(groupId);
+      if (!memberIds || !memberIds.includes(currentUserId)) {
+        throw new ForbiddenException('Forbidden: You are not a member of this group');
+      }
+
+      // In groups: either a mentor/admin or the original author mentee can resolve/reopen
+      const isOriginalAuthor = message.senderId === currentUserId;
+      if (!isMentorOrAdmin && !isOriginalAuthor) {
+        throw new ForbiddenException(
+          'Forbidden: Only mentors or the doubt author can change doubt resolution status',
+        );
+      }
+    }
+
+    if (status === 'RESOLVED') {
+      message.doubtStatus = 'RESOLVED';
+      message.resolvedBy = currentUserId;
+      message.resolvedByName = userName || 'Mentor';
+      message.resolvedAt = new Date();
+    } else {
+      message.doubtStatus = 'OPEN';
+      message.resolvedBy = undefined;
+      message.resolvedByName = undefined;
+      message.resolvedAt = undefined;
+    }
+
+    await message.save();
+    return this.formatMessageResponse(message);
+  }
+
+  /**
+   * Fetches doubts for a given conversation with counts.
+   */
+  async getDoubts(
+    currentUserId: string,
+    query: QueryDoubtsDto,
+  ): Promise<DoubtsListResponse> {
+    const { conversationId, status } = query || {};
+    if (!conversationId) {
+      throw new BadRequestException('conversationId is required');
+    }
+
+    // Verify user authorization for conversation
+    if (conversationId.startsWith('direct:')) {
+      const parts = conversationId.replace('direct:', '').split(':');
+      if (!parts.includes(currentUserId)) {
+        throw new ForbiddenException('Forbidden: Not a participant in this conversation');
+      }
+    } else if (conversationId.startsWith('group:')) {
+      const groupId = conversationId.replace('group:', '');
+      const memberIds = await this.socketService.getGroupMemberIds(groupId);
+      if (!memberIds || !memberIds.includes(currentUserId)) {
+        throw new ForbiddenException('Forbidden: Not a member of this group');
+      }
+    }
+
+    const filter: Record<string, any> = { conversationId, isDoubt: true };
+    if (status && status !== 'ALL') {
+      filter.doubtStatus = status;
+    }
+
+    const limit = this.sanitizeLimit(query.limit);
+    const docs = await this.messageModel
+      .find(filter)
+      .sort({ messageId: -1 })
+      .limit(limit)
+      .lean()
+      .exec();
+
+    const openCount = await this.messageModel.countDocuments({
+      conversationId,
+      isDoubt: true,
+      doubtStatus: 'OPEN',
+    });
+    const resolvedCount = await this.messageModel.countDocuments({
+      conversationId,
+      isDoubt: true,
+      doubtStatus: 'RESOLVED',
+    });
+
+    return {
+      conversationId,
+      doubts: docs.map((d) => this.formatMessageResponse(d)),
+      total: openCount + resolvedCount,
+      openCount,
+      resolvedCount,
+    };
+  }
+
+  /**
    * Clamps limit between 1 and 100 with default 50.
    */
   private sanitizeLimit(limit?: string | number): number {
@@ -338,6 +463,12 @@ export class MessagesService {
       doc.timestamp instanceof Date
         ? doc.timestamp.toISOString()
         : new Date(doc.timestamp).toISOString();
+
+    const resolvedAtIso = doc.resolvedAt
+      ? doc.resolvedAt instanceof Date
+        ? doc.resolvedAt.toISOString()
+        : new Date(doc.resolvedAt).toISOString()
+      : undefined;
 
     return {
       id: doc.messageId,
@@ -361,6 +492,12 @@ export class MessagesService {
             text: doc.replyTo.text,
           }
         : undefined,
+      isDoubt: !!doc.isDoubt,
+      doubtStatus: doc.doubtStatus,
+      doubtTopic: doc.doubtTopic,
+      resolvedBy: doc.resolvedBy,
+      resolvedByName: doc.resolvedByName,
+      resolvedAt: resolvedAtIso,
     };
   }
 }

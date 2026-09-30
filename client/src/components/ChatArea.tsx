@@ -4,7 +4,9 @@ import { useChatStore } from '../store/useChatStore';
 import type { ChatMessage } from '../types';
 import { AnnouncementCard } from './announcements/AnnouncementCard';
 import { AnnouncementComposer } from './announcements/AnnouncementComposer';
-import { MegaphoneIcon } from './announcements/MegaphoneIcon';
+import { DoubtCard } from './doubts/DoubtCard';
+import { DoubtComposer } from './doubts/DoubtComposer';
+import { CHAT_ACTION_ITEMS } from '../config/chatActionsConfig';
 import { scrollToAndHighlightMessage } from '../utils/messageNavigation';
 
 function formatLastSeen(timestamp?: string | null): string {
@@ -77,6 +79,7 @@ export const ChatArea: React.FC = () => {
   const loadNewerMessages = useChatStore((s) => s.loadNewerMessages);
   const jumpToMessage = useChatStore((s) => s.jumpToMessage);
   const jumpToLatest = useChatStore((s) => s.jumpToLatest);
+  const updateDoubtStatus = useChatStore((s) => s.updateDoubtStatus);
 
   // Typing tracking from store
   const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
@@ -86,6 +89,10 @@ export const ChatArea: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isAnnouncementMode, setIsAnnouncementMode] = useState(false);
   const [announcementHeading, setAnnouncementHeading] = useState('');
+  const [isDoubtMode, setIsDoubtMode] = useState(false);
+  const [doubtTopic, setDoubtTopic] = useState('');
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -208,11 +215,67 @@ export const ChatArea: React.FC = () => {
     }
   }, [triggerLoadOlder, hasNewerMessages, isLoadingNewerMessages, isLoadingMessages, loadNewerMessages]);
 
-  // Reset announcement mode when active conversation changes
+  // Reset modes and action menu when active conversation changes
   useEffect(() => {
     setIsAnnouncementMode(false);
     setAnnouncementHeading('');
+    setIsDoubtMode(false);
+    setDoubtTopic('');
+    setIsActionMenuOpen(false);
   }, [activeConversation?.id]);
+
+  // Close action menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setIsActionMenuOpen(false);
+      }
+    };
+    if (isActionMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isActionMenuOpen]);
+
+  // Available special actions for current conversation & user role
+  const isGroupConvo = activeConversation?.type === 'group';
+  const availableActions = useMemo(() => {
+    return CHAT_ACTION_ITEMS.filter((item) =>
+      item.isAvailable({
+        isGroup: isGroupConvo,
+        isMentor: !!isMentor,
+        isAdmin: currentUserRole?.toUpperCase() === 'ADMIN',
+        role: currentUserRole,
+      }),
+    );
+  }, [isGroupConvo, isMentor, currentUserRole]);
+
+  const handleSelectAction = (actionId: string) => {
+    setIsActionMenuOpen(false);
+    if (actionId === 'announcement') {
+      if (isAnnouncementMode) {
+        setIsAnnouncementMode(false);
+        setAnnouncementHeading('');
+      } else {
+        setIsAnnouncementMode(true);
+        setIsDoubtMode(false);
+        setDoubtTopic('');
+      }
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else if (actionId === 'doubt') {
+      if (isDoubtMode) {
+        setIsDoubtMode(false);
+        setDoubtTopic('');
+      } else {
+        setIsDoubtMode(true);
+        setIsAnnouncementMode(false);
+        setAnnouncementHeading('');
+      }
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  };
 
   // Send message handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -228,6 +291,17 @@ export const ChatArea: React.FC = () => {
       setAnnouncementHeading('');
       setIsAnnouncementMode(false);
       await sendMessage(text, { isAnnouncement: true, heading });
+      return;
+    }
+
+    if (isDoubtMode) {
+      stopTyping();
+      const text = inputText;
+      const topic = doubtTopic.trim() || undefined;
+      setInputText('');
+      setDoubtTopic('');
+      setIsDoubtMode(false);
+      await sendMessage(text, { isDoubt: true, doubtTopic: topic });
       return;
     }
 
@@ -271,6 +345,26 @@ export const ChatArea: React.FC = () => {
   );
 
   const getUserName = getDisplayName;
+
+  const getUserRole = useCallback(
+    (userId: string) => {
+      if (userId === currentUserId) return currentUserRole;
+      if (activeConversation?.type === 'direct') {
+        if (activeConversation.user.id === userId) {
+          return activeConversation.user.role || 'MENTEE';
+        }
+      }
+      if (activeConversation?.type === 'group') {
+        const member = activeConversation.group.members?.find((m) => m.userId === userId);
+        if (member?.user) {
+          return member.user.role || 'MENTEE';
+        }
+      }
+      const found = users.find((u) => u.id === userId);
+      return found?.role || 'MENTEE';
+    },
+    [currentUserId, currentUserRole, activeConversation, users],
+  );
 
   const handleInitiateReply = useCallback(
     (msg: ChatMessage) => {
@@ -706,6 +800,30 @@ export const ChatArea: React.FC = () => {
                 );
               }
 
+              if (msg.isDoubt) {
+                const canResolve = isMentor || isMe;
+                const senderRole = isMe
+                  ? currentUserRole
+                  : isGroup
+                  ? getUserRole(msg.senderId)
+                  : directUser?.role;
+
+                return (
+                  <DoubtCard
+                    key={msg.id}
+                    message={msg}
+                    senderDisplayName={senderDisplayName}
+                    senderRole={senderRole}
+                    isMe={isMe}
+                    canResolve={canResolve}
+                    onUpdateStatus={updateDoubtStatus}
+                    onReply={handleInitiateReply}
+                    onQuoteClick={handleQuoteClick}
+                    getDisplayName={getDisplayName}
+                  />
+                );
+              }
+
               return (
                 <div
                   key={msg.id}
@@ -870,39 +988,100 @@ export const ChatArea: React.FC = () => {
         />
       )}
 
+      {/* Doubt Composer */}
+      {isDoubtMode && (
+        <DoubtComposer
+          topic={doubtTopic}
+          onTopicChange={setDoubtTopic}
+          onCancel={() => {
+            setIsDoubtMode(false);
+            setDoubtTopic('');
+          }}
+          disabled={!isSocketConnected}
+        />
+      )}
+
       {/* Input Form */}
       <form
-        className={`chat-input-form ${isAnnouncementMode ? 'announcement-form-active' : ''}`}
+        className={`chat-input-form ${isAnnouncementMode ? 'announcement-form-active' : ''} ${
+          isDoubtMode ? 'doubt-form-active' : ''
+        }`}
         onSubmit={handleSubmit}
       >
-        {isGroup && isMentor && (
-          <button
-            type="button"
-            className={`announcement-toggle-btn ${isAnnouncementMode ? 'active' : ''}`}
-            onClick={() => {
-              setIsAnnouncementMode((prev) => !prev);
-              if (isAnnouncementMode) {
-                setAnnouncementHeading('');
-              }
-            }}
-            title={isAnnouncementMode ? 'Exit announcement mode' : 'Post as Announcement'}
-            aria-label={isAnnouncementMode ? 'Exit announcement mode' : 'Post as Announcement'}
-          >
-            <MegaphoneIcon
-              size={18}
-              color={isAnnouncementMode ? '#ea580c' : 'currentColor'}
-            />
-            <span className="announcement-toggle-label">Announcement</span>
-          </button>
+        {/* Plus Action Button & Dropdown Menu */}
+        {availableActions.length > 0 && (
+          <div className="chat-action-menu-container" ref={actionMenuRef}>
+            <button
+              type="button"
+              className={`chat-action-plus-btn ${isActionMenuOpen ? 'menu-open' : ''} ${
+                isAnnouncementMode || isDoubtMode ? 'mode-active' : ''
+              }`}
+              onClick={() => setIsActionMenuOpen((prev) => !prev)}
+              title="Add special message..."
+              aria-label="Add special message options"
+              aria-expanded={isActionMenuOpen}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="plus-icon"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+
+            {isActionMenuOpen && (
+              <div className="chat-action-dropdown-menu">
+                <div className="chat-action-menu-header">Special Message</div>
+                {availableActions.map((action) => {
+                  const isCurrentActive =
+                    (action.id === 'announcement' && isAnnouncementMode) ||
+                    (action.id === 'doubt' && isDoubtMode);
+
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      className={`chat-action-menu-item ${isCurrentActive ? 'item-active' : ''}`}
+                      onClick={() => handleSelectAction(action.id)}
+                    >
+                      <span className="action-item-icon" style={{ color: action.accentColor }}>
+                        {action.icon({ size: 18, color: action.accentColor })}
+                      </span>
+                      <div className="action-item-content">
+                        <span className="action-item-label">{action.label}</span>
+                        {action.description && (
+                          <span className="action-item-desc">{action.description}</span>
+                        )}
+                      </div>
+                      {isCurrentActive && <span className="action-item-badge">Active</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
+
         <input
           ref={inputRef}
           type="text"
-          className={`chat-input ${isAnnouncementMode ? 'announcement-body-input' : ''}`}
+          className={`chat-input ${isAnnouncementMode ? 'announcement-body-input' : ''} ${
+            isDoubtMode ? 'doubt-body-input' : ''
+          }`}
           placeholder={
             isSocketConnected
               ? isAnnouncementMode
                 ? 'Type announcement message...'
+                : isDoubtMode
+                ? 'Type your doubt or question...'
                 : isGroup && group
                 ? `Message #${group.name}...`
                 : directUser
@@ -917,14 +1096,16 @@ export const ChatArea: React.FC = () => {
         />
         <button
           type="submit"
-          className={`chat-send-button ${isAnnouncementMode ? 'announcement-send-btn' : ''}`}
+          className={`chat-send-button ${isAnnouncementMode ? 'announcement-send-btn' : ''} ${
+            isDoubtMode ? 'doubt-send-btn' : ''
+          }`}
           disabled={
             !inputText.trim() ||
             !isSocketConnected ||
             (isAnnouncementMode && !announcementHeading.trim())
           }
         >
-          {isAnnouncementMode ? 'Announce' : 'Send'}
+          {isAnnouncementMode ? 'Announce' : isDoubtMode ? 'Ask Doubt' : 'Send'}
         </button>
       </form>
     </main>

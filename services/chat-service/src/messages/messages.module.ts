@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Message, MessageSchema } from './schemas/message.schema';
 import {
@@ -16,7 +16,7 @@ import { ReadTrackingModule } from '../read-tracking/read-tracking.module';
       { name: Message.name, schema: MessageSchema },
       { name: ConversationRead.name, schema: ConversationReadSchema },
     ]),
-    SocketModule,
+    forwardRef(() => SocketModule),
     ReadTrackingModule,
   ],
   controllers: [MessagesController],

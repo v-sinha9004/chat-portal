@@ -18,6 +18,12 @@ export interface ChatHistoryMessage {
   isAnnouncement?: boolean;
   heading?: string;
   replyTo?: ReplyToInfo;
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }
 
 export interface ChatHistoryResponse {
@@ -204,4 +210,76 @@ export async function fetchUnreadCounts(
 
   const data = await response.json();
   return data?.unreadCounts || {};
+}
+
+export interface DoubtsApiResponse {
+  conversationId: string;
+  doubts: ChatHistoryMessage[];
+  total: number;
+  openCount: number;
+  resolvedCount: number;
+}
+
+/**
+ * Fetch doubts for a specific conversation (open/resolved/all).
+ */
+export async function fetchDoubts(
+  token: string,
+  conversationId: string,
+  status?: 'OPEN' | 'RESOLVED' | 'ALL',
+  signal?: AbortSignal,
+): Promise<DoubtsApiResponse> {
+  const queryParams = new URLSearchParams({ conversationId });
+  if (status && status !== 'ALL') {
+    queryParams.set('status', status);
+  }
+  const response = await fetch(`${CHAT_API_URL}/messages/doubts?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to fetch doubts: HTTP ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Update doubt resolution status via REST fallback.
+ */
+export async function updateDoubtStatusRest(
+  token: string,
+  messageId: string,
+  conversationId: string,
+  status: 'OPEN' | 'RESOLVED',
+): Promise<ChatHistoryMessage> {
+  const response = await fetch(
+    `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/doubt-status`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ conversationId, status }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to update doubt status: HTTP ${response.status}`,
+    );
+  }
+
+  return response.json();
 }

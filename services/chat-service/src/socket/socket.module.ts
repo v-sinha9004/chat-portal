@@ -1,12 +1,18 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SocketGateway } from './socket.gateway';
 import { SocketService } from './socket.service';
 import { ChatQueueModule } from '../queue/chat-queue.module';
 import { PresenceModule } from '../presence/presence.module';
 import { ReadTrackingModule } from '../read-tracking/read-tracking.module';
+import { MessagesModule } from '../messages/messages.module';
 
 @Module({
-  imports: [ChatQueueModule, PresenceModule, ReadTrackingModule],
+  imports: [
+    ChatQueueModule,
+    PresenceModule,
+    ReadTrackingModule,
+    forwardRef(() => MessagesModule),
+  ],
   providers: [SocketGateway, SocketService],
   exports: [SocketService],
 })

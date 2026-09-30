@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Post,
@@ -32,23 +33,26 @@ export class MediaController {
   @HttpCode(HttpStatus.OK)
   async createUploadUrl(
     @Body() dto: CreateUploadUrlDto,
+    @Headers('x-user-id') userId?: string,
   ): Promise<UploadUrlResponseDto> {
-    return this.mediaService.createUploadUrl(dto);
+    return this.mediaService.createUploadUrl(dto, userId);
   }
 
   @Delete('file')
   @HttpCode(HttpStatus.OK)
   async deleteFile(
     @Query() query: DeleteFileQueryDto,
+    @Headers('x-user-id') userId?: string,
   ): Promise<DeleteFileResponseDto> {
-    return this.mediaService.deleteFile(query.fileKey);
+    return this.mediaService.deleteFile(query.fileKey, userId);
   }
 
   @Post('delete')
   @HttpCode(HttpStatus.OK)
   async deleteFileByBody(
     @Body() body: DeleteFileDto,
+    @Headers('x-user-id') userId?: string,
   ): Promise<DeleteFileResponseDto> {
-    return this.mediaService.deleteFile(body.fileKey);
+    return this.mediaService.deleteFile(body.fileKey, userId);
   }
 }

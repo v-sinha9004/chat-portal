@@ -41,6 +41,12 @@ export interface ChatMessage {
   isAnnouncement?: boolean;
   heading?: string;
   replyTo?: ReplyToInfo;
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }
 
 export interface GroupMember {
@@ -197,9 +203,39 @@ export interface ConversationHistoryResponse {
     status?: string;
     isAnnouncement?: boolean;
     heading?: string;
+    replyTo?: ReplyToInfo;
+    isDoubt?: boolean;
+    doubtStatus?: 'OPEN' | 'RESOLVED';
+    doubtTopic?: string;
+    resolvedBy?: string;
+    resolvedByName?: string;
+    resolvedAt?: string;
   }>;
   hasMore: boolean;
   oldestCursor?: string;
+}
+
+export interface UpdateDoubtStatusPayload {
+  conversationId: string;
+  messageId: string;
+  status: 'OPEN' | 'RESOLVED';
+}
+
+export interface DoubtStatusChangedEvent {
+  conversationId: string;
+  messageId: string;
+  status: 'OPEN' | 'RESOLVED';
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
+}
+
+export interface DoubtsListResponse {
+  conversationId: string;
+  doubts: ChatMessage[];
+  total: number;
+  openCount: number;
+  resolvedCount: number;
 }
 
 export function getDirectConversationId(userId1: string, userId2: string): string {

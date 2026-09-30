@@ -8,7 +8,7 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, forwardRef } from '@nestjs/common';
 import { monotonicFactory } from 'ulid';
 import { Server } from 'socket.io';
 import { SocketService } from './socket.service';
@@ -35,10 +35,13 @@ import {
   MessageDeliveredEvent,
   MessagesReadEvent,
   GroupMessagesReadEvent,
+  UpdateDoubtStatusPayload,
+  DoubtStatusChangedEvent,
 } from './interfaces/socket-events.interface';
 import { ChatQueueProducer } from '../queue/chat-queue.producer';
 import { PresenceService } from '../presence/presence.service';
 import { ReadTrackingService } from '../read-tracking/read-tracking.service';
+import { MessagesService } from '../messages/messages.service';
 
 @WebSocketGateway({
   cors: {
@@ -60,6 +63,8 @@ export class SocketGateway
     private readonly chatQueueProducer: ChatQueueProducer,
     private readonly presenceService: PresenceService,
     private readonly readTrackingService: ReadTrackingService,
+    @Inject(forwardRef(() => MessagesService))
+    private readonly messagesService: MessagesService,
   ) { }
 
   afterInit(server: Server) {
@@ -182,7 +187,7 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: DirectMessagePayload,
   ) {
-    const { recipientId, message, clientMessageId, isAnnouncement, replyTo } = payload || {};
+    const { recipientId, message, clientMessageId, isAnnouncement, replyTo, isDoubt, doubtTopic } = payload || {};
     if (isAnnouncement) {
       return {
         status: 'error',
@@ -209,6 +214,13 @@ export class SocketGateway
       timestamp: new Date().toISOString(),
       ...(clientMessageId ? { clientMessageId } : {}),
       ...(replyTo ? { replyTo } : {}),
+      ...(isDoubt
+        ? {
+            isDoubt: true,
+            doubtStatus: 'OPEN',
+            doubtTopic: doubtTopic ? doubtTopic.trim() : undefined,
+          }
+        : {}),
     };
 
     // Delegates to SocketService.emitToUser
@@ -292,11 +304,18 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: GroupMessagePayload,
   ) {
-    const { groupId, message, clientMessageId, isAnnouncement, heading, replyTo } = payload || {};
+    const { groupId, message, clientMessageId, isAnnouncement, heading, replyTo, isDoubt, doubtTopic } = payload || {};
     if (!groupId || !message) {
       return {
         status: 'error',
         message: 'Both groupId and message are required',
+      };
+    }
+
+    if (isAnnouncement && isDoubt) {
+      return {
+        status: 'error',
+        message: 'A message cannot be both an announcement and a doubt.',
       };
     }
 
@@ -353,6 +372,13 @@ export class SocketGateway
       ...(clientMessageId ? { clientMessageId } : {}),
       ...(isAnnouncement ? { isAnnouncement: true, heading: heading.trim() } : {}),
       ...(replyTo ? { replyTo } : {}),
+      ...(isDoubt
+        ? {
+            isDoubt: true,
+            doubtStatus: 'OPEN',
+            doubtTopic: doubtTopic ? doubtTopic.trim() : undefined,
+          }
+        : {}),
     };
 
     // 3. Dispatch ONLY to member user rooms
@@ -411,6 +437,78 @@ export class SocketGateway
       message: `Message dispatched to group ${groupId}`,
       data: eventPayload,
     };
+  }
+
+  /**
+   * Real-time doubt resolution state transition (OPEN <-> RESOLVED).
+   * Verifies permissions and fans out doubt_status_changed event.
+   */
+  @SubscribeMessage('update_doubt_status')
+  async handleUpdateDoubtStatus(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: UpdateDoubtStatusPayload,
+  ) {
+    const { conversationId, messageId, status } = payload || {};
+    if (!conversationId || !messageId || !status || (status !== 'OPEN' && status !== 'RESOLVED')) {
+      return {
+        status: 'error',
+        message: 'Invalid payload: conversationId, messageId, and status (OPEN | RESOLVED) are required',
+      };
+    }
+
+    const senderId = client.data.userId;
+    if (!senderId) {
+      return {
+        status: 'error',
+        message: 'Unauthorized socket session',
+      };
+    }
+
+    const userRole = (client.data.user?.role || '').toUpperCase();
+    const userName = client.data.user?.name || client.data.user?.email || 'User';
+
+    try {
+      const updatedMessage = await this.messagesService.updateDoubtStatus(
+        senderId,
+        userRole,
+        userName,
+        conversationId,
+        messageId,
+        status,
+      );
+
+      const eventPayload: DoubtStatusChangedEvent = {
+        conversationId,
+        messageId,
+        status: (updatedMessage.doubtStatus as 'OPEN' | 'RESOLVED') || status,
+        resolvedBy: updatedMessage.resolvedBy,
+        resolvedByName: updatedMessage.resolvedByName,
+        resolvedAt: updatedMessage.resolvedAt,
+      };
+
+      // Broadcast to conversation participants
+      if (conversationId.startsWith('direct:')) {
+        const parts = conversationId.replace('direct:', '').split(':');
+        this.socketService.emitToUsers(parts, 'doubt_status_changed', eventPayload);
+      } else if (conversationId.startsWith('group:')) {
+        const groupId = conversationId.replace('group:', '');
+        const memberIds = await this.socketService.getGroupMemberIds(groupId);
+        if (memberIds && memberIds.length > 0) {
+          this.socketService.emitToUsers(memberIds, 'doubt_status_changed', eventPayload);
+        }
+      }
+
+      return {
+        status: 'ok',
+        message: `Doubt marked as ${status}`,
+        data: eventPayload,
+      };
+    } catch (err: any) {
+      return {
+        status: 'error',
+        message: err.message || 'Failed to update doubt status',
+      };
+    }
   }
 
   /**

@@ -10,6 +10,8 @@ import type {
   MessagesReadEvent,
   GroupMessagesReadEvent,
   ReplyToInfo,
+  UpdateDoubtStatusPayload,
+  DoubtStatusChangedEvent,
 } from '../types';
 
 export interface IncomingDirectMessageEvent {
@@ -24,6 +26,12 @@ export interface IncomingDirectMessageEvent {
   timestamp: string;
   clientMessageId?: string;
   replyTo?: ReplyToInfo;
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }
 
 export interface SendMessageAck {
@@ -50,6 +58,12 @@ export interface IncomingGroupMessageEvent {
   isAnnouncement?: boolean;
   heading?: string;
   replyTo?: ReplyToInfo;
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }
 
 export interface SendGroupMessageAck {
@@ -71,6 +85,7 @@ type ReadAckListener = (event: ConversationReadAckEvent) => void;
 type MessageDeliveredListener = (event: MessageDeliveredEvent) => void;
 type MessagesReadListener = (event: MessagesReadEvent) => void;
 type GroupMessagesReadListener = (event: GroupMessagesReadEvent) => void;
+type DoubtStatusListener = (event: DoubtStatusChangedEvent) => void;
 type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
@@ -86,6 +101,7 @@ class SocketService {
   private messageDeliveredListeners: Set<MessageDeliveredListener> = new Set();
   private messagesReadListeners: Set<MessagesReadListener> = new Set();
   private groupMessagesReadListeners: Set<GroupMessagesReadListener> = new Set();
+  private doubtStatusListeners: Set<DoubtStatusListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
 
 
@@ -222,6 +238,16 @@ class SocketService {
       });
     });
 
+    this.socket.on('doubt_status_changed', (payload: DoubtStatusChangedEvent) => {
+      this.doubtStatusListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in doubt_status_changed listener:', err);
+        }
+      });
+    });
+
     return this.socket;
   }
 
@@ -254,7 +280,11 @@ class SocketService {
     recipientId: string,
     message: string,
     clientMessageId?: string,
-    options?: { replyTo?: ReplyToInfo },
+    options?: {
+      replyTo?: ReplyToInfo;
+      isDoubt?: boolean;
+      doubtTopic?: string;
+    },
   ): Promise<SendMessageAck> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
@@ -268,6 +298,9 @@ class SocketService {
           message,
           clientMessageId,
           ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
+          ...(options?.isDoubt
+            ? { isDoubt: true, doubtTopic: options.doubtTopic }
+            : {}),
         },
         (ack: SendMessageAck) => {
           if (!ack) {
@@ -289,7 +322,13 @@ class SocketService {
     groupId: string,
     message: string,
     clientMessageId?: string,
-    options?: { isAnnouncement?: boolean; heading?: string; replyTo?: ReplyToInfo },
+    options?: {
+      isAnnouncement?: boolean;
+      heading?: string;
+      replyTo?: ReplyToInfo;
+      isDoubt?: boolean;
+      doubtTopic?: string;
+    },
   ): Promise<SendGroupMessageAck> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
@@ -306,6 +345,9 @@ class SocketService {
             ? { isAnnouncement: true, heading: options.heading }
             : {}),
           ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
+          ...(options?.isDoubt
+            ? { isDoubt: true, doubtTopic: options.doubtTopic }
+            : {}),
         },
         (ack: SendGroupMessageAck) => {
           if (!ack) {
@@ -318,6 +360,37 @@ class SocketService {
         },
       );
     });
+  }
+
+  /**
+   * Update doubt resolution state (OPEN <-> RESOLVED) in real-time.
+   */
+  updateDoubtStatus(payload: UpdateDoubtStatusPayload): Promise<{ status: string; data?: DoubtStatusChangedEvent }> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        return reject(new Error('Socket is not connected. Please connect first.'));
+      }
+
+      this.socket.emit('update_doubt_status', payload, (ack: any) => {
+        if (!ack) {
+          return reject(new Error('No acknowledgement received from chat server'));
+        }
+        if (ack.status === 'error') {
+          return reject(new Error(ack.message || 'Failed to update doubt status'));
+        }
+        resolve(ack);
+      });
+    });
+  }
+
+  /**
+   * Register a listener for doubt status changes.
+   */
+  onDoubtStatusChanged(listener: DoubtStatusListener): () => void {
+    this.doubtStatusListeners.add(listener);
+    return () => {
+      this.doubtStatusListeners.delete(listener);
+    };
   }
 
   /**

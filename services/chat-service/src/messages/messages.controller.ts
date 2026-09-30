@@ -1,6 +1,8 @@
 import {
   Controller,
   Get,
+  Patch,
+  Body,
   Param,
   Query,
   Headers,
@@ -11,8 +13,11 @@ import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 import {
   QueryMessagesDto,
   ConversationHistoryResponse,
+  ChatMessageResponse,
   QueryMessageContextDto,
   MessageContextResponse,
+  QueryDoubtsDto,
+  DoubtsListResponse,
 } from './dto/query-messages.dto';
 
 @Controller('messages')
@@ -93,6 +98,46 @@ export class MessagesController {
       groupId,
       currentUserId,
       query,
+    );
+  }
+
+  /**
+   * Fetch doubts for a specific conversation (open/resolved/all).
+   * GET /api/chat/messages/doubts?conversationId=xxx&status=OPEN
+   */
+  @Get('doubts')
+  async getDoubts(
+    @Headers('x-user-id') currentUserId: string,
+    @Query() query: QueryDoubtsDto,
+  ): Promise<DoubtsListResponse> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    return this.messagesService.getDoubts(currentUserId, query);
+  }
+
+  /**
+   * Update doubt status (OPEN or RESOLVED).
+   * PATCH /api/chat/messages/:messageId/doubt-status
+   */
+  @Patch(':messageId/doubt-status')
+  async updateDoubtStatus(
+    @Headers('x-user-id') currentUserId: string,
+    @Headers('x-user-role') currentUserRole: string,
+    @Headers('x-user-name') currentUserName: string,
+    @Param('messageId') messageId: string,
+    @Body() body: { conversationId: string; status: 'OPEN' | 'RESOLVED' },
+  ): Promise<ChatMessageResponse> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    return this.messagesService.updateDoubtStatus(
+      currentUserId,
+      currentUserRole || '',
+      currentUserName || '',
+      body?.conversationId,
+      messageId,
+      body?.status,
     );
   }
 }

@@ -28,6 +28,8 @@ export interface DirectMessagePayload {
   isAnnouncement?: boolean;
   heading?: string;
   replyTo?: ReplyToPayload;
+  isDoubt?: boolean;
+  doubtTopic?: string;
   [key: string]: any;
 }
 
@@ -42,6 +44,12 @@ export interface NewMessageEvent<T = any> {
   isAnnouncement?: boolean;
   heading?: string;
   replyTo?: ReplyToPayload;
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }
 
 export interface GroupMessagePayload {
@@ -51,6 +59,8 @@ export interface GroupMessagePayload {
   isAnnouncement?: boolean;
   heading?: string;
   replyTo?: ReplyToPayload;
+  isDoubt?: boolean;
+  doubtTopic?: string;
   [key: string]: any;
 }
 
@@ -65,6 +75,27 @@ export interface GroupMessageEvent<T = any> {
   isAnnouncement?: boolean;
   heading?: string;
   replyTo?: ReplyToPayload;
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
+}
+
+export interface UpdateDoubtStatusPayload {
+  conversationId: string;
+  messageId: string;
+  status: 'OPEN' | 'RESOLVED';
+}
+
+export interface DoubtStatusChangedEvent {
+  conversationId: string;
+  messageId: string;
+  status: 'OPEN' | 'RESOLVED';
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }
 
 export function getDirectConversationId(userId1: string, userId2: string): string {

@@ -23,6 +23,12 @@ export interface ChatPersistenceJobData {
     senderId: string;
     text: string;
   };
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  resolvedBy?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }
 
 @Injectable()
@@ -45,6 +51,12 @@ export class ChatQueueProducer {
       content: event.data?.message || '',
       timestamp: event.timestamp,
       replyTo: event.replyTo,
+      isDoubt: event.isDoubt,
+      doubtStatus: event.doubtStatus,
+      doubtTopic: event.doubtTopic,
+      resolvedBy: event.resolvedBy,
+      resolvedByName: event.resolvedByName,
+      resolvedAt: event.resolvedAt,
     };
 
     const jobId = event.clientMessageId || event.id;
@@ -75,6 +87,12 @@ export class ChatQueueProducer {
       isAnnouncement: event.isAnnouncement,
       heading: event.heading,
       replyTo: event.replyTo,
+      isDoubt: event.isDoubt,
+      doubtStatus: event.doubtStatus,
+      doubtTopic: event.doubtTopic,
+      resolvedBy: event.resolvedBy,
+      resolvedByName: event.resolvedByName,
+      resolvedAt: event.resolvedAt,
     };
 
     const jobId = event.clientMessageId || event.id;
