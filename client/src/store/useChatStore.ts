@@ -64,7 +64,7 @@ interface ChatState {
 
   // Actions
   fetchConversations: () => Promise<void>;
-  selectConversation: (conversation: ActiveConversation) => void;
+  selectConversation: (conversation: ActiveConversation | null) => void;
   fetchMessages: (targetConvo?: ActiveConversation) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
   sendTypingStart: () => void;
@@ -214,7 +214,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
 
-      if (!nextActive) {
+      const isDesktop = typeof window !== 'undefined' ? window.innerWidth > 768 : true;
+      if (!nextActive && isDesktop) {
         const firstOther = fetchedUsers.find((u) => u.id !== currentUserId);
         if (firstOther) {
           nextActive = { type: 'direct', id: firstOther.id, user: firstOther };
@@ -234,7 +235,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         activeConversation: nextActive,
       });
 
-      if (nextActive) {
+      if (nextActive && isDesktop) {
         get().selectConversation(nextActive);
       }
     } catch (err: unknown) {
@@ -261,6 +262,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
         socketService.sendTypingStop({ groupId: prevConvo.id });
         socketService.unsubscribeGroupPresence(prevConvo.id);
       }
+    }
+
+    if (!conversation) {
+      if (messageAbortController) {
+        messageAbortController.abort();
+        messageAbortController = null;
+      }
+      set({
+        activeConversation: null,
+        activePresence: null,
+        activeGroupPresence: null,
+        isLoadingPresence: false,
+        partnerLastReadMessageId: null,
+        groupMemberLastReadMap: {},
+        messages: [],
+        messageError: null,
+      });
+      return;
     }
 
     const currentUserId = useAuthStore.getState().user?.id;

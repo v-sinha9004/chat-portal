@@ -16,6 +16,7 @@ function App() {
   const fetchConversations = useChatStore((s) => s.fetchConversations);
   const initSocket = useChatStore((s) => s.initSocket);
   const resetChat = useChatStore((s) => s.reset);
+  const activeConversation = useChatStore((s) => s.activeConversation);
 
   // Hydrate session from HttpOnly cookie on initial mount
   useEffect(() => {
@@ -53,7 +54,7 @@ function App() {
   }
 
   return (
-    <div className="chat-app-container">
+    <div className={`chat-app-container ${activeConversation ? 'has-active-chat' : 'no-active-chat'}`}>
       <UserList />
       <ChatArea />
       <CreateGroupModal />

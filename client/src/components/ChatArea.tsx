@@ -41,6 +41,7 @@ export const ChatArea: React.FC = () => {
   const currentUserId = useAuthStore((s) => s.user?.id || null);
 
   const activeConversation = useChatStore((s) => s.activeConversation);
+  const selectConversation = useChatStore((s) => s.selectConversation);
   const activePresence = useChatStore((s) => s.activePresence);
   const activeGroupPresence = useChatStore((s) => s.activeGroupPresence);
   const isLoadingPresence = useChatStore((s) => s.isLoadingPresence);
@@ -230,6 +231,27 @@ export const ChatArea: React.FC = () => {
       {/* Header */}
       <header className="chat-header">
         <div className="chat-header-user">
+          <button
+            type="button"
+            className="mobile-back-btn"
+            onClick={() => selectConversation(null)}
+            aria-label="Back to conversations"
+            title="Back to conversations"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
           {isGroup && group ? (
             <>
               <div className="avatar-wrapper group-avatar">
@@ -303,7 +325,7 @@ export const ChatArea: React.FC = () => {
                 </div>
                 <div className="chat-header-sub">
                   <span>@{directUser.username}</span>
-                  <span className="dot-separator">•</span>
+                  <span className="dot-separator header-email-sep">•</span>
                   <span className="user-email-text">{directUser.email}</span>
                   <span className="dot-separator">•</span>
                   {activeTypingUserIds.length > 0 ? (
