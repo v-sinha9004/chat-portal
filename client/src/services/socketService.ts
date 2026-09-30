@@ -222,9 +222,17 @@ class SocketService {
 
   /**
    * Disconnects the socket and clears the active user.
+   * When isLogout is true, emits user_logout to immediately transition offline.
    */
-  disconnect(): void {
+  disconnect(isLogout = false): void {
     if (this.socket) {
+      if (isLogout && this.socket.connected) {
+        try {
+          this.socket.emit('user_logout');
+        } catch {
+          // ignore error during disconnect
+        }
+      }
       this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;

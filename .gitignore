@@ -32,3 +32,4 @@ Thumbs.db
 services/chat-service/test-client.html
 services/chat-service/test-socket.js
 scripts/test-e2e-persistence.js
+scripts/test-presence.js

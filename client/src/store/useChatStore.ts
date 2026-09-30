@@ -71,7 +71,7 @@ interface ChatState {
   sendTypingStop: () => void;
   addGroup: (newGroup: Group) => void;
   initSocket: () => void;
-  disconnectSocket: () => void;
+  disconnectSocket: (isLogout?: boolean) => void;
   reset: () => void;
 }
 
@@ -1034,7 +1034,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  disconnectSocket: () => {
+  disconnectSocket: (isLogout = false) => {
     if (unsubscribeConn) {
       unsubscribeConn();
       unsubscribeConn = null;
@@ -1089,12 +1089,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
 
-    socketService.disconnect();
+    socketService.disconnect(isLogout);
     set({ isSocketConnected: false, typingUsersByConversation: {} });
   },
 
   reset: () => {
-    get().disconnectSocket();
+    get().disconnectSocket(true);
     if (convoAbortController) {
       convoAbortController.abort();
       convoAbortController = null;

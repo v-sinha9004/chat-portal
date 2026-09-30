@@ -64,7 +64,10 @@ export class SocketGateway
 
   afterInit(server: Server) {
     this.socketService.setServer(server);
-    this.logger.log('WebSocket Gateway initialized and server attached to SocketService');
+    this.presenceService.setServer(server);
+    this.logger.log(
+      'WebSocket Gateway initialized and server attached to SocketService and PresenceService',
+    );
   }
 
   /**
@@ -460,6 +463,52 @@ export class SocketGateway
     const { groupId } = payload || {};
     if (groupId) {
       client.leave(getGroupPresenceRoom(groupId));
+    }
+    return { status: 'ok' };
+  }
+
+  /**
+   * Explicit user logout handler. Immediately transitions user to offline
+   * without waiting for the 10-second reconnection grace period.
+   */
+  @SubscribeMessage('user_logout')
+  async handleUserLogout(@ConnectedSocket() client: AuthenticatedSocket) {
+    const userId = client.data.userId;
+    if (userId) {
+      this.logger.log(`Explicit logout received for user "${userId}" (Socket: ${client.id})`);
+      await this.presenceService.removeSocket(
+        userId,
+        client.id,
+        (lastSeen) => {
+          const presenceEvent: UserPresenceChangedEvent = {
+            userId,
+            isOnline: false,
+            lastSeen,
+          };
+          this.server.to(getUserPresenceRoom(userId)).emit('user_presence_changed', presenceEvent);
+
+          this.socketService
+            .getUserGroupIds(userId)
+            .then((groupIds) => {
+              for (const groupId of groupIds) {
+                const groupEvent: GroupPresenceChangedEvent = {
+                  groupId,
+                  userId,
+                  isOnline: false,
+                };
+                this.server
+                  .to(getGroupPresenceRoom(groupId))
+                  .emit('group_presence_changed', groupEvent);
+              }
+            })
+            .catch((err) => {
+              this.logger.warn(
+                `Could not emit group offline presence on logout for user ${userId}: ${err.message}`,
+              );
+            });
+        },
+        true,
+      );
     }
     return { status: 'ok' };
   }
