@@ -10,6 +10,7 @@ export interface GatewayConfig {
   authServiceUrl: string;
   chatServiceUrl: string;
   userServiceUrl: string;
+  mediaServiceUrl: string;
   corsOrigin: string;
   rateLimitWindowMs: number;
   rateLimitMax: number;
@@ -23,6 +24,7 @@ export const getGatewayConfig = (): GatewayConfig => {
     authServiceUrl: (process.env.AUTH_SERVICE_URL || 'http://localhost:3003').replace(/\/+$/, ''),
     chatServiceUrl: (process.env.CHAT_SERVICE_URL || 'http://localhost:3001').replace(/\/+$/, ''),
     userServiceUrl: (process.env.USER_SERVICE_URL || 'http://localhost:3002').replace(/\/+$/, ''),
+    mediaServiceUrl: (process.env.MEDIA_SERVICE_URL || 'http://localhost:3005').replace(/\/+$/, ''),
     corsOrigin: process.env.CORS_ORIGIN || '*',
     rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
     rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),

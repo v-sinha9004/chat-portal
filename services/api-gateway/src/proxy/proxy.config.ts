@@ -55,5 +55,15 @@ export const getServicesConfig = (): ServiceProxyOptions[] => {
       },
       healthPath: '/api/users/health',
     },
+    // Media Microservice: HTTP Endpoints
+    {
+      name: 'media-service',
+      target: config.mediaServiceUrl,
+      pathPrefixes: ['/api/media', '/media'],
+      pathRewrite: {
+        '^/media': '/api/media',
+      },
+      healthPath: '/api/media/health',
+    },
   ];
 };

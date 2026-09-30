@@ -33,6 +33,8 @@ export const PUBLIC_ROUTES: PublicRouteRule[] = [
   { path: '/users/health', method: 'GET' },
   { path: '/api/chat/health', method: 'GET' },
   { path: '/chat/health', method: 'GET' },
+  { path: '/api/media/health', method: 'GET' },
+  { path: '/media/health', method: 'GET' },
 
   // WebSocket endpoints (Handshake token verified directly in chat-service)
   { path: '/socket.io', prefix: true },
