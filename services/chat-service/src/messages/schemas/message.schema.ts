@@ -32,6 +32,12 @@ export class Message {
   @Prop({ default: 'sent', enum: ['sent', 'delivered', 'read'] })
   status: string;
 
+  @Prop({ default: false, index: true })
+  isAnnouncement?: boolean;
+
+  @Prop()
+  heading?: string;
+
   @Prop({ required: true })
   timestamp: Date;
 }

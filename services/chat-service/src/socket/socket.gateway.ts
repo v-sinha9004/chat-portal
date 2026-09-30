@@ -182,7 +182,13 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: DirectMessagePayload,
   ) {
-    const { recipientId, message, clientMessageId } = payload || {};
+    const { recipientId, message, clientMessageId, isAnnouncement } = payload || {};
+    if (isAnnouncement) {
+      return {
+        status: 'error',
+        message: 'Announcements can only be posted in group chats.',
+      };
+    }
     if (!recipientId || !message) {
       return {
         status: 'error',
@@ -285,12 +291,28 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: GroupMessagePayload,
   ) {
-    const { groupId, message, clientMessageId } = payload || {};
+    const { groupId, message, clientMessageId, isAnnouncement, heading } = payload || {};
     if (!groupId || !message) {
       return {
         status: 'error',
         message: 'Both groupId and message are required',
       };
+    }
+
+    if (isAnnouncement) {
+      const userRole = (client.data.user?.role || '').toUpperCase();
+      if (userRole !== 'MENTOR' && userRole !== 'ADMIN') {
+        return {
+          status: 'error',
+          message: 'Forbidden: Only mentors can post announcements.',
+        };
+      }
+      if (!heading || !heading.trim()) {
+        return {
+          status: 'error',
+          message: 'Announcement heading is required.',
+        };
+      }
     }
 
     const senderId = client.data.userId;
@@ -328,6 +350,7 @@ export class SocketGateway
       data: { message },
       timestamp: new Date().toISOString(),
       ...(clientMessageId ? { clientMessageId } : {}),
+      ...(isAnnouncement ? { isAnnouncement: true, heading: heading.trim() } : {}),
     };
 
     // 3. Dispatch ONLY to member user rooms

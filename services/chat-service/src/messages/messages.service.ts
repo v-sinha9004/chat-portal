@@ -213,6 +213,8 @@ export class MessagesService {
       content: doc.content,
       status: doc.status || 'sent',
       timestamp: timestampIso,
+      isAnnouncement: !!doc.isAnnouncement,
+      heading: doc.heading,
     };
   }
 }

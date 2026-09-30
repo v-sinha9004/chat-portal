@@ -16,6 +16,8 @@ export interface ChatPersistenceJobData {
   groupId?: string;
   content: string;
   timestamp: string;
+  isAnnouncement?: boolean;
+  heading?: string;
 }
 
 @Injectable()
@@ -64,6 +66,8 @@ export class ChatQueueProducer {
       groupId: event.groupId,
       content: event.data?.message || '',
       timestamp: event.timestamp,
+      isAnnouncement: event.isAnnouncement,
+      heading: event.heading,
     };
 
     const jobId = event.clientMessageId || event.id;

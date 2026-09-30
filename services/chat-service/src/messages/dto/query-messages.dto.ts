@@ -16,6 +16,8 @@ export interface ChatMessageResponse {
   content: string;
   status: string;
   timestamp: string;
+  isAnnouncement?: boolean;
+  heading?: string;
 }
 
 export interface ConversationHistoryResponse {
