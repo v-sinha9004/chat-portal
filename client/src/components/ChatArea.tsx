@@ -1,14 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { User, ChatMessage, ActiveConversation } from '../types';
+import { fetchDirectMessages, fetchGroupMessages } from '../services/chatService';
+import {
+  socketService,
+  type IncomingDirectMessageEvent,
+  type IncomingGroupMessageEvent,
+} from '../services/socketService';
 
 interface ChatAreaProps {
   activeConversation: ActiveConversation | null;
   users: User[];
   currentUserId: string | null;
-  messages: ChatMessage[];
-  onSendMessage: (text: string) => void;
-  isLoading?: boolean;
-  error?: string | null;
+  accessToken: string | null;
+  isLoadingInitial?: boolean;
+  errorInitial?: string | null;
   isSocketConnected?: boolean;
 }
 
@@ -16,28 +21,291 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   activeConversation,
   users,
   currentUserId,
-  messages,
-  onSendMessage,
-  isLoading = false,
-  error = null,
+  accessToken,
+  isLoadingInitial = false,
+  errorInitial = null,
   isSocketConnected = true,
 }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState<boolean>(false);
+  const [messageFetchError, setMessageFetchError] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
+  // Scroll down whenever messages change or conversation switches
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom('smooth');
   }, [messages, activeConversation]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // 1. Fetch historical past messages whenever activeConversation changes or user retries
+  useEffect(() => {
+    // Immediately clear messages from any previous conversation
+    setMessages([]);
+    setMessageFetchError(null);
+
+    if (!activeConversation || !accessToken) {
+      setIsLoadingMessages(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const isGroup = activeConversation.type === 'group';
+    const targetId = activeConversation.id;
+    const expectedConvoId = isGroup
+      ? `group:${targetId}`
+      : currentUserId
+      ? `direct:${[currentUserId, targetId].sort().join(':')}`
+      : null;
+
+    setIsLoadingMessages(true);
+
+    async function loadHistory() {
+      try {
+        const response = isGroup
+          ? await fetchGroupMessages(accessToken!, targetId, controller.signal)
+          : await fetchDirectMessages(accessToken!, targetId, controller.signal);
+
+        const pastMessages: ChatMessage[] = (response.messages || []).map((m) => {
+          const formattedTime = new Date(m.timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+
+          return {
+            id: m.id || m.messageId,
+            conversationId: m.conversationId,
+            clientMessageId: m.clientMessageId,
+            senderId: m.senderId,
+            receiverId: m.recipientId,
+            groupId: m.groupId,
+            text: m.text || m.content || '',
+            timestamp: formattedTime,
+            status: 'sent',
+          };
+        });
+
+        // Only merge real-time messages that strictly belong to THIS conversation
+        setMessages((prev) => {
+          const existingThisConvo = prev.filter(
+            (m) => !expectedConvoId || m.conversationId === expectedConvoId,
+          );
+          const merged = [...pastMessages];
+          for (const msg of existingThisConvo) {
+            if (
+              !merged.some(
+                (m) =>
+                  m.id === msg.id ||
+                  (msg.clientMessageId && m.clientMessageId === msg.clientMessageId),
+              )
+            ) {
+              merged.push(msg);
+            }
+          }
+          return merged;
+        });
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        const errorMsg =
+          err instanceof Error ? err.message : 'Failed to fetch conversation history';
+        console.error('Failed to load past messages:', err);
+        setMessageFetchError(errorMsg);
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    }
+
+    loadHistory();
+
+    return () => {
+      controller.abort();
+    };
+  }, [activeConversation?.id, activeConversation?.type, accessToken, currentUserId, reloadKey]);
+
+  // 2. Listen to real-time socket events for the active conversation
+  useEffect(() => {
+    if (!activeConversation) return;
+
+    const isGroup = activeConversation.type === 'group';
+    const activeTargetId = activeConversation.id;
+    const expectedConvoId = isGroup
+      ? `group:${activeTargetId}`
+      : currentUserId
+      ? `direct:${[currentUserId, activeTargetId].sort().join(':')}`
+      : null;
+
+    // Incoming Direct Messages
+    const handleIncomingDirect = (payload: IncomingDirectMessageEvent) => {
+      if (isGroup) return;
+
+      // Verify canonical conversationId matches current conversation
+      if (payload.conversationId && expectedConvoId) {
+        if (payload.conversationId !== expectedConvoId) return;
+      } else {
+        const isForThisChat =
+          (payload.senderId === currentUserId && payload.recipientId === activeTargetId) ||
+          (payload.senderId === activeTargetId && payload.recipientId === currentUserId);
+        if (!isForThisChat) return;
+      }
+
+      const formattedTime = new Date(payload.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const incomingMsg: ChatMessage = {
+        id: payload.id,
+        conversationId: payload.conversationId || expectedConvoId || undefined,
+        clientMessageId: payload.clientMessageId,
+        senderId: payload.senderId,
+        receiverId: payload.recipientId,
+        text: payload.data?.message || '',
+        timestamp: formattedTime,
+        status: 'sent',
+      };
+
+      setMessages((prev) => {
+        if (
+          prev.some(
+            (m) =>
+              m.id === incomingMsg.id ||
+              (incomingMsg.clientMessageId && m.clientMessageId === incomingMsg.clientMessageId),
+          )
+        ) {
+          return prev;
+        }
+        return [...prev, incomingMsg];
+      });
+    };
+
+    // Incoming Group Messages
+    const handleIncomingGroup = (payload: IncomingGroupMessageEvent) => {
+      if (!isGroup || payload.groupId !== activeTargetId) return;
+
+      const formattedTime = new Date(payload.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const incomingMsg: ChatMessage = {
+        id: payload.id,
+        conversationId: payload.conversationId || expectedConvoId || undefined,
+        clientMessageId: payload.clientMessageId,
+        senderId: payload.senderId,
+        groupId: payload.groupId,
+        text: payload.data?.message || '',
+        timestamp: formattedTime,
+        status: 'sent',
+      };
+
+      setMessages((prev) => {
+        if (
+          prev.some(
+            (m) =>
+              m.id === incomingMsg.id ||
+              (incomingMsg.clientMessageId && m.clientMessageId === incomingMsg.clientMessageId),
+          )
+        ) {
+          return prev;
+        }
+        return [...prev, incomingMsg];
+      });
+    };
+
+    const unsubscribeDirect = socketService.onDirectMessage(handleIncomingDirect);
+    const unsubscribeGroup = socketService.onGroupMessage(handleIncomingGroup);
+
+    return () => {
+      unsubscribeDirect();
+      unsubscribeGroup();
+    };
+  }, [activeConversation?.id, activeConversation?.type, currentUserId]);
+
+  // 3. Send message handler
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeConversation) return;
-    onSendMessage(inputText.trim());
+    if (!inputText.trim() || !activeConversation || !currentUserId) return;
+
+    const text = inputText.trim();
     setInputText('');
+
+    const clientMessageId = `client-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const now = new Date();
+    const formattedTime = now.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const isGroup = activeConversation.type === 'group';
+    const expectedConvoId = isGroup
+      ? `group:${activeConversation.id}`
+      : `direct:${[currentUserId, activeConversation.id].sort().join(':')}`;
+
+    const optimisticMessage: ChatMessage = {
+      id: clientMessageId,
+      conversationId: expectedConvoId,
+      clientMessageId,
+      senderId: currentUserId,
+      receiverId: !isGroup ? activeConversation.id : undefined,
+      groupId: isGroup ? activeConversation.id : undefined,
+      text,
+      timestamp: formattedTime,
+      status: 'sending',
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+
+    try {
+      if (isGroup) {
+        const ack = await socketService.sendGroupMessage(
+          activeConversation.id,
+          text,
+          clientMessageId,
+        );
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.clientMessageId === clientMessageId
+              ? {
+                  ...msg,
+                  id: ack.messageId || msg.id,
+                  status: 'sent',
+                }
+              : msg,
+          ),
+        );
+      } else {
+        const ack = await socketService.sendMessage(
+          activeConversation.id,
+          text,
+          clientMessageId,
+        );
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.clientMessageId === clientMessageId
+              ? {
+                  ...msg,
+                  id: ack.messageId || msg.id,
+                  status: 'sent',
+                }
+              : msg,
+          ),
+        );
+      }
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.clientMessageId === clientMessageId ? { ...msg, status: 'failed' } : msg,
+        ),
+      );
+    }
   };
 
   const getInitials = (name?: string) => {
@@ -50,13 +318,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       .slice(0, 2);
   };
 
-  const getUserName = (userId: string) => {
-    const found = users.find((u) => u.id === userId);
-    return found?.name || `@${found?.username}` || 'User';
-  };
+  const getUserName = useCallback(
+    (userId: string) => {
+      const found = users.find((u) => u.id === userId);
+      return found?.name || (found?.username ? `@${found.username}` : 'User');
+    },
+    [users],
+  );
 
+  // Initial Empty / Loading States
   if (!activeConversation) {
-    if (isLoading) {
+    if (isLoadingInitial) {
       return (
         <main className="chat-main empty-state">
           <div className="empty-message-box">
@@ -68,13 +340,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       );
     }
 
-    if (error) {
+    if (errorInitial) {
       return (
         <main className="chat-main empty-state">
           <div className="empty-message-box">
             <div className="empty-icon">⚠️</div>
             <h3>Unable to Load Chats</h3>
-            <p>{error}</p>
+            <p>{errorInitial}</p>
           </div>
         </main>
       );
@@ -97,6 +369,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   return (
     <main className="chat-main">
+      {/* Header */}
       <header className="chat-header">
         <div className="chat-header-user">
           {isGroup && group ? (
@@ -135,7 +408,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 {directUser.avatarUrl ? (
                   <img src={directUser.avatarUrl} alt={directUser.name} className="avatar-img" />
                 ) : (
-                  <div className={`avatar-placeholder avatar-${(directUser.role || 'mentee').toLowerCase()}`}>
+                  <div
+                    className={`avatar-placeholder avatar-${(directUser.role || 'mentee').toLowerCase()}`}
+                  >
                     {getInitials(directUser.name)}
                   </div>
                 )}
@@ -145,7 +420,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <div className="chat-header-details">
                 <div className="chat-header-name-row">
                   <h3>{directUser.name}</h3>
-                  <span className={`role-badge badge-${(directUser.role || 'mentee').toLowerCase()}`}>
+                  <span
+                    className={`role-badge badge-${(directUser.role || 'mentee').toLowerCase()}`}
+                  >
                     {directUser.role}
                   </span>
                 </div>
@@ -165,8 +442,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         </div>
       </header>
 
+      {/* Messages Container */}
       <div className="chat-messages-container">
-        {messages.length === 0 ? (
+        {isLoadingMessages ? (
+          <div className="messages-loading-state">
+            <div className="loading-spinner" />
+            <p>Loading past messages...</p>
+          </div>
+        ) : messageFetchError ? (
+          <div className="messages-error-state">
+            <div className="empty-icon">⚠️</div>
+            <p>{messageFetchError}</p>
+            <button
+              type="button"
+              className="retry-btn"
+              onClick={() => setReloadKey((k) => k + 1)}
+            >
+              Retry
+            </button>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="no-messages">
             <p>
               No messages yet in {isGroup && group ? `#${group.name}` : directUser?.name}.
@@ -209,6 +504,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         )}
       </div>
 
+      {/* Input Form */}
       <form className="chat-input-form" onSubmit={handleSubmit}>
         <input
           type="text"
