@@ -203,8 +203,31 @@ export class SocketGateway
     // Increment recipient's unread count in Redis RAM (~0.1ms)
     await this.readTrackingService.incrementUnreadCount(recipientId, conversationId);
 
+    // Sender has by definition read up to their own newly sent message
+    await this.readTrackingService.resetUnreadAndSetLastRead(
+      senderId,
+      conversationId,
+      messageId,
+    );
+
+    // Multi-tab synchronization: broadcast ack to sender's room
+    const ackPayload: ConversationReadAckEvent = {
+      conversationId,
+      lastReadMessageId: messageId,
+    };
+    this.server
+      .to(this.socketService.getUserRoom(senderId))
+      .emit('conversation_read_ack', ackPayload);
+
     // Enqueue message into BullMQ for asynchronous persistence
     await this.chatQueueProducer.enqueueDirectMessage(eventPayload);
+
+    // Enqueue sender's lastRead persistence into BullMQ
+    await this.chatQueueProducer.enqueuePersistLastRead({
+      userId: senderId,
+      conversationId,
+      lastReadMessageId: messageId,
+    });
 
     return {
       status: 'ok',
@@ -282,8 +305,31 @@ export class SocketGateway
       await this.readTrackingService.incrementUnreadCountBatch(recipientIds, conversationId);
     }
 
+    // Sender has by definition read up to their own newly sent message
+    await this.readTrackingService.resetUnreadAndSetLastRead(
+      senderId,
+      conversationId,
+      messageId,
+    );
+
+    // Multi-tab synchronization: broadcast ack to sender's room
+    const ackPayload: ConversationReadAckEvent = {
+      conversationId,
+      lastReadMessageId: messageId,
+    };
+    this.server
+      .to(this.socketService.getUserRoom(senderId))
+      .emit('conversation_read_ack', ackPayload);
+
     // 4. Enqueue group message into BullMQ for asynchronous persistence
     await this.chatQueueProducer.enqueueGroupMessage(eventPayload);
+
+    // Enqueue sender's lastRead persistence into BullMQ
+    await this.chatQueueProducer.enqueuePersistLastRead({
+      userId: senderId,
+      conversationId,
+      lastReadMessageId: messageId,
+    });
 
     return {
       status: 'ok',

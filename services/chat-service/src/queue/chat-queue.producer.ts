@@ -23,7 +23,8 @@ export class ChatQueueProducer {
   private readonly logger = new Logger(ChatQueueProducer.name);
 
   constructor(
-    @InjectQueue('chat-persistence') private readonly queue: Queue,
+    @InjectQueue('chat-persistence') private readonly chatQueue: Queue,
+    @InjectQueue('read-persistence') private readonly readQueue: Queue,
   ) {}
 
   async enqueueDirectMessage(event: NewMessageEvent<{ message: string }>) {
@@ -41,7 +42,7 @@ export class ChatQueueProducer {
     const jobId = event.clientMessageId || event.id;
     this.logger.log(`Enqueueing direct message job [${jobId}] for recipient: ${event.recipientId}`);
 
-    return this.queue.add('persist-message', jobData, {
+    return this.chatQueue.add('persist-message', jobData, {
       jobId,
       attempts: 3,
       backoff: {
@@ -68,7 +69,7 @@ export class ChatQueueProducer {
     const jobId = event.clientMessageId || event.id;
     this.logger.log(`Enqueueing group message job [${jobId}] for group: ${event.groupId}`);
 
-    return this.queue.add('persist-message', jobData, {
+    return this.chatQueue.add('persist-message', jobData, {
       jobId,
       attempts: 3,
       backoff: {
@@ -96,7 +97,7 @@ export class ChatQueueProducer {
       `Enqueueing persist-lastread job for user ${data.userId} in convo ${data.conversationId}`,
     );
 
-    return this.queue.add('persist-lastread', jobData, {
+    return this.readQueue.add('persist-lastread', jobData, {
       attempts: 3,
       backoff: {
         type: 'exponential',

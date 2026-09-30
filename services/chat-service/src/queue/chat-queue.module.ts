@@ -12,9 +12,10 @@ import { ChatQueueProducer } from './chat-queue.producer';
         },
       }),
     }),
-    BullModule.registerQueue({
-      name: 'chat-persistence',
-    }),
+    BullModule.registerQueue(
+      { name: 'chat-persistence' },
+      { name: 'read-persistence' },
+    ),
   ],
   providers: [ChatQueueProducer],
   exports: [ChatQueueProducer, BullModule],

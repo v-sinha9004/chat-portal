@@ -11,15 +11,7 @@ export class MessageWorkerProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<any>): Promise<any> {
-    if (job.name === 'persist-lastread') {
-      this.logger.log(
-        `Processing persist-lastread job [${job.id}] for user [${job.data?.userId}] in convo [${job.data?.conversationId}]`,
-      );
-      const result = await this.messagesService.saveLastRead(job.data);
-      return { success: true, conversationId: result.conversationId };
-    }
-
+  async process(job: Job<SaveMessageDto>): Promise<any> {
     this.logger.log(
       `Processing persistence job [${job.id}] for message [${job.data?.messageId}] (type: ${job.data?.type})`,
     );
