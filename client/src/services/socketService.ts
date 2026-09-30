@@ -45,6 +45,8 @@ export interface IncomingGroupMessageEvent {
   };
   timestamp: string;
   clientMessageId?: string;
+  isAnnouncement?: boolean;
+  heading?: string;
 }
 
 export interface SendGroupMessageAck {
@@ -278,6 +280,7 @@ class SocketService {
     groupId: string,
     message: string,
     clientMessageId?: string,
+    options?: { isAnnouncement?: boolean; heading?: string },
   ): Promise<SendGroupMessageAck> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
@@ -286,7 +289,14 @@ class SocketService {
 
       this.socket.emit(
         'send_group_message',
-        { groupId, message, clientMessageId },
+        {
+          groupId,
+          message,
+          clientMessageId,
+          ...(options?.isAnnouncement
+            ? { isAnnouncement: true, heading: options.heading }
+            : {}),
+        },
         (ack: SendGroupMessageAck) => {
           if (!ack) {
             return reject(new Error('No acknowledgement received from chat server'));

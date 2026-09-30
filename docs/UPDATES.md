@@ -94,10 +94,11 @@
 | 7 | Read receipts | ✅ |
 | 8 | Show unread messages and its count | ✅ |
 | 9 | Fix: scroll to bottom transition on message load on chat area | ✅ |
-| 10 | Add script to seed 500 messages into a chat | ⏳ |
+| 10 | Add script to seed 500 messages into a chat | ✅ |
 | 11 | Load only 50 messages initially | ✅ |
-| 12 | Load more messages in batches of 50 upon scrolling smoothly upwards | ⏳ |
+| 12 | Load more messages in batches of 50 upon scrolling smoothly upwards | ✅ |
 | 13 | Pin message feature | ⏳ |
+| 14 | Save opened chat messages in memory, even when user navigates to other chats | ⏳ |
 
 ---
 

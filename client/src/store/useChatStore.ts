@@ -70,7 +70,10 @@ interface ChatState {
   selectConversation: (conversation: ActiveConversation | null) => void;
   fetchMessages: (targetConvo?: ActiveConversation) => Promise<void>;
   loadOlderMessages: () => Promise<void>;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (
+    text: string,
+    options?: { isAnnouncement?: boolean; heading?: string },
+  ) => Promise<void>;
   sendTypingStart: () => void;
   sendTypingStop: () => void;
   addGroup: (newGroup: Group) => void;
@@ -435,6 +438,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           text: m.text || m.content || '',
           timestamp: formattedTime,
           status,
+          isAnnouncement: m.isAnnouncement,
+          heading: m.heading,
         };
       });
 
@@ -570,6 +575,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           text: m.text || m.content || '',
           timestamp: formattedTime,
           status,
+          isAnnouncement: m.isAnnouncement,
+          heading: m.heading,
         };
       });
 
@@ -597,7 +604,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendMessage: async (text: string) => {
+  sendMessage: async (
+    text: string,
+    options?: { isAnnouncement?: boolean; heading?: string },
+  ) => {
     const activeConversation = get().activeConversation;
     const currentUserId = useAuthStore.getState().user?.id;
     if (!text.trim() || !activeConversation || !currentUserId) return;
@@ -625,6 +635,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       text: trimmedText,
       timestamp: formattedTime,
       status: 'sending',
+      isAnnouncement: options?.isAnnouncement,
+      heading: options?.heading,
     };
 
     set((state) => ({ messages: [...state.messages, optimisticMessage] }));
@@ -635,6 +647,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           activeConversation.id,
           trimmedText,
           clientMessageId,
+          options,
         );
         set((state) => ({
           messages: state.messages.map((msg) =>
@@ -909,6 +922,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           text: payload.data?.message || '',
           timestamp: formattedTime,
           status: 'sent',
+          isAnnouncement: payload.isAnnouncement,
+          heading: payload.heading,
         };
 
         if (isVisibleAndActive) {
@@ -930,15 +945,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
             nextUnreadGroups.add(groupId);
           }
 
-          if (
-            state.messages.some(
-              (m) =>
-                m.id === incomingMsg.id ||
-                (incomingMsg.clientMessageId &&
-                  m.clientMessageId === incomingMsg.clientMessageId),
-            )
-          ) {
+          const existingIndex = state.messages.findIndex(
+            (m) =>
+              m.id === incomingMsg.id ||
+              (incomingMsg.clientMessageId &&
+                m.clientMessageId === incomingMsg.clientMessageId),
+          );
+
+          if (existingIndex !== -1) {
+            const nextMessages = [...state.messages];
+            nextMessages[existingIndex] = {
+              ...nextMessages[existingIndex],
+              ...incomingMsg,
+              status: 'sent',
+            };
             return {
+              messages: nextMessages,
               unreadCountsByConversation: nextCounts,
               unreadGroupIds: nextUnreadGroups,
               typingUsersByConversation: {

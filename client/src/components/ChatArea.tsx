@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
+import { AnnouncementCard } from './announcements/AnnouncementCard';
+import { AnnouncementComposer } from './announcements/AnnouncementComposer';
+import { MegaphoneIcon } from './announcements/MegaphoneIcon';
 
 function formatLastSeen(timestamp?: string | null): string {
   if (!timestamp) return '';
@@ -39,6 +42,9 @@ function formatLastSeen(timestamp?: string | null): string {
 
 export const ChatArea: React.FC = () => {
   const currentUserId = useAuthStore((s) => s.user?.id || null);
+  const currentUserRole = useAuthStore((s) => s.user?.role || '');
+  const isMentor =
+    currentUserRole.toUpperCase() === 'MENTOR' || currentUserRole.toUpperCase() === 'ADMIN';
 
   const activeConversation = useChatStore((s) => s.activeConversation);
   const selectConversation = useChatStore((s) => s.selectConversation);
@@ -65,6 +71,8 @@ export const ChatArea: React.FC = () => {
   const sendTypingStop = useChatStore((s) => s.sendTypingStop);
 
   const [inputText, setInputText] = useState('');
+  const [isAnnouncementMode, setIsAnnouncementMode] = useState(false);
+  const [announcementHeading, setAnnouncementHeading] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastLoadedConvoKeyRef = useRef<string | null>(null);
@@ -163,10 +171,28 @@ export const ChatArea: React.FC = () => {
     }
   }, [triggerLoadOlder]);
 
+  // Reset announcement mode when active conversation changes
+  useEffect(() => {
+    setIsAnnouncementMode(false);
+    setAnnouncementHeading('');
+  }, [activeConversation?.id]);
+
   // Send message handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !activeConversation || !currentUserId) return;
+
+    if (isAnnouncementMode) {
+      if (!announcementHeading.trim()) return;
+      stopTyping();
+      const text = inputText;
+      const heading = announcementHeading;
+      setInputText('');
+      setAnnouncementHeading('');
+      setIsAnnouncementMode(false);
+      await sendMessage(text, { isAnnouncement: true, heading });
+      return;
+    }
 
     stopTyping();
     const text = inputText;
@@ -517,6 +543,17 @@ export const ChatArea: React.FC = () => {
               const senderDisplayName =
                 msg.senderName || (isGroup ? getUserName(msg.senderId) : '');
 
+              if (msg.isAnnouncement) {
+                return (
+                  <AnnouncementCard
+                    key={msg.id}
+                    message={msg}
+                    senderDisplayName={senderDisplayName}
+                    isMe={isMe}
+                  />
+                );
+              }
+
               return (
                 <div key={msg.id} className={`message-row ${isMe ? 'sent' : 'received'}`}>
                   <div className="message-bubble">
@@ -562,14 +599,52 @@ export const ChatArea: React.FC = () => {
         </div>
       )}
 
+      {/* Announcement Composer (Only for mentors in groups) */}
+      {isGroup && isMentor && isAnnouncementMode && (
+        <AnnouncementComposer
+          heading={announcementHeading}
+          onHeadingChange={setAnnouncementHeading}
+          onCancel={() => {
+            setIsAnnouncementMode(false);
+            setAnnouncementHeading('');
+          }}
+          disabled={!isSocketConnected}
+        />
+      )}
+
       {/* Input Form */}
-      <form className="chat-input-form" onSubmit={handleSubmit}>
+      <form
+        className={`chat-input-form ${isAnnouncementMode ? 'announcement-form-active' : ''}`}
+        onSubmit={handleSubmit}
+      >
+        {isGroup && isMentor && (
+          <button
+            type="button"
+            className={`announcement-toggle-btn ${isAnnouncementMode ? 'active' : ''}`}
+            onClick={() => {
+              setIsAnnouncementMode((prev) => !prev);
+              if (isAnnouncementMode) {
+                setAnnouncementHeading('');
+              }
+            }}
+            title={isAnnouncementMode ? 'Exit announcement mode' : 'Post as Announcement'}
+            aria-label={isAnnouncementMode ? 'Exit announcement mode' : 'Post as Announcement'}
+          >
+            <MegaphoneIcon
+              size={18}
+              color={isAnnouncementMode ? '#ea580c' : 'currentColor'}
+            />
+            <span className="announcement-toggle-label">Announcement</span>
+          </button>
+        )}
         <input
           type="text"
-          className="chat-input"
+          className={`chat-input ${isAnnouncementMode ? 'announcement-body-input' : ''}`}
           placeholder={
             isSocketConnected
-              ? isGroup && group
+              ? isAnnouncementMode
+                ? 'Type announcement message...'
+                : isGroup && group
                 ? `Message #${group.name}...`
                 : directUser
                 ? `Message ${directUser.name}...`
@@ -583,10 +658,14 @@ export const ChatArea: React.FC = () => {
         />
         <button
           type="submit"
-          className="chat-send-button"
-          disabled={!inputText.trim() || !isSocketConnected}
+          className={`chat-send-button ${isAnnouncementMode ? 'announcement-send-btn' : ''}`}
+          disabled={
+            !inputText.trim() ||
+            !isSocketConnected ||
+            (isAnnouncementMode && !announcementHeading.trim())
+          }
         >
-          Send
+          {isAnnouncementMode ? 'Announce' : 'Send'}
         </button>
       </form>
     </main>

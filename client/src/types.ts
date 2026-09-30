@@ -32,6 +32,8 @@ export interface ChatMessage {
   timestamp: string;
   clientMessageId?: string;
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  isAnnouncement?: boolean;
+  heading?: string;
 }
 
 export interface GroupMember {
@@ -186,6 +188,8 @@ export interface ConversationHistoryResponse {
     content?: string;
     timestamp: string;
     status?: string;
+    isAnnouncement?: boolean;
+    heading?: string;
   }>;
   hasMore: boolean;
   oldestCursor?: string;
