@@ -8,12 +8,9 @@ import {
   type IncomingDirectMessageEvent,
   type IncomingGroupMessageEvent,
 } from '../services/socketService';
+import { useAuthStore } from './useAuthStore';
 
 interface ChatState {
-  // Session credentials
-  token: string | null;
-  currentUserId: string | null;
-
   // Conversations & Contacts
   users: User[];
   groups: Group[];
@@ -36,16 +33,12 @@ interface ChatState {
   messageError: string | null;
 
   // Actions
-  fetchConversations: (
-    token: string,
-    currentUserId: string | null,
-    onUnauthorized?: () => void,
-  ) => Promise<void>;
+  fetchConversations: () => Promise<void>;
   selectConversation: (conversation: ActiveConversation) => void;
   fetchMessages: (targetConvo?: ActiveConversation) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
   addGroup: (newGroup: Group) => void;
-  initSocket: (token: string, userId: string) => void;
+  initSocket: () => void;
   disconnectSocket: () => void;
   reset: () => void;
 }
@@ -57,9 +50,6 @@ let unsubscribeDirect: (() => void) | null = null;
 let unsubscribeGroup: (() => void) | null = null;
 
 export const useChatStore = create<ChatState>((set, get) => ({
-  token: null,
-  currentUserId: null,
-
   users: [],
   groups: [],
   isLoadingConversations: false,
@@ -76,7 +66,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoadingMessages: false,
   messageError: null,
 
-  fetchConversations: async (token, currentUserId, onUnauthorized) => {
+  fetchConversations: async () => {
+    const token = useAuthStore.getState().accessToken;
+    const currentUserId = useAuthStore.getState().user?.id || null;
+
+    if (!token) return;
+
     if (convoAbortController) {
       convoAbortController.abort();
     }
@@ -86,8 +81,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       isLoadingConversations: true,
       conversationsError: null,
-      token,
-      currentUserId,
     });
 
     try {
@@ -138,8 +131,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       const message = err instanceof Error ? err.message : 'Failed to fetch conversations';
-      if (message.includes('Unauthorized') && onUnauthorized) {
-        onUnauthorized();
+      if (message.includes('Unauthorized')) {
+        useAuthStore.getState().logout();
         return;
       }
       set({
@@ -174,8 +167,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   fetchMessages: async (targetConvo) => {
     const convo = targetConvo || get().activeConversation;
-    const token = get().token;
-    const currentUserId = get().currentUserId;
+    const token = useAuthStore.getState().accessToken;
+    const currentUserId = useAuthStore.getState().user?.id || null;
 
     if (!convo || !token) {
       set({ isLoadingMessages: false, messages: [], messageError: null });
@@ -225,7 +218,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
 
       set((state) => {
-        // Only merge real-time messages that strictly belong to THIS conversation
         const existingThisConvo = state.messages.filter(
           (m) => !expectedConvoId || m.conversationId === expectedConvoId,
         );
@@ -261,7 +253,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: async (text: string) => {
     const activeConversation = get().activeConversation;
-    const currentUserId = get().currentUserId;
+    const currentUserId = useAuthStore.getState().user?.id;
     if (!text.trim() || !activeConversation || !currentUserId) return;
 
     const trimmedText = text.trim();
@@ -352,11 +344,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().fetchMessages(newConvo);
   },
 
-  initSocket: (token: string, userId: string) => {
+  initSocket: () => {
     get().disconnectSocket();
 
-    set({ token, currentUserId: userId });
-    socketService.connect(token, userId);
+    const token = useAuthStore.getState().accessToken;
+    const currentUserId = useAuthStore.getState().user?.id;
+
+    if (!token || !currentUserId) return;
+
+    socketService.connect(token, currentUserId);
 
     unsubscribeConn = socketService.onConnectionChange((connected) => {
       set({ isSocketConnected: connected });
@@ -364,16 +360,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     unsubscribeDirect = socketService.onDirectMessage((payload: IncomingDirectMessageEvent) => {
       const currentConvo = get().activeConversation;
-      const currentUserId = get().currentUserId;
+      const myId = useAuthStore.getState().user?.id;
       const partnerId = payload.senderId;
 
       const isCurrentChat =
         currentConvo &&
         currentConvo.type === 'direct' &&
         (currentConvo.id === partnerId ||
-          (currentUserId &&
-            currentConvo.id === payload.recipientId &&
-            partnerId === currentUserId));
+          (myId && currentConvo.id === payload.recipientId && partnerId === myId));
 
       if (isCurrentChat) {
         const formattedTime = new Date(payload.timestamp).toLocaleTimeString([], {
@@ -381,8 +375,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           minute: '2-digit',
         });
 
-        const expectedConvoId = currentUserId
-          ? `direct:${[currentUserId, currentConvo.id].sort().join(':')}`
+        const expectedConvoId = myId
+          ? `direct:${[myId, currentConvo.id].sort().join(':')}`
           : undefined;
 
         const incomingMsg: ChatMessage = {
@@ -493,8 +487,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messageAbortController = null;
     }
     set({
-      token: null,
-      currentUserId: null,
       users: [],
       groups: [],
       isLoadingConversations: false,

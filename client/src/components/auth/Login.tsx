@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export interface LoginProps {
   onSwitchToRegister?: () => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
-  const { login, error, clearError } = useAuth();
+  const login = useAuthStore((s) => s.login);
+  const error = useAuthStore((s) => s.error);
+  const clearError = useAuthStore((s) => s.clearError);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { useUIStore } from '../store/useUIStore';
 
 export const UserList: React.FC = () => {
-  const { user: authUser, logout, accessToken } = useAuth();
+  const authUser = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
 
   const users = useChatStore((s) => s.users);
   const groups = useChatStore((s) => s.groups);
@@ -40,9 +41,7 @@ export const UserList: React.FC = () => {
   }, [isMenuOpen]);
 
   const handleRetry = () => {
-    if (accessToken) {
-      fetchConversations(accessToken, currentUserId);
-    }
+    fetchConversations();
   };
 
   const getInitials = (name?: string) => {

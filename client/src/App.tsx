@@ -1,32 +1,38 @@
 import { useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { useAuthStore } from './store/useAuthStore';
+import { useChatStore } from './store/useChatStore';
 import { AuthView } from './components/auth/AuthView';
 import { UserList } from './components/UserList';
 import { ChatArea } from './components/ChatArea';
 import { CreateGroupModal } from './components/CreateGroupModal';
-import { useChatStore } from './store/useChatStore';
 import './App.css';
 
-function MainChatPortal() {
-  const { user, accessToken, isAuthenticated, isLoading: isAuthLoading, logout } = useAuth();
+function App() {
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthLoading = useAuthStore((s) => s.isLoading);
+  const hydrateSession = useAuthStore((s) => s.hydrateSession);
 
   const fetchConversations = useChatStore((s) => s.fetchConversations);
   const initSocket = useChatStore((s) => s.initSocket);
-  const reset = useChatStore((s) => s.reset);
+  const resetChat = useChatStore((s) => s.reset);
 
+  // Hydrate session from HttpOnly cookie on initial mount
   useEffect(() => {
-    if (!isAuthenticated || !accessToken || !user?.id) {
-      reset();
-      return;
+    hydrateSession();
+  }, [hydrateSession]);
+
+  // Connect socket and fetch conversations once authenticated
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      fetchConversations();
+      initSocket();
+
+      return () => {
+        resetChat();
+      };
     }
-
-    fetchConversations(accessToken, user.id, logout);
-    initSocket(accessToken, user.id);
-
-    return () => {
-      reset();
-    };
-  }, [isAuthenticated, accessToken, user?.id, fetchConversations, initSocket, reset, logout]);
+  }, [isAuthenticated, user?.id, fetchConversations, initSocket, resetChat]);
 
   // Boot Loader
   if (isAuthLoading) {
@@ -52,14 +58,6 @@ function MainChatPortal() {
       <ChatArea />
       <CreateGroupModal />
     </div>
-  );
-}
-
-function App() {
-  return (
-    <AuthProvider>
-      <MainChatPortal />
-    </AuthProvider>
   );
 }
 

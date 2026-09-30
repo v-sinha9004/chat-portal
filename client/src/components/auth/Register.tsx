@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../store/useAuthStore';
 import type { UserRole } from '../../types';
 
 export interface RegisterProps {
@@ -7,7 +7,9 @@ export interface RegisterProps {
 }
 
 export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
-  const { register, error, clearError } = useAuth();
+  const register = useAuthStore((s) => s.register);
+  const error = useAuthStore((s) => s.error);
+  const clearError = useAuthStore((s) => s.clearError);
   const [name, setName] = useState<string>('');
   const [username, setUsername] = useState<string>('');
   const [email, setEmail] = useState<string>('');

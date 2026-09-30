@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 
 export const ChatArea: React.FC = () => {
-  const { user } = useAuth();
-  const currentUserId = user?.id || null;
+  const currentUserId = useAuthStore((s) => s.user?.id || null);
 
   const activeConversation = useChatStore((s) => s.activeConversation);
   const users = useChatStore((s) => s.users);

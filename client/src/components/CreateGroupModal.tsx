@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { useUIStore } from '../store/useUIStore';
 import { createGroup } from '../services/groupService';
 
 export const CreateGroupModal: React.FC = () => {
-  const { accessToken: token, user } = useAuth();
-  const currentUserId = user?.id;
+  const token = useAuthStore((s) => s.accessToken);
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   const isOpen = useUIStore((s) => s.isCreateGroupOpen);
   const onClose = useUIStore((s) => s.closeCreateGroup);
