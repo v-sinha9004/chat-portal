@@ -1,5 +1,14 @@
 import { create } from 'zustand';
-import type { User, Group, ActiveConversation, ChatMessage } from '../types';
+import type {
+  User,
+  Group,
+  ActiveConversation,
+  ChatMessage,
+  UserPresence,
+  GroupPresence,
+  UserPresenceChangedEvent,
+  GroupPresenceChangedEvent,
+} from '../types';
 import { fetchUsers } from '../services/userService';
 import { fetchUserGroups } from '../services/groupService';
 import { fetchDirectMessages, fetchGroupMessages } from '../services/chatService';
@@ -19,6 +28,11 @@ interface ChatState {
 
   // Selected Conversation
   activeConversation: ActiveConversation | null;
+
+  // Active Conversation Presence (On-Demand)
+  activePresence: UserPresence | null;
+  activeGroupPresence: GroupPresence | null;
+  isLoadingPresence: boolean;
 
   // Unread Sets
   unreadUserIds: Set<string>;
@@ -48,6 +62,8 @@ let messageAbortController: AbortController | null = null;
 let unsubscribeConn: (() => void) | null = null;
 let unsubscribeDirect: (() => void) | null = null;
 let unsubscribeGroup: (() => void) | null = null;
+let unsubscribeUserPresence: (() => void) | null = null;
+let unsubscribeGroupPresence: (() => void) | null = null;
 
 export const useChatStore = create<ChatState>((set, get) => ({
   users: [],
@@ -56,6 +72,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   conversationsError: null,
 
   activeConversation: null,
+  activePresence: null,
+  activeGroupPresence: null,
+  isLoadingPresence: false,
 
   unreadUserIds: new Set<string>(),
   unreadGroupIds: new Set<string>(),
@@ -126,7 +145,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
 
       if (nextActive) {
-        get().fetchMessages(nextActive);
+        get().selectConversation(nextActive);
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -143,6 +162,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectConversation: (conversation) => {
+    const prevConvo = get().activeConversation;
+    if (prevConvo) {
+      if (prevConvo.type === 'direct') {
+        socketService.unsubscribeUserPresence(prevConvo.id);
+      } else {
+        socketService.unsubscribeGroupPresence(prevConvo.id);
+      }
+    }
+
     set((state) => {
       const nextUnreadUsers = new Set(state.unreadUserIds);
       const nextUnreadGroups = new Set(state.unreadGroupIds);
@@ -157,12 +185,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
         activeConversation: conversation,
         unreadUserIds: nextUnreadUsers,
         unreadGroupIds: nextUnreadGroups,
+        activePresence: null,
+        activeGroupPresence: null,
+        isLoadingPresence: true,
         messages: [],
         messageError: null,
       };
     });
 
     get().fetchMessages(conversation);
+
+    if (conversation.type === 'direct') {
+      socketService
+        .subscribeUserPresence(conversation.id)
+        .then((presence) => {
+          if (get().activeConversation?.id === conversation.id) {
+            set({ activePresence: presence, isLoadingPresence: false });
+          }
+        })
+        .catch((err) => {
+          console.warn('Failed to subscribe to user presence:', err);
+          if (get().activeConversation?.id === conversation.id) {
+            set({ isLoadingPresence: false });
+          }
+        });
+    } else {
+      socketService
+        .subscribeGroupPresence(conversation.id)
+        .then((presence) => {
+          if (get().activeConversation?.id === conversation.id) {
+            set({ activeGroupPresence: presence, isLoadingPresence: false });
+          }
+        })
+        .catch((err) => {
+          console.warn('Failed to subscribe to group presence:', err);
+          if (get().activeConversation?.id === conversation.id) {
+            set({ isLoadingPresence: false });
+          }
+        });
+    }
   },
 
   fetchMessages: async (targetConvo) => {
@@ -356,6 +417,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     unsubscribeConn = socketService.onConnectionChange((connected) => {
       set({ isSocketConnected: connected });
+      if (connected) {
+        const active = get().activeConversation;
+        if (active) {
+          if (active.type === 'direct') {
+            socketService
+              .subscribeUserPresence(active.id)
+              .then((presence) => {
+                if (get().activeConversation?.id === active.id) {
+                  set({ activePresence: presence, isLoadingPresence: false });
+                }
+              })
+              .catch(() => {});
+          } else {
+            socketService
+              .subscribeGroupPresence(active.id)
+              .then((presence) => {
+                if (get().activeConversation?.id === active.id) {
+                  set({ activeGroupPresence: presence, isLoadingPresence: false });
+                }
+              })
+              .catch(() => {});
+          }
+        }
+      }
     });
 
     unsubscribeDirect = socketService.onDirectMessage((payload: IncomingDirectMessageEvent) => {
@@ -457,6 +542,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
       }
     });
+
+    unsubscribeUserPresence = socketService.onUserPresenceChanged((payload: UserPresenceChangedEvent) => {
+      const currentConvo = get().activeConversation;
+      if (currentConvo && currentConvo.type === 'direct' && currentConvo.id === payload.userId) {
+        set({
+          activePresence: {
+            userId: payload.userId,
+            isOnline: payload.isOnline,
+            lastSeen: payload.lastSeen,
+          },
+          isLoadingPresence: false,
+        });
+      }
+    });
+
+    unsubscribeGroupPresence = socketService.onGroupPresenceChanged((payload: GroupPresenceChangedEvent) => {
+      const currentConvo = get().activeConversation;
+      if (currentConvo && currentConvo.type === 'group' && currentConvo.id === payload.groupId) {
+        set((state) => {
+          if (!state.activeGroupPresence) return state;
+          const currentMembers = new Set(state.activeGroupPresence.onlineMemberIds);
+          if (payload.isOnline) {
+            currentMembers.add(payload.userId);
+          } else {
+            currentMembers.delete(payload.userId);
+          }
+          const onlineMemberIds = Array.from(currentMembers);
+          return {
+            activeGroupPresence: {
+              ...state.activeGroupPresence,
+              onlineCount: onlineMemberIds.length,
+              onlineMemberIds,
+            },
+            isLoadingPresence: false,
+          };
+        });
+      }
+    });
   },
 
   disconnectSocket: () => {
@@ -472,6 +595,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
       unsubscribeGroup();
       unsubscribeGroup = null;
     }
+    if (unsubscribeUserPresence) {
+      unsubscribeUserPresence();
+      unsubscribeUserPresence = null;
+    }
+    if (unsubscribeGroupPresence) {
+      unsubscribeGroupPresence();
+      unsubscribeGroupPresence = null;
+    }
+
+    const currentConvo = get().activeConversation;
+    if (currentConvo) {
+      if (currentConvo.type === 'direct') {
+        socketService.unsubscribeUserPresence(currentConvo.id);
+      } else {
+        socketService.unsubscribeGroupPresence(currentConvo.id);
+      }
+    }
+
     socketService.disconnect();
     set({ isSocketConnected: false });
   },
@@ -492,6 +633,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isLoadingConversations: false,
       conversationsError: null,
       activeConversation: null,
+      activePresence: null,
+      activeGroupPresence: null,
+      isLoadingPresence: false,
       unreadUserIds: new Set(),
       unreadGroupIds: new Set(),
       isSocketConnected: false,

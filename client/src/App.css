@@ -282,7 +282,50 @@
   color: var(--text-muted);
 }
 
+.presence-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.presence-dot.mini {
+  width: 6px;
+  height: 6px;
+  margin-right: 3px;
+}
+
+.presence-dot.online {
+  background-color: var(--status-online);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+}
+
+.presence-dot.offline {
+  background-color: #94a3b8;
+}
+
 .status-text.online {
+  color: var(--status-online);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-text.offline {
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-text.loading {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.group-online-badge {
+  display: inline-flex;
+  align-items: center;
   color: var(--status-online);
   font-weight: 500;
 }

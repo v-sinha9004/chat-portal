@@ -302,7 +302,6 @@ export const UserList: React.FC = () => {
                       {getInitials(contact.name)}
                     </div>
                   )}
-                  {contact.isActive && <span className="status-indicator online" title="Active" />}
                 </div>
 
                 <div className="user-info">

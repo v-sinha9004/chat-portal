@@ -89,8 +89,7 @@
 | 2 | Introduce zustand in client for state management | ✅ |
 | 3 | Refactor - move from context store to zustand for auth states for code consistency | ✅ |
 | 4 | Test zustand changes | ✅ |
-| 5 | Looking into the idea of introducing Tailwind CSS for client UI for speed and ease of use | ⏳ |
-
+| 5 | Online/Offline status | ⏳ |
 
 ---
 
@@ -130,4 +129,7 @@
 | 30 | Cache implementation at multiple levels for smooth loading and functioning | ⏳ |
 | 31 | Cache invalidation when needed | ⏳ |
 | 32 | Monitoring system | ⏳ |
+| 33 | Limit character count of messages | ⏳ |
+| 34 | Merge groups and direct chats | ⏳ |
+| 35 | Sort groups and direct chats by last message time | ⏳ |
 ...More

@@ -1,4 +1,10 @@
 import { io, Socket } from 'socket.io-client';
+import type {
+  UserPresence,
+  GroupPresence,
+  UserPresenceChangedEvent,
+  GroupPresenceChangedEvent,
+} from '../types';
 
 export interface IncomingDirectMessageEvent {
   id: string;
@@ -47,6 +53,8 @@ export interface SendGroupMessageAck {
 
 type MessageListener = (event: IncomingDirectMessageEvent) => void;
 type GroupMessageListener = (event: IncomingGroupMessageEvent) => void;
+type UserPresenceListener = (event: UserPresenceChangedEvent) => void;
+type GroupPresenceListener = (event: GroupPresenceChangedEvent) => void;
 type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
@@ -55,6 +63,8 @@ class SocketService {
   private currentUserId: string | null = null;
   private messageListeners: Set<MessageListener> = new Set();
   private groupMessageListeners: Set<GroupMessageListener> = new Set();
+  private userPresenceListeners: Set<UserPresenceListener> = new Set();
+  private groupPresenceListeners: Set<GroupPresenceListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
 
 
@@ -117,6 +127,26 @@ class SocketService {
           listener(payload);
         } catch (err) {
           console.error('Error in group_message listener:', err);
+        }
+      });
+    });
+
+    this.socket.on('user_presence_changed', (payload: UserPresenceChangedEvent) => {
+      this.userPresenceListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in user_presence_changed listener:', err);
+        }
+      });
+    });
+
+    this.socket.on('group_presence_changed', (payload: GroupPresenceChangedEvent) => {
+      this.groupPresenceListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in group_presence_changed listener:', err);
         }
       });
     });
@@ -253,6 +283,108 @@ class SocketService {
    */
   getCurrentUserId(): string | null {
     return this.currentUserId;
+  }
+
+  /**
+   * Subscribe to on-demand presence for a direct chat user.
+   */
+  subscribeUserPresence(targetUserId: string): Promise<UserPresence> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        return reject(new Error('Socket is not connected.'));
+      }
+      this.socket.emit(
+        'subscribe_user_presence',
+        { targetUserId },
+        (ack: {
+          status: string;
+          userId: string;
+          isOnline: boolean;
+          lastSeen: string | null;
+          message?: string;
+        }) => {
+          if (!ack || ack.status === 'error') {
+            return reject(new Error(ack?.message || 'Failed to subscribe to user presence'));
+          }
+          resolve({
+            userId: ack.userId,
+            isOnline: ack.isOnline,
+            lastSeen: ack.lastSeen,
+          });
+        },
+      );
+    });
+  }
+
+  /**
+   * Unsubscribe from presence for a direct chat user.
+   */
+  unsubscribeUserPresence(targetUserId: string): void {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('unsubscribe_user_presence', { targetUserId });
+    }
+  }
+
+  /**
+   * Subscribe to on-demand presence for a group.
+   */
+  subscribeGroupPresence(groupId: string): Promise<GroupPresence> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        return reject(new Error('Socket is not connected.'));
+      }
+      this.socket.emit(
+        'subscribe_group_presence',
+        { groupId },
+        (ack: {
+          status: string;
+          groupId: string;
+          totalMembers: number;
+          onlineCount: number;
+          onlineMemberIds: string[];
+          message?: string;
+        }) => {
+          if (!ack || ack.status === 'error') {
+            return reject(new Error(ack?.message || 'Failed to subscribe to group presence'));
+          }
+          resolve({
+            groupId: ack.groupId,
+            totalMembers: ack.totalMembers,
+            onlineCount: ack.onlineCount,
+            onlineMemberIds: ack.onlineMemberIds || [],
+          });
+        },
+      );
+    });
+  }
+
+  /**
+   * Unsubscribe from presence for a group.
+   */
+  unsubscribeGroupPresence(groupId: string): void {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('unsubscribe_group_presence', { groupId });
+    }
+  }
+
+  /**
+   * Register a listener for direct user presence updates.
+   */
+  onUserPresenceChanged(listener: UserPresenceListener): () => void {
+    this.userPresenceListeners.add(listener);
+    return () => {
+      this.userPresenceListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Register a listener for group presence updates.
+   */
+  onGroupPresenceChanged(listener: GroupPresenceListener): () => void {
+    this.groupPresenceListeners.add(listener);
+    return () => {
+      this.groupPresenceListeners.delete(listener);
+    };
   }
 }
 

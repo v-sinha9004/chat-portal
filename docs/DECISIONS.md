@@ -151,27 +151,3 @@ To avoid slow `$or` queries across separate `senderId` and `recipientId` fields 
 2. **Avoids Dual-Query Merging**: Rendering the sidebar with recent conversations or performing full-text search requires a single query instead of querying two collections and merge-sorting in application memory.
 3. **No Code Duplication**: Backend schemas, BullMQ persistence processors, and future features (reactions, attachments, message edits) are written once.
 
-## Q9. Styling Strategy: Tailwind CSS vs. Plain CSS
-
-| Strategy | Architecture & Mechanics | Pros & Cons | Recommendation |
-| :--- | :--- | :--- | :--- |
-| **Tailwind CSS (v4)** | Atomic, utility-first CSS compiled at build time via `@tailwindcss/vite` with JIT tree-shaking. | • **Pros**: Zero JS runtime; CSS bundle hits a plateau (~15–30 kB raw); eliminates naming fatigue and context switching; handles chat micro-states inline (active, hover, dark mode, responsive drawer).<br>• **Cons**: Denser JSX `className` strings. | **Chosen Approach (Recommended)** |
-| **Plain CSS (`App.css`)** | Monolithic global stylesheet loaded statically. | • **Pros**: Traditional separation of concerns; clean JSX markup.<br>• **Cons**: Linear bundle growth ($O(N)$); already 1,482 lines for just 7 components; high risk of selector clashes, specificity wars, and dead code. | **Scrapped (Not Recommended)** |
-
-### Bundle Size & Performance Impact
-
-* **JavaScript Overhead: 0 kB**
-  Tailwind compiles purely at build time, adding zero runtime JavaScript to the client bundle (`index-*.js`).
-* **CSS Bundle Growth ($O(1)$ vs $O(N)$ Plateau):**
-  * **Plain CSS:** Grows linearly with every new component and feature. Currently, [`App.css`](../client/src/App.css) is already **21.7 kB (4.4 kB gzipped)** for just 7 components.
-  * **Tailwind CSS:** Reuses shared utility classes (`flex`, `items-center`, `p-4`, `rounded-md`). Production CSS output rapidly plateaus around **15–30 kB raw (~3–7 kB gzipped)** regardless of how large the app grows.
-* **Runtime & Render Performance:**
-  Both output native CSS stylesheets parsed directly by the browser engine. Tailwind incurs zero JavaScript style recalculation or runtime reflow overhead.
-
-### Key Decision Points for `chat-portal`:
-1. **Eliminating CSS Bloat**: [`App.css`](../client/src/App.css) already reached 1,482 lines for ~1,300 lines of TSX code. Replacing it with Tailwind scraps this monolithic stylesheet completely.
-2. **Chat UI Micro-States**: Chat apps are state-heavy (incoming vs outgoing bubble alignment, online/offline dots, unread counters, hover toolbars, dark mode). Tailwind utility variants (`dark:`, `group-hover:`, `md:`) manage these inline without selector coupling.
-3. **Zero-Config Vite Integration**: Tailwind v4 uses `@tailwindcss/vite` and maps directly to our existing CSS custom properties via `@theme`.
-
-
-

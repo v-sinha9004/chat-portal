@@ -2,10 +2,48 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 
+function formatLastSeen(timestamp?: string | null): string {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffSec < 60) {
+    return '• Last seen just now';
+  }
+  if (diffSec < 3600) {
+    const mins = Math.floor(diffSec / 60);
+    return `• Last seen ${mins}m ago`;
+  }
+  if (diffSec < 86400 && date.getDate() === now.getDate()) {
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `• Last seen today at ${timeStr}`;
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear()
+  ) {
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `• Last seen yesterday at ${timeStr}`;
+  }
+
+  const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `• Last seen ${dateStr} at ${timeStr}`;
+}
+
 export const ChatArea: React.FC = () => {
   const currentUserId = useAuthStore((s) => s.user?.id || null);
 
   const activeConversation = useChatStore((s) => s.activeConversation);
+  const activePresence = useChatStore((s) => s.activePresence);
+  const activeGroupPresence = useChatStore((s) => s.activeGroupPresence);
+  const isLoadingPresence = useChatStore((s) => s.isLoadingPresence);
   const users = useChatStore((s) => s.users);
   const isSocketConnected = useChatStore((s) => s.isSocketConnected);
   const isLoadingInitial = useChatStore((s) => s.isLoadingConversations);
@@ -124,6 +162,15 @@ export const ChatArea: React.FC = () => {
                   <span className="members-badge">
                     {group.memberCount ?? 1} {group.memberCount === 1 ? 'member' : 'members'}
                   </span>
+                  {activeGroupPresence && (
+                    <>
+                      <span className="dot-separator">•</span>
+                      <span className="group-online-badge">
+                        <span className="presence-dot online mini" />
+                        {activeGroupPresence.onlineCount} online
+                      </span>
+                    </>
+                  )}
                   {group.description && (
                     <>
                       <span className="dot-separator">•</span>
@@ -145,7 +192,9 @@ export const ChatArea: React.FC = () => {
                     {getInitials(directUser.name)}
                   </div>
                 )}
-                {directUser.isActive && <span className="status-indicator online" />}
+                {activePresence?.isOnline && (
+                  <span className="status-indicator online" title="Online" />
+                )}
               </div>
 
               <div className="chat-header-details">
@@ -162,9 +211,18 @@ export const ChatArea: React.FC = () => {
                   <span className="dot-separator">•</span>
                   <span className="user-email-text">{directUser.email}</span>
                   <span className="dot-separator">•</span>
-                  <span className={directUser.isActive ? 'status-text online' : 'status-text'}>
-                    {directUser.isActive ? 'Active' : 'Offline'}
-                  </span>
+                  {isLoadingPresence ? (
+                    <span className="status-text loading">Checking...</span>
+                  ) : activePresence?.isOnline ? (
+                    <span className="status-text online">
+                      <span className="presence-dot online" /> Online
+                    </span>
+                  ) : (
+                    <span className="status-text offline">
+                      <span className="presence-dot offline" /> Offline{' '}
+                      {formatLastSeen(activePresence?.lastSeen)}
+                    </span>
+                  )}
                 </div>
                 {directUser.bio && <div className="chat-header-bio">"{directUser.bio}"</div>}
               </div>

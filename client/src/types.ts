@@ -94,3 +94,28 @@ export interface RegisterCredentials {
   role?: UserRole;
 }
 
+export interface UserPresence {
+  userId: string;
+  isOnline: boolean;
+  lastSeen: string | null;
+}
+
+export interface GroupPresence {
+  groupId: string;
+  totalMembers: number;
+  onlineCount: number;
+  onlineMemberIds: string[];
+}
+
+export interface UserPresenceChangedEvent {
+  userId: string;
+  isOnline: boolean;
+  lastSeen: string | null;
+}
+
+export interface GroupPresenceChangedEvent {
+  groupId: string;
+  userId: string;
+  isOnline: boolean;
+}
+
