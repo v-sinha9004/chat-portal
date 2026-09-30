@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import { StorageService } from '../storage/storage.service';
@@ -6,6 +6,7 @@ import {
   CreateUploadUrlDto,
   UploadUrlResponseDto,
 } from './dto/create-upload-url.dto';
+import { DeleteFileResponseDto } from './dto/delete-file.dto';
 
 @Injectable()
 export class MediaService {
@@ -56,5 +57,25 @@ export class MediaService {
       dto.mimeType,
       600, // 10 minutes expiry
     );
+  }
+
+  /**
+   * Deletes a file from storage by its key
+   */
+  async deleteFile(fileKey: string): Promise<DeleteFileResponseDto> {
+    if (!fileKey || !fileKey.startsWith('conversations/')) {
+      throw new BadRequestException(
+        'Invalid fileKey. Must start with conversations/',
+      );
+    }
+
+    this.logger.log(`Deleting file [${fileKey}]`);
+    await this.storageService.deleteObject(fileKey);
+
+    return {
+      success: true,
+      message: `File deleted successfully`,
+      fileKey,
+    };
   }
 }
