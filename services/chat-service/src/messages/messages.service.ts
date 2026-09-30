@@ -215,6 +215,13 @@ export class MessagesService {
       timestamp: timestampIso,
       isAnnouncement: !!doc.isAnnouncement,
       heading: doc.heading,
+      replyTo: doc.replyTo
+        ? {
+            messageId: doc.replyTo.messageId,
+            senderId: doc.replyTo.senderId,
+            text: doc.replyTo.text,
+          }
+        : undefined,
     };
   }
 }

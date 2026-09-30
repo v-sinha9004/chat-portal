@@ -15,12 +15,19 @@ export interface AuthenticatedSocket extends Socket {
   };
 }
 
+export interface ReplyToPayload {
+  messageId: string;
+  senderId: string;
+  text: string;
+}
+
 export interface DirectMessagePayload {
   recipientId: string;
   message: string;
   clientMessageId?: string;
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: ReplyToPayload;
   [key: string]: any;
 }
 
@@ -34,6 +41,7 @@ export interface NewMessageEvent<T = any> {
   clientMessageId?: string;
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: ReplyToPayload;
 }
 
 export interface GroupMessagePayload {
@@ -42,6 +50,7 @@ export interface GroupMessagePayload {
   clientMessageId?: string;
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: ReplyToPayload;
   [key: string]: any;
 }
 
@@ -55,6 +64,7 @@ export interface GroupMessageEvent<T = any> {
   clientMessageId?: string;
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: ReplyToPayload;
 }
 
 export function getDirectConversationId(userId1: string, userId2: string): string {

@@ -18,6 +18,11 @@ export interface ChatMessageResponse {
   timestamp: string;
   isAnnouncement?: boolean;
   heading?: string;
+  replyTo?: {
+    messageId: string;
+    senderId: string;
+    text: string;
+  };
 }
 
 export interface ConversationHistoryResponse {

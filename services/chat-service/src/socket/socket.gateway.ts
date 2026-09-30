@@ -182,7 +182,7 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: DirectMessagePayload,
   ) {
-    const { recipientId, message, clientMessageId, isAnnouncement } = payload || {};
+    const { recipientId, message, clientMessageId, isAnnouncement, replyTo } = payload || {};
     if (isAnnouncement) {
       return {
         status: 'error',
@@ -208,6 +208,7 @@ export class SocketGateway
       data: { message },
       timestamp: new Date().toISOString(),
       ...(clientMessageId ? { clientMessageId } : {}),
+      ...(replyTo ? { replyTo } : {}),
     };
 
     // Delegates to SocketService.emitToUser
@@ -291,7 +292,7 @@ export class SocketGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: GroupMessagePayload,
   ) {
-    const { groupId, message, clientMessageId, isAnnouncement, heading } = payload || {};
+    const { groupId, message, clientMessageId, isAnnouncement, heading, replyTo } = payload || {};
     if (!groupId || !message) {
       return {
         status: 'error',
@@ -351,6 +352,7 @@ export class SocketGateway
       timestamp: new Date().toISOString(),
       ...(clientMessageId ? { clientMessageId } : {}),
       ...(isAnnouncement ? { isAnnouncement: true, heading: heading.trim() } : {}),
+      ...(replyTo ? { replyTo } : {}),
     };
 
     // 3. Dispatch ONLY to member user rooms
