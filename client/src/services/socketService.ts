@@ -5,6 +5,7 @@ import type {
   UserPresenceChangedEvent,
   GroupPresenceChangedEvent,
   UserTypingEvent,
+  ConversationReadAckEvent,
 } from '../types';
 
 export interface IncomingDirectMessageEvent {
@@ -57,6 +58,7 @@ type GroupMessageListener = (event: IncomingGroupMessageEvent) => void;
 type UserPresenceListener = (event: UserPresenceChangedEvent) => void;
 type GroupPresenceListener = (event: GroupPresenceChangedEvent) => void;
 type UserTypingListener = (event: UserTypingEvent) => void;
+type ReadAckListener = (event: ConversationReadAckEvent) => void;
 type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
@@ -68,6 +70,7 @@ class SocketService {
   private userPresenceListeners: Set<UserPresenceListener> = new Set();
   private groupPresenceListeners: Set<GroupPresenceListener> = new Set();
   private userTypingListeners: Set<UserTypingListener> = new Set();
+  private readAckListeners: Set<ReadAckListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
 
 
@@ -160,6 +163,16 @@ class SocketService {
           listener(payload);
         } catch (err) {
           console.error('Error in user_typing listener:', err);
+        }
+      });
+    });
+
+    this.socket.on('conversation_read_ack', (payload: ConversationReadAckEvent) => {
+      this.readAckListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in conversation_read_ack listener:', err);
         }
       });
     });
@@ -425,6 +438,25 @@ class SocketService {
     this.userTypingListeners.add(listener);
     return () => {
       this.userTypingListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Emit mark_read event to server.
+   */
+  markRead(conversationId: string, lastReadMessageId?: string): void {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('mark_read', { conversationId, lastReadMessageId });
+    }
+  }
+
+  /**
+   * Register a listener for conversation_read_ack (multi-tab sync).
+   */
+  onConversationReadAck(listener: ReadAckListener): () => void {
+    this.readAckListeners.add(listener);
+    return () => {
+      this.readAckListeners.delete(listener);
     };
   }
 }

@@ -10,9 +10,14 @@ import type {
   GroupPresenceChangedEvent,
   UserTypingEvent,
 } from '../types';
+import { getDirectConversationId, getGroupConversationId } from '../types';
 import { fetchUsers } from '../services/userService';
 import { fetchUserGroups } from '../services/groupService';
-import { fetchDirectMessages, fetchGroupMessages } from '../services/chatService';
+import {
+  fetchDirectMessages,
+  fetchGroupMessages,
+  fetchUnreadCounts,
+} from '../services/chatService';
 import {
   socketService,
   type IncomingDirectMessageEvent,
@@ -38,9 +43,12 @@ interface ChatState {
   // Real-time Typing Users (key: 'user:<userId>' or 'group:<groupId>')
   typingUsersByConversation: Record<string, string[]>;
 
-  // Unread Sets
+  // Unread Maps and Sets
+  unreadCountsByConversation: Record<string, number>;
   unreadUserIds: Set<string>;
   unreadGroupIds: Set<string>;
+  getConversationUnreadCount: (conversationId: string) => number;
+  markConversationRead: (conversationId: string, lastReadMessageId?: string) => void;
 
   // Socket State
   isSocketConnected: boolean;
@@ -71,7 +79,19 @@ let unsubscribeGroup: (() => void) | null = null;
 let unsubscribeUserPresence: (() => void) | null = null;
 let unsubscribeGroupPresence: (() => void) | null = null;
 let unsubscribeTyping: (() => void) | null = null;
+let unsubscribeReadAck: (() => void) | null = null;
 const typingSafetyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+let markReadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedMarkRead(conversationId: string, lastReadMessageId?: string) {
+  if (markReadDebounceTimer) {
+    clearTimeout(markReadDebounceTimer);
+  }
+  markReadDebounceTimer = setTimeout(() => {
+    socketService.markRead(conversationId, lastReadMessageId);
+    markReadDebounceTimer = null;
+  }, 250);
+}
 
 export const useChatStore = create<ChatState>((set, get) => ({
   users: [],
@@ -86,8 +106,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   typingUsersByConversation: {},
 
+  unreadCountsByConversation: {},
   unreadUserIds: new Set<string>(),
   unreadGroupIds: new Set<string>(),
+
+  getConversationUnreadCount: (conversationId: string) => {
+    return get().unreadCountsByConversation[conversationId] || 0;
+  },
+
+  markConversationRead: (conversationId: string, lastReadMessageId?: string) => {
+    debouncedMarkRead(conversationId, lastReadMessageId);
+    set((state) => {
+      const nextCounts = { ...state.unreadCountsByConversation, [conversationId]: 0 };
+      const nextUsers = new Set(state.unreadUserIds);
+      const nextGroups = new Set(state.unreadGroupIds);
+
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (conversationId.startsWith('direct:') && currentUserId) {
+        const parts = conversationId.slice(7).split(':');
+        const partner = parts.find((id) => id !== currentUserId);
+        if (partner) nextUsers.delete(partner);
+      } else if (conversationId.startsWith('group:')) {
+        nextGroups.delete(conversationId.slice(6));
+      }
+
+      return {
+        unreadCountsByConversation: nextCounts,
+        unreadUserIds: nextUsers,
+        unreadGroupIds: nextGroups,
+      };
+    });
+  },
 
   isSocketConnected: false,
 
@@ -113,15 +162,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     try {
-      const [fetchedUsers, fetchedGroups] = await Promise.all([
+      const [fetchedUsers, fetchedGroups, fetchedUnreadCounts] = await Promise.all([
         fetchUsers(token, signal),
         fetchUserGroups(token, signal).catch((err) => {
           console.error('Failed to fetch user groups:', err);
           return [] as Group[];
         }),
+        fetchUnreadCounts(token, signal).catch((err) => {
+          console.warn('Failed to fetch unread counts:', err);
+          return {} as Record<string, number>;
+        }),
       ]);
 
       if (signal.aborted) return;
+
+      const nextUnreadUsers = new Set<string>();
+      const nextUnreadGroups = new Set<string>();
+      for (const [convoId, count] of Object.entries(fetchedUnreadCounts)) {
+        if (count > 0) {
+          if (convoId.startsWith('direct:') && currentUserId) {
+            const parts = convoId.slice(7).split(':');
+            const partner = parts.find((id) => id !== currentUserId);
+            if (partner) nextUnreadUsers.add(partner);
+          } else if (convoId.startsWith('group:')) {
+            nextUnreadGroups.add(convoId.slice(6));
+          }
+        }
+      }
 
       // Auto-select first available conversation if none active or invalid
       let nextActive = get().activeConversation;
@@ -149,6 +216,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({
         users: fetchedUsers,
         groups: fetchedGroups,
+        unreadCountsByConversation: fetchedUnreadCounts,
+        unreadUserIds: nextUnreadUsers,
+        unreadGroupIds: nextUnreadGroups,
         isLoadingConversations: false,
         conversationsError: null,
         activeConversation: nextActive,
@@ -183,9 +253,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
 
+    const currentUserId = useAuthStore.getState().user?.id;
+    const convoId =
+      conversation.type === 'direct'
+        ? currentUserId
+          ? getDirectConversationId(currentUserId, conversation.id)
+          : `direct:${conversation.id}`
+        : getGroupConversationId(conversation.id);
+
     set((state) => {
       const nextUnreadUsers = new Set(state.unreadUserIds);
       const nextUnreadGroups = new Set(state.unreadGroupIds);
+      const nextCounts = { ...state.unreadCountsByConversation, [convoId]: 0 };
 
       if (conversation.type === 'direct') {
         nextUnreadUsers.delete(conversation.id);
@@ -195,6 +274,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       return {
         activeConversation: conversation,
+        unreadCountsByConversation: nextCounts,
         unreadUserIds: nextUnreadUsers,
         unreadGroupIds: nextUnreadGroups,
         activePresence: null,
@@ -204,6 +284,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messageError: null,
       };
     });
+
+    socketService.markRead(convoId);
 
     get().fetchMessages(conversation);
 
@@ -312,6 +394,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messageError: null,
         };
       });
+
+      if (pastMessages.length > 0 && expectedConvoId) {
+        const latestMsg = pastMessages[pastMessages.length - 1];
+        if (latestMsg?.id) {
+          debouncedMarkRead(expectedConvoId, latestMsg.id);
+        }
+      }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       const errorMsg =
@@ -486,15 +575,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         (currentConvo.id === partnerId ||
           (myId && currentConvo.id === payload.recipientId && partnerId === myId));
 
+      const expectedConvoId = myId
+        ? getDirectConversationId(myId, partnerId)
+        : `direct:${partnerId}`;
+
+      const isVisibleAndActive =
+        isCurrentChat &&
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'visible';
+
       if (isCurrentChat) {
         const formattedTime = new Date(payload.timestamp).toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
         });
-
-        const expectedConvoId = myId
-          ? `direct:${[myId, currentConvo.id].sort().join(':')}`
-          : undefined;
 
         const incomingMsg: ChatMessage = {
           id: payload.id,
@@ -513,9 +607,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
           typingSafetyTimers.delete(directTimerKey);
         }
 
+        if (isVisibleAndActive) {
+          debouncedMarkRead(expectedConvoId, payload.id);
+        }
+
         set((state) => {
           const currentTyping = state.typingUsersByConversation[`user:${partnerId}`] || [];
           const updatedTyping = currentTyping.filter((id) => id !== partnerId);
+
+          let nextCounts = state.unreadCountsByConversation;
+          let nextUnreadUsers = state.unreadUserIds;
+          if (!isVisibleAndActive) {
+            nextCounts = {
+              ...state.unreadCountsByConversation,
+              [expectedConvoId]: (state.unreadCountsByConversation[expectedConvoId] || 0) + 1,
+            };
+            nextUnreadUsers = new Set(state.unreadUserIds);
+            nextUnreadUsers.add(partnerId);
+          }
 
           if (
             state.messages.some(
@@ -526,6 +635,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             )
           ) {
             return {
+              unreadCountsByConversation: nextCounts,
+              unreadUserIds: nextUnreadUsers,
               typingUsersByConversation: {
                 ...state.typingUsersByConversation,
                 [`user:${partnerId}`]: updatedTyping,
@@ -534,6 +645,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
           return {
             messages: [...state.messages, incomingMsg],
+            unreadCountsByConversation: nextCounts,
+            unreadUserIds: nextUnreadUsers,
             typingUsersByConversation: {
               ...state.typingUsersByConversation,
               [`user:${partnerId}`]: updatedTyping,
@@ -550,8 +663,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set((state) => {
           const next = new Set(state.unreadUserIds);
           next.add(partnerId);
+          const nextCounts = {
+            ...state.unreadCountsByConversation,
+            [expectedConvoId]: (state.unreadCountsByConversation[expectedConvoId] || 0) + 1,
+          };
           const currentTyping = state.typingUsersByConversation[`user:${partnerId}`] || [];
           return {
+            unreadCountsByConversation: nextCounts,
             unreadUserIds: next,
             typingUsersByConversation: {
               ...state.typingUsersByConversation,
@@ -566,9 +684,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const currentConvo = get().activeConversation;
       const { groupId } = payload;
       const senderId = payload.senderId;
+      const convoId = getGroupConversationId(groupId);
 
       const isCurrentGroup =
         currentConvo && currentConvo.type === 'group' && currentConvo.id === groupId;
+
+      const isVisibleAndActive =
+        isCurrentGroup &&
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'visible';
 
       const groupTimerKey = `group:${groupId}:${senderId}`;
       if (typingSafetyTimers.has(groupTimerKey)) {
@@ -584,7 +708,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         const incomingMsg: ChatMessage = {
           id: payload.id,
-          conversationId: payload.conversationId || `group:${groupId}`,
+          conversationId: payload.conversationId || convoId,
           clientMessageId: payload.clientMessageId,
           senderId: payload.senderId,
           groupId: payload.groupId,
@@ -593,9 +717,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
           status: 'sent',
         };
 
+        if (isVisibleAndActive) {
+          debouncedMarkRead(convoId, payload.id);
+        }
+
         set((state) => {
           const currentTyping = state.typingUsersByConversation[`group:${groupId}`] || [];
           const updatedTyping = currentTyping.filter((id) => id !== senderId);
+
+          let nextCounts = state.unreadCountsByConversation;
+          let nextUnreadGroups = state.unreadGroupIds;
+          if (!isVisibleAndActive) {
+            nextCounts = {
+              ...state.unreadCountsByConversation,
+              [convoId]: (state.unreadCountsByConversation[convoId] || 0) + 1,
+            };
+            nextUnreadGroups = new Set(state.unreadGroupIds);
+            nextUnreadGroups.add(groupId);
+          }
 
           if (
             state.messages.some(
@@ -606,6 +745,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             )
           ) {
             return {
+              unreadCountsByConversation: nextCounts,
+              unreadGroupIds: nextUnreadGroups,
               typingUsersByConversation: {
                 ...state.typingUsersByConversation,
                 [`group:${groupId}`]: updatedTyping,
@@ -614,6 +755,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
           return {
             messages: [...state.messages, incomingMsg],
+            unreadCountsByConversation: nextCounts,
+            unreadGroupIds: nextUnreadGroups,
             typingUsersByConversation: {
               ...state.typingUsersByConversation,
               [`group:${groupId}`]: updatedTyping,
@@ -624,8 +767,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set((state) => {
           const next = new Set(state.unreadGroupIds);
           next.add(groupId);
+          const nextCounts = {
+            ...state.unreadCountsByConversation,
+            [convoId]: (state.unreadCountsByConversation[convoId] || 0) + 1,
+          };
           const currentTyping = state.typingUsersByConversation[`group:${groupId}`] || [];
           return {
+            unreadCountsByConversation: nextCounts,
             unreadGroupIds: next,
             typingUsersByConversation: {
               ...state.typingUsersByConversation,
@@ -730,6 +878,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
       }
     });
+
+    unsubscribeReadAck = socketService.onConversationReadAck((payload) => {
+      const currentUserId = useAuthStore.getState().user?.id;
+      set((state) => {
+        const nextCounts = {
+          ...state.unreadCountsByConversation,
+          [payload.conversationId]: 0,
+        };
+        const nextUsers = new Set(state.unreadUserIds);
+        const nextGroups = new Set(state.unreadGroupIds);
+
+        if (payload.conversationId.startsWith('direct:') && currentUserId) {
+          const parts = payload.conversationId.slice(7).split(':');
+          const partner = parts.find((id) => id !== currentUserId);
+          if (partner) nextUsers.delete(partner);
+        } else if (payload.conversationId.startsWith('group:')) {
+          nextGroups.delete(payload.conversationId.slice(6));
+        }
+
+        return {
+          unreadCountsByConversation: nextCounts,
+          unreadUserIds: nextUsers,
+          unreadGroupIds: nextGroups,
+        };
+      });
+    });
   },
 
   disconnectSocket: () => {
@@ -756,6 +930,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (unsubscribeTyping) {
       unsubscribeTyping();
       unsubscribeTyping = null;
+    }
+    if (unsubscribeReadAck) {
+      unsubscribeReadAck();
+      unsubscribeReadAck = null;
     }
     for (const timer of typingSafetyTimers.values()) {
       clearTimeout(timer);
@@ -795,6 +973,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeGroupPresence: null,
       isLoadingPresence: false,
       typingUsersByConversation: {},
+      unreadCountsByConversation: {},
       unreadUserIds: new Set(),
       unreadGroupIds: new Set(),
       isSocketConnected: false,

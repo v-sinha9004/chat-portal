@@ -125,3 +125,26 @@ export interface UserTypingEvent {
   recipientId?: string;
   groupId?: string;
 }
+
+export interface UnreadCountsResponse {
+  status: string;
+  unreadCounts: Record<string, number>;
+}
+
+export interface MarkReadPayload {
+  conversationId: string;
+  lastReadMessageId?: string;
+}
+
+export interface ConversationReadAckEvent {
+  conversationId: string;
+  lastReadMessageId: string;
+}
+
+export function getDirectConversationId(userId1: string, userId2: string): string {
+  return `direct:${[userId1, userId2].sort().join(':')}`;
+}
+
+export function getGroupConversationId(groupId: string): string {
+  return `group:${groupId}`;
+}

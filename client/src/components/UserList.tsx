@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { useUIStore } from '../store/useUIStore';
+import { getDirectConversationId, getGroupConversationId } from '../types';
 
 export const UserList: React.FC = () => {
   const authUser = useAuthStore((s) => s.user);
@@ -15,6 +16,9 @@ export const UserList: React.FC = () => {
   const error = useChatStore((s) => s.conversationsError);
   const fetchConversations = useChatStore((s) => s.fetchConversations);
   const isSocketConnected = useChatStore((s) => s.isSocketConnected);
+  const unreadCountsByConversation = useChatStore(
+    (s) => s.unreadCountsByConversation,
+  );
   const unreadUserIds = useChatStore((s) => s.unreadUserIds);
   const unreadGroupIds = useChatStore((s) => s.unreadGroupIds);
   const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
@@ -220,7 +224,9 @@ export const UserList: React.FC = () => {
           groups.map((group) => {
             const isSelected =
               activeConversation?.type === 'group' && activeConversation.id === group.id;
-            const hasUnread = unreadGroupIds.has(group.id);
+            const groupConvoId = getGroupConversationId(group.id);
+            const unreadCount = unreadCountsByConversation[groupConvoId] || 0;
+            const hasUnread = unreadCount > 0 || unreadGroupIds.has(group.id);
 
             const isGroupTyping =
               (typingUsersByConversation[`group:${group.id}`] || []).length > 0;
@@ -260,7 +266,16 @@ export const UserList: React.FC = () => {
                     <span className="user-username">
                       {group.memberCount ?? 1} {group.memberCount === 1 ? 'member' : 'members'}
                     </span>
-                    {hasUnread && <span className="unread-dot" title="New group message" />}
+                    {unreadCount > 0 ? (
+                      <span
+                        className="unread-badge"
+                        title={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
+                      >
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    ) : hasUnread ? (
+                      <span className="unread-dot" title="New group message" />
+                    ) : null}
                   </div>
                   {isGroupTyping ? (
                     <p className="user-typing-indicator-sidebar">
@@ -291,7 +306,11 @@ export const UserList: React.FC = () => {
           contacts.map((contact) => {
             const isSelected =
               activeConversation?.type === 'direct' && activeConversation.id === contact.id;
-            const hasUnread = unreadUserIds.has(contact.id);
+            const directConvoId = currentUserId
+              ? getDirectConversationId(currentUserId, contact.id)
+              : `direct:${contact.id}`;
+            const unreadCount = unreadCountsByConversation[directConvoId] || 0;
+            const hasUnread = unreadCount > 0 || unreadUserIds.has(contact.id);
             const isContactTyping =
               (typingUsersByConversation[`user:${contact.id}`] || []).length > 0;
 
@@ -328,7 +347,16 @@ export const UserList: React.FC = () => {
                   </div>
                   <div className="user-username-row">
                     <span className="user-username">@{contact.username}</span>
-                    {hasUnread && <span className="unread-dot" title="New direct message" />}
+                    {unreadCount > 0 ? (
+                      <span
+                        className="unread-badge"
+                        title={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
+                      >
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    ) : hasUnread ? (
+                      <span className="unread-dot" title="New direct message" />
+                    ) : null}
                   </div>
                   {isContactTyping ? (
                     <p className="user-typing-indicator-sidebar">

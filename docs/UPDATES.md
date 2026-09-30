@@ -89,7 +89,10 @@
 | 2 | Introduce zustand in client for state management | ✅ |
 | 3 | Refactor - move from context store to zustand for auth states for code consistency | ✅ |
 | 4 | Test zustand changes | ✅ |
-| 5 | Online/Offline status | ⏳ |
+| 5 | Online/Offline status | ✅ |
+| 6 | Typing Indicator | ✅ |
+| 7 | Read receipts | ⏳ |
+| 8 | Show unread messages and its count | ⏳ |
 
 ---
 

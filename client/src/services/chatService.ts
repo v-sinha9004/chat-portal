@@ -82,3 +82,30 @@ export async function fetchGroupMessages(
 
   return response.json();
 }
+
+/**
+ * Fetch real-time unread message counts for all conversations for the authenticated user.
+ */
+export async function fetchUnreadCounts(
+  token: string,
+  signal?: AbortSignal,
+): Promise<Record<string, number>> {
+  const response = await fetch(`${CHAT_API_URL}/messages/unread-counts`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to fetch unread counts: HTTP ${response.status}`,
+    );
+  }
+
+  const data = await response.json();
+  return data?.unreadCounts || {};
+}
