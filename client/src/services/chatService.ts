@@ -25,25 +25,45 @@ export interface ChatHistoryResponse {
   oldestCursor?: string;
 }
 
+export interface FetchMessagesOptions {
+  limit?: number;
+  before?: string;
+  signal?: AbortSignal;
+}
+
 /**
  * Fetch direct message history between current authenticated user and target user.
  */
 export async function fetchDirectMessages(
   token: string,
   targetUserId: string,
-  signal?: AbortSignal,
+  optionsOrSignal?: FetchMessagesOptions | AbortSignal,
 ): Promise<ChatHistoryResponse> {
-  const response = await fetch(
-    `${CHAT_API_URL}/messages/direct/${encodeURIComponent(targetUserId)}`,
-    {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      signal,
+  const options: FetchMessagesOptions =
+    optionsOrSignal instanceof AbortSignal
+      ? { signal: optionsOrSignal }
+      : optionsOrSignal || {};
+
+  const queryParams = new URLSearchParams();
+  if (options.limit !== undefined) {
+    queryParams.set('limit', String(options.limit));
+  }
+  if (options.before) {
+    queryParams.set('before', options.before);
+  }
+  const queryString = queryParams.toString();
+  const url = `${CHAT_API_URL}/messages/direct/${encodeURIComponent(targetUserId)}${
+    queryString ? `?${queryString}` : ''
+  }`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
     },
-  );
+    signal: options.signal,
+  });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -61,19 +81,33 @@ export async function fetchDirectMessages(
 export async function fetchGroupMessages(
   token: string,
   groupId: string,
-  signal?: AbortSignal,
+  optionsOrSignal?: FetchMessagesOptions | AbortSignal,
 ): Promise<ChatHistoryResponse> {
-  const response = await fetch(
-    `${CHAT_API_URL}/messages/group/${encodeURIComponent(groupId)}`,
-    {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      signal,
+  const options: FetchMessagesOptions =
+    optionsOrSignal instanceof AbortSignal
+      ? { signal: optionsOrSignal }
+      : optionsOrSignal || {};
+
+  const queryParams = new URLSearchParams();
+  if (options.limit !== undefined) {
+    queryParams.set('limit', String(options.limit));
+  }
+  if (options.before) {
+    queryParams.set('before', options.before);
+  }
+  const queryString = queryParams.toString();
+  const url = `${CHAT_API_URL}/messages/group/${encodeURIComponent(groupId)}${
+    queryString ? `?${queryString}` : ''
+  }`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
     },
-  );
+    signal: options.signal,
+  });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);

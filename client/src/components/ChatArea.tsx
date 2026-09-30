@@ -55,6 +55,9 @@ export const ChatArea: React.FC = () => {
   const messageFetchError = useChatStore((s) => s.messageError);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const fetchMessages = useChatStore((s) => s.fetchMessages);
+  const hasMoreMessages = useChatStore((s) => s.hasMoreMessages);
+  const isLoadingOlderMessages = useChatStore((s) => s.isLoadingOlderMessages);
+  const loadOlderMessages = useChatStore((s) => s.loadOlderMessages);
 
   // Typing tracking from store
   const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
@@ -66,6 +69,10 @@ export const ChatArea: React.FC = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastLoadedConvoKeyRef = useRef<string | null>(null);
   const justLoadedInitialRef = useRef<boolean>(false);
+  const lastSeenTailMessageIdRef = useRef<string | null>(null);
+  const prevScrollHeightRef = useRef<number>(0);
+  const prevScrollTopRef = useRef<number>(0);
+  const isPrependingOlderRef = useRef<boolean>(false);
 
   // Throttling and inactivity timers
   const isTypingRef = useRef(false);
@@ -125,14 +132,36 @@ export const ChatArea: React.FC = () => {
     };
   }, [activeConversation?.id, stopTyping]);
 
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (behavior === 'auto' || behavior === 'instant') {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
     }
     messagesEndRef.current?.scrollIntoView({ behavior });
-  };
+  }, []);
+
+  // Handler to load earlier messages with scroll position retention
+  const triggerLoadOlder = useCallback(() => {
+    if (isLoadingOlderMessages || !hasMoreMessages || isLoadingMessages) return;
+    const container = messagesContainerRef.current;
+    if (container) {
+      prevScrollHeightRef.current = container.scrollHeight;
+      prevScrollTopRef.current = container.scrollTop;
+      isPrependingOlderRef.current = true;
+    }
+    loadOlderMessages();
+  }, [hasMoreMessages, isLoadingOlderMessages, isLoadingMessages, loadOlderMessages]);
+
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    // Trigger load when scrolled near the top
+    if (container.scrollTop <= 60) {
+      triggerLoadOlder();
+    }
+  }, [triggerLoadOlder]);
 
   // Send message handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -188,6 +217,22 @@ export const ChatArea: React.FC = () => {
     }
   }, [activeTypingUserIds, getUserName]);
 
+  // Scroll adjustment when older messages are prepended
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    if (isPrependingOlderRef.current && prevScrollHeightRef.current > 0) {
+      const heightDelta = container.scrollHeight - prevScrollHeightRef.current;
+      if (heightDelta > 0) {
+        container.scrollTop = prevScrollTopRef.current + heightDelta;
+      }
+      isPrependingOlderRef.current = false;
+      prevScrollHeightRef.current = 0;
+      prevScrollTopRef.current = 0;
+    }
+  }, [messages]);
+
   // Instant scroll to bottom on initial message load for a conversation
   useLayoutEffect(() => {
     if (!activeKey || isLoadingMessages) return;
@@ -204,12 +249,13 @@ export const ChatArea: React.FC = () => {
       const rafId = requestAnimationFrame(scrollToBottomInstant);
       lastLoadedConvoKeyRef.current = activeKey;
       justLoadedInitialRef.current = true;
+      lastSeenTailMessageIdRef.current = messages[messages.length - 1]?.id || null;
 
       return () => cancelAnimationFrame(rafId);
     }
   }, [activeKey, isLoadingMessages, messages]);
 
-  // Smooth scroll for subsequent message updates or typing indicator
+  // Smooth scroll for new incoming/outgoing messages or typing indicator
   useEffect(() => {
     if (!activeKey || isLoadingMessages) return;
 
@@ -218,13 +264,31 @@ export const ChatArea: React.FC = () => {
       return;
     }
 
-    scrollToBottom('smooth');
-  }, [messages, typingText, activeKey, isLoadingMessages]);
+    const currentTailId = messages[messages.length - 1]?.id || null;
+    const hasNewTailMessage = currentTailId && currentTailId !== lastSeenTailMessageIdRef.current;
+    lastSeenTailMessageIdRef.current = currentTailId;
+
+    if (hasNewTailMessage) {
+      scrollToBottom('smooth');
+      return;
+    }
+
+    // If typing text appeared, only scroll to bottom if user is already near bottom
+    if (typingText && messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 150) {
+        scrollToBottom('smooth');
+      }
+    }
+  }, [messages, typingText, activeKey, isLoadingMessages, scrollToBottom]);
 
   // Reset tracked conversation if none is selected
   useEffect(() => {
     if (!activeKey) {
       lastLoadedConvoKeyRef.current = null;
+      lastSeenTailMessageIdRef.current = null;
     }
   }, [activeKey]);
 
@@ -396,7 +460,11 @@ export const ChatArea: React.FC = () => {
       </header>
 
       {/* Messages Container */}
-      <div className="chat-messages-container" ref={messagesContainerRef}>
+      <div
+        className="chat-messages-container"
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+      >
         {isLoadingMessages ? (
           <div className="messages-loading-state">
             <div className="loading-spinner" />
@@ -423,6 +491,27 @@ export const ChatArea: React.FC = () => {
           </div>
         ) : (
           <div className="messages-list">
+            {isLoadingOlderMessages ? (
+              <div className="load-older-indicator loading">
+                <div className="loading-spinner small" />
+                <span>Loading earlier messages...</span>
+              </div>
+            ) : hasMoreMessages ? (
+              <div className="load-older-indicator">
+                <button
+                  type="button"
+                  className="load-older-btn"
+                  onClick={triggerLoadOlder}
+                >
+                  ↑ Load earlier messages
+                </button>
+              </div>
+            ) : (
+              <div className="messages-history-start">
+                <span>Beginning of message history</span>
+              </div>
+            )}
+
             {messages.map((msg) => {
               const isMe = msg.senderId === currentUserId;
               const senderDisplayName =

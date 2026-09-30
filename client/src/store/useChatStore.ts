@@ -61,11 +61,15 @@ interface ChatState {
   messages: ChatMessage[];
   isLoadingMessages: boolean;
   messageError: string | null;
+  hasMoreMessages: boolean;
+  oldestMessageCursor: string | null;
+  isLoadingOlderMessages: boolean;
 
   // Actions
   fetchConversations: () => Promise<void>;
   selectConversation: (conversation: ActiveConversation | null) => void;
   fetchMessages: (targetConvo?: ActiveConversation) => Promise<void>;
+  loadOlderMessages: () => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
   sendTypingStart: () => void;
   sendTypingStop: () => void;
@@ -153,6 +157,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isLoadingMessages: false,
   messageError: null,
+  hasMoreMessages: false,
+  oldestMessageCursor: null,
+  isLoadingOlderMessages: false,
 
   fetchConversations: async () => {
     const token = useAuthStore.getState().accessToken;
@@ -278,6 +285,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         groupMemberLastReadMap: {},
         messages: [],
         messageError: null,
+        hasMoreMessages: false,
+        oldestMessageCursor: null,
+        isLoadingOlderMessages: false,
       });
       return;
     }
@@ -313,6 +323,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         groupMemberLastReadMap: {},
         messages: [],
         messageError: null,
+        hasMoreMessages: false,
+        oldestMessageCursor: null,
+        isLoadingOlderMessages: false,
       };
     });
 
@@ -379,8 +392,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     try {
       const response = isGroup
-        ? await fetchGroupMessages(token, targetId, signal)
-        : await fetchDirectMessages(token, targetId, signal);
+        ? await fetchGroupMessages(token, targetId, { limit: 50, signal })
+        : await fetchDirectMessages(token, targetId, { limit: 50, signal });
 
       if (signal.aborted) return;
 
@@ -445,7 +458,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messages: merged,
           partnerLastReadMessageId: partnerLastRead,
           groupMemberLastReadMap: memberLastReadMap,
+          hasMoreMessages: Boolean(response.hasMore),
+          oldestMessageCursor: response.oldestCursor || null,
           isLoadingMessages: false,
+          isLoadingOlderMessages: false,
           messageError: null,
         };
       });
@@ -463,8 +479,121 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Failed to load past messages:', err);
       set({
         isLoadingMessages: false,
+        isLoadingOlderMessages: false,
         messageError: errorMsg,
       });
+    }
+  },
+
+  loadOlderMessages: async () => {
+    const {
+      activeConversation: convo,
+      hasMoreMessages,
+      oldestMessageCursor,
+      isLoadingOlderMessages,
+      isLoadingMessages,
+    } = get();
+
+    const token = useAuthStore.getState().accessToken;
+    const currentUserId = useAuthStore.getState().user?.id || null;
+
+    if (
+      !convo ||
+      !token ||
+      !hasMoreMessages ||
+      !oldestMessageCursor ||
+      isLoadingOlderMessages ||
+      isLoadingMessages
+    ) {
+      return;
+    }
+
+    set({ isLoadingOlderMessages: true });
+
+    const isGroup = convo.type === 'group';
+    const targetId = convo.id;
+
+    try {
+      const response = isGroup
+        ? await fetchGroupMessages(token, targetId, {
+            limit: 50,
+            before: oldestMessageCursor,
+          })
+        : await fetchDirectMessages(token, targetId, {
+            limit: 50,
+            before: oldestMessageCursor,
+          });
+
+      if (get().activeConversation?.id !== targetId) {
+        set({ isLoadingOlderMessages: false });
+        return;
+      }
+
+      const partnerLastRead = response.partnerLastReadMessageId || get().partnerLastReadMessageId;
+      const memberLastReadMap = {
+        ...get().groupMemberLastReadMap,
+        ...(response.memberLastReadMap || {}),
+      };
+
+      const olderMessages: ChatMessage[] = (response.messages || []).map((m) => {
+        const msgId = m.id || m.messageId;
+        const isMe = m.senderId === currentUserId;
+        const formattedTime = new Date(m.timestamp).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+        let status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' = 'sent';
+        if (isMe) {
+          if (!isGroup && partnerLastRead && msgId <= partnerLastRead) {
+            status = 'read';
+          } else if (isGroup && Object.keys(memberLastReadMap).length > 0) {
+            const otherMemberReadIds = Object.entries(memberLastReadMap)
+              .filter(([memberId]) => memberId !== currentUserId)
+              .map(([, lastRead]) => lastRead);
+            if (
+              otherMemberReadIds.length > 0 &&
+              otherMemberReadIds.every((lastRead) => lastRead && msgId <= lastRead)
+            ) {
+              status = 'read';
+            }
+          }
+        }
+
+        return {
+          id: msgId,
+          conversationId: m.conversationId,
+          clientMessageId: m.clientMessageId,
+          senderId: m.senderId,
+          receiverId: m.recipientId,
+          groupId: m.groupId,
+          text: m.text || m.content || '',
+          timestamp: formattedTime,
+          status,
+        };
+      });
+
+      set((state) => {
+        const existingIds = new Set(state.messages.map((m) => m.id));
+        const filteredOlder = olderMessages.filter(
+          (m) =>
+            !existingIds.has(m.id) &&
+            (!m.clientMessageId ||
+              !state.messages.some((cur) => cur.clientMessageId === m.clientMessageId)),
+        );
+
+        return {
+          messages: [...filteredOlder, ...state.messages],
+          hasMoreMessages: Boolean(response.hasMore),
+          oldestMessageCursor: response.oldestCursor || null,
+          partnerLastReadMessageId: partnerLastRead,
+          groupMemberLastReadMap: memberLastReadMap,
+          isLoadingOlderMessages: false,
+        };
+      });
+    } catch (err) {
+      console.error('Failed to load older messages:', err);
+      set({ isLoadingOlderMessages: false });
     }
   },
 
@@ -1139,6 +1268,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [],
       isLoadingMessages: false,
       messageError: null,
+      hasMoreMessages: false,
+      oldestMessageCursor: null,
+      isLoadingOlderMessages: false,
     });
   },
 }));
