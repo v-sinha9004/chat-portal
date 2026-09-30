@@ -97,14 +97,14 @@
 | 10 | Add script to seed 500 messages into a chat | ✅ |
 | 11 | Load only 50 messages initially | ✅ |
 | 12 | Load more messages in batches of 50 upon scrolling smoothly upwards | ✅ |
-| 13 | Save opened chat messages in memory, even when user navigates to other chats | ⏳ |
+| 13 | Save opened chat messages in memory, even when user navigates to other chats | ✅ |
 | 15 | Initialise media service | ✅ |
 | 16 | Scroll to older messages even when message is not loaded in the memory | ✅ |
 | 17 | Setting up minIO for file storage - local development | ✅ |
 | 18 | Implementing basic upload, delete endpoints in media service | ✅ |
 | 19 | Pin feature | ✅ |
 | 20 | Doubt feature | ✅ |
-| 21 | File sharing feature | ⏳ |
+| 21 | File sharing feature | ✅ |
 
 ---
 
@@ -112,24 +112,24 @@
 
 | # | Task Description | Status |
 | :-: | :--- | :-: |
-| 3 | Message deliver when user is connected to different chat server | ⏳ |
-| 4 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
-| 5 | Role based access | ⏳ |
-| 8 | Group Chat Management | ⏳ |
-| 13 | Report message feature | ⏳ |
-| 14 | Message search feature | ⏳ |
-| 15 | Message edit feature | ⏳ |
-| 16 | Message delete feature | ⏳ |
-| 17 | Message reaction feature | ⏳ |
-| 18 | Image preview | ⏳ |
-| 19 | In app notification | ⏳ |
-| 20 | Test on real devices | ⏳ |
-| 21 | Deployment of all services | ⏳ |
-| 22 | Clean Up Codebase & documentation | ⏳ |
-| 23 | Cache implementation at multiple levels for smooth loading and functioning | ⏳ |
-| 24 | Cache invalidation when needed | ⏳ |
-| 25 | Monitoring system | ⏳ |
-| 33 | Limit character count of messages | ⏳ |
-| 34 | Merge groups and direct chats | ⏳ |
-| 35 | Sort groups and direct chats by last message time | ⏳ |
+| 1 | Message deliver when user is connected to different chat server | ⏳ |
+| 2 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
+| 3 | Role based access | ⏳ |
+| 4 | Group Chat Management | ⏳ |
+| 5 | Report message feature | ⏳ |
+| 6 | Message search feature | ⏳ |
+| 7 | Message edit feature | ⏳ |
+| 8 | Message delete feature | ⏳ |
+| 9 | Message reaction feature | ⏳ |
+| 10 | Image preview | ⏳ |
+| 11 | In app notification | ⏳ |
+| 12 | Test on real devices | ⏳ |
+| 13 | Deployment of all services | ⏳ |
+| 14 | Clean Up Codebase & documentation | ⏳ |
+| 15 | Cache implementation at multiple levels for smooth loading and functioning | ⏳ |
+| 16 | Cache invalidation when needed | ⏳ |
+| 17 | Monitoring system | ⏳ |
+| 18 | Limit character count of messages | ⏳ |
+| 19 | Merge groups and direct chats | ⏳ |
+| 20 | Sort groups and direct chats by last message time | ⏳ |
 ...More
