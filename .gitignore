@@ -34,3 +34,4 @@ services/chat-service/test-socket.js
 scripts/test-e2e-persistence.js
 scripts/test-presence.js
 scripts/seed-chat-messages.js
+scripts/test-e2e-media-attachments.js

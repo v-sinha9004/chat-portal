@@ -1,6 +1,5 @@
 import React from 'react';
-import { MegaphoneIcon } from '../components/announcements/MegaphoneIcon';
-import { QuestionMarkIcon } from '../components/doubts/QuestionMarkIcon';
+import { MegaphoneIcon, QuestionMarkIcon } from '../components/Icons';
 
 export interface ChatActionContext {
   isGroup: boolean;
