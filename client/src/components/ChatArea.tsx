@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import type { ChatMessage, AttachmentInfo } from '../types';
@@ -9,22 +9,11 @@ import { DoubtComposer } from './doubts/DoubtComposer';
 import { CHAT_ACTION_ITEMS } from '../config/chatActionsConfig';
 import { navigateToMessage } from '../utils/messageNavigation';
 import { PinnedMessageCarousel } from './pins/PinnedMessageCarousel';
-import { validateMediaFile, uploadMediaAttachment } from '../utils/mediaUpload';
 import { AttachmentRenderer } from './media/AttachmentRenderer';
 import { MediaLightbox } from './media/MediaLightbox';
-
-interface PendingAttachmentState {
-  file: File;
-  previewUrl: string;
-  isImage: boolean;
-  fileName: string;
-  fileSize: number;
-  isUploading: boolean;
-  uploadProgress: number;
-  error?: string | null;
-  attachmentInfo?: AttachmentInfo | null;
-  abortController?: AbortController;
-}
+import { useChatScroll } from './chat/hooks/useChatScroll';
+import { useChatTyping } from './chat/hooks/useChatTyping';
+import { useMediaAttachment } from './chat/hooks/useMediaAttachment';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -112,7 +101,91 @@ export const ChatArea: React.FC = () => {
   const sendTypingStart = useChatStore((s) => s.sendTypingStart);
   const sendTypingStop = useChatStore((s) => s.sendTypingStop);
 
-  const [inputText, setInputText] = useState('');
+  const activeKey = activeConversation
+    ? activeConversation.type === 'group'
+      ? `group:${activeConversation.id}`
+      : `user:${activeConversation.id}`
+    : null;
+
+  const activeTypingUserIds = useMemo(() => {
+    if (!activeKey) return [];
+    return (typingUsersByConversation[activeKey] || []).filter(
+      (id) => id !== currentUserId,
+    );
+  }, [activeKey, typingUsersByConversation, currentUserId]);
+
+  const typingText = useMemo(() => {
+    if (activeTypingUserIds.length === 0) return null;
+    const names = activeTypingUserIds.map((id) => {
+      if (id === currentUserId) return 'You';
+      if (activeConversation?.type === 'direct') {
+        if (activeConversation.user.id === id) {
+          return activeConversation.user.name || `@${activeConversation.user.username}`;
+        }
+      }
+      if (activeConversation?.type === 'group') {
+        const member = activeConversation.group.members?.find((m) => m.userId === id);
+        if (member?.user) {
+          return member.user.name || (member.user.username ? `@${member.user.username}` : 'Member');
+        }
+      }
+      const found = users.find((u) => u.id === id);
+      return found?.name || (found?.username ? `@${found.username}` : 'Member');
+    });
+    if (names.length === 1) {
+      return `${names[0]} is typing...`;
+    } else if (names.length === 2) {
+      return `${names[0]} and ${names[1]} are typing...`;
+    } else {
+      return `${names[0]}, ${names[1]} and ${names.length - 2} ${names.length - 2 === 1 ? 'other' : 'others'} are typing...`;
+    }
+  }, [activeTypingUserIds, currentUserId, activeConversation, users]);
+
+  // Hook 1: Typing Indicator State & Throttling
+  const { inputText, setInputText, handleInputChange, stopTyping } = useChatTyping({
+    activeConversationId: activeConversation?.id,
+    sendTypingStart,
+    sendTypingStop,
+  });
+
+  // Hook 2: Media Attachment & Drag-Drop State
+  const {
+    pendingAttachment,
+    isDraggingOver,
+    fileInputRef,
+    handleRemovePendingAttachment,
+    processSelectedFile,
+    handleDragEnter,
+    handleDragLeave,
+    handleDragOver,
+    handleDrop,
+    handlePaste,
+  } = useMediaAttachment({
+    activeConversationId: activeConversation?.id,
+  });
+
+  // Hook 3: Virtualized / Anchored Message Scrolling
+  const {
+    messagesContainerRef,
+    messagesEndRef,
+    isJumpingToLatestRef,
+    scrollToBottom,
+    triggerLoadOlder,
+    handleScroll,
+  } = useChatScroll({
+    activeKey,
+    messages,
+    isLoadingMessages,
+    hasMoreMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
+    hasNewerMessages,
+    isLoadingNewerMessages,
+    loadNewerMessages,
+    currentUserId,
+    typingText,
+  });
+
   const [isAnnouncementMode, setIsAnnouncementMode] = useState(false);
   const [announcementHeading, setAnnouncementHeading] = useState('');
   const [isDoubtMode, setIsDoubtMode] = useState(false);
@@ -120,131 +193,7 @@ export const ChatArea: React.FC = () => {
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachmentState | null>(null);
   const [lightboxAttachment, setLightboxAttachment] = useState<AttachmentInfo | null>(null);
-  const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const dragCounterRef = useRef(0);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const lastLoadedConvoKeyRef = useRef<string | null>(null);
-  const justLoadedInitialRef = useRef<boolean>(false);
-  const lastSeenTailMessageIdRef = useRef<string | null>(null);
-  const prevScrollHeightRef = useRef<number>(0);
-  const prevScrollTopRef = useRef<number>(0);
-  const isPrependingOlderRef = useRef<boolean>(false);
-  const isJumpingToLatestRef = useRef<boolean>(false);
-
-  // Throttling and inactivity timers
-  const isTypingRef = useRef(false);
-  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const stopTyping = useCallback(() => {
-    if (pauseTimeoutRef.current) {
-      clearTimeout(pauseTimeoutRef.current);
-      pauseTimeoutRef.current = null;
-    }
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-      heartbeatIntervalRef.current = null;
-    }
-    if (isTypingRef.current) {
-      isTypingRef.current = false;
-      sendTypingStop();
-    }
-  }, [sendTypingStop]);
-
-  // Handle typing input changes with 2.5s debounce and 3s heartbeat
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setInputText(val);
-
-    if (!val.trim()) {
-      stopTyping();
-      return;
-    }
-
-    if (!isTypingRef.current) {
-      isTypingRef.current = true;
-      sendTypingStart();
-
-      // Refresh every 3 seconds while user continues typing continuously
-      heartbeatIntervalRef.current = setInterval(() => {
-        if (isTypingRef.current) {
-          sendTypingStart();
-        }
-      }, 3000);
-    }
-
-    // Reset 2.5s pause timeout
-    if (pauseTimeoutRef.current) {
-      clearTimeout(pauseTimeoutRef.current);
-    }
-    pauseTimeoutRef.current = setTimeout(() => {
-      stopTyping();
-    }, 2500);
-  };
-
-  // Stop typing if user switches conversation or unmounts
-  useEffect(() => {
-    return () => {
-      stopTyping();
-    };
-  }, [activeConversation?.id, stopTyping]);
-
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    if (behavior === 'auto' || behavior === 'instant') {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      }
-    }
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  }, []);
-
-  // Handler to load earlier messages with scroll position retention
-  const triggerLoadOlder = useCallback(() => {
-    if (
-      isJumpingToLatestRef.current ||
-      isLoadingOlderMessages ||
-      !hasMoreMessages ||
-      isLoadingMessages
-    ) {
-      return;
-    }
-    const container = messagesContainerRef.current;
-    if (container) {
-      prevScrollHeightRef.current = container.scrollHeight;
-      prevScrollTopRef.current = container.scrollTop;
-      isPrependingOlderRef.current = true;
-    }
-    loadOlderMessages();
-  }, [hasMoreMessages, isLoadingOlderMessages, isLoadingMessages, loadOlderMessages]);
-
-  const handleScroll = useCallback(() => {
-    if (isJumpingToLatestRef.current) return;
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    // Trigger load when scrolled near the top
-    if (container.scrollTop <= 60) {
-      triggerLoadOlder();
-    }
-
-    // Trigger load newer messages when scrolled near bottom while in historical view
-    if (
-      hasNewerMessages &&
-      !isLoadingNewerMessages &&
-      !isLoadingMessages &&
-      !isJumpingToLatestRef.current
-    ) {
-      const distanceFromBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
-      if (distanceFromBottom <= 50) {
-        loadNewerMessages();
-      }
-    }
-  }, [triggerLoadOlder, hasNewerMessages, isLoadingNewerMessages, isLoadingMessages, loadNewerMessages]);
 
   // Reset modes and action menu when active conversation changes
   useEffect(() => {
@@ -308,158 +257,7 @@ export const ChatArea: React.FC = () => {
     }
   };
 
-  const handleRemovePendingAttachment = useCallback(() => {
-    setPendingAttachment((prev) => {
-      if (prev) {
-        if (prev.abortController) {
-          prev.abortController.abort();
-        }
-        if (prev.previewUrl) {
-          URL.revokeObjectURL(prev.previewUrl);
-        }
-      }
-      return null;
-    });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, []);
 
-  const processSelectedFile = useCallback(
-    async (file: File) => {
-      if (!activeConversation) return;
-
-      const validation = validateMediaFile(file);
-      if (!validation.valid) {
-        alert(validation.error || 'Invalid file');
-        return;
-      }
-
-      // If there's an existing upload, abort and cleanup
-      handleRemovePendingAttachment();
-
-      const isImage = file.type.startsWith('image/');
-      const previewUrl = URL.createObjectURL(file);
-      const abortController = new AbortController();
-
-      setPendingAttachment({
-        file,
-        previewUrl,
-        isImage,
-        fileName: file.name,
-        fileSize: file.size,
-        isUploading: true,
-        uploadProgress: 0,
-        abortController,
-      });
-
-      try {
-        const token = useAuthStore.getState().accessToken;
-        if (!token) throw new Error('Not authenticated');
-
-        const attachmentInfo = await uploadMediaAttachment(
-          file,
-          activeConversation.id,
-          token,
-          {
-            onProgress: (percent) => {
-              setPendingAttachment((prev) =>
-                prev ? { ...prev, uploadProgress: percent } : null,
-              );
-            },
-            signal: abortController.signal,
-          },
-        );
-
-        setPendingAttachment((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            isUploading: false,
-            uploadProgress: 100,
-            attachmentInfo,
-          };
-        });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          return;
-        }
-        const message = err instanceof Error ? err.message : 'Upload failed';
-        setPendingAttachment((prev) =>
-          prev
-            ? {
-                ...prev,
-                isUploading: false,
-                error: message,
-              }
-            : null,
-        );
-      }
-    },
-    [activeConversation, handleRemovePendingAttachment],
-  );
-
-  // Clean up pending attachment if conversation switches
-  useEffect(() => {
-    handleRemovePendingAttachment();
-  }, [activeConversation?.id, handleRemovePendingAttachment]);
-
-  // Clean up object URL on unmount
-  useEffect(() => {
-    return () => {
-      if (pendingAttachment?.previewUrl) {
-        URL.revokeObjectURL(pendingAttachment.previewUrl);
-      }
-    };
-  }, [pendingAttachment?.previewUrl]);
-
-  // Drag and drop handlers
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounterRef.current += 1;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setIsDraggingOver(true);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounterRef.current -= 1;
-    if (dragCounterRef.current <= 0) {
-      setIsDraggingOver(false);
-      dragCounterRef.current = 0;
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-    dragCounterRef.current = 0;
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      processSelectedFile(file);
-    }
-  };
-
-  // Clipboard paste handler
-  const handlePaste = (e: React.ClipboardEvent) => {
-    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
-      const file = e.clipboardData.files[0];
-      if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-        e.preventDefault();
-        processSelectedFile(file);
-      }
-    }
-  };
 
   const canSubmit =
     (inputText.trim().length > 0 ||
@@ -479,13 +277,7 @@ export const ChatArea: React.FC = () => {
       : undefined;
 
     // Reset pending attachment state and revoke preview
-    if (pendingAttachment?.previewUrl) {
-      URL.revokeObjectURL(pendingAttachment.previewUrl);
-    }
-    setPendingAttachment(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    handleRemovePendingAttachment();
 
     if (isAnnouncementMode) {
       if (!announcementHeading.trim()) return;
@@ -548,8 +340,6 @@ export const ChatArea: React.FC = () => {
     },
     [currentUserId, activeConversation, users],
   );
-
-  const getUserName = getDisplayName;
 
   const getUserRole = useCallback(
     (userId: string) => {
@@ -618,150 +408,15 @@ export const ChatArea: React.FC = () => {
 
   const handleJumpToRecent = useCallback(async () => {
     isJumpingToLatestRef.current = true;
-    lastLoadedConvoKeyRef.current = null; // Forces layout effect to scroll to bottom instantly when loaded
     await jumpToLatest();
-
-    const doScrollToBottom = () => {
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      }
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-    };
-
-    doScrollToBottom();
+    scrollToBottom('auto');
     requestAnimationFrame(() => {
-      doScrollToBottom();
+      scrollToBottom('auto');
       setTimeout(() => {
         isJumpingToLatestRef.current = false;
       }, 400);
     });
-  }, [jumpToLatest]);
-
-  const activeKey = activeConversation
-    ? activeConversation.type === 'group'
-      ? `group:${activeConversation.id}`
-      : `user:${activeConversation.id}`
-    : null;
-
-  const activeTypingUserIds = useMemo(() => {
-    if (!activeKey) return [];
-    return (typingUsersByConversation[activeKey] || []).filter(
-      (id) => id !== currentUserId,
-    );
-  }, [activeKey, typingUsersByConversation, currentUserId]);
-
-  const typingText = useMemo(() => {
-    if (activeTypingUserIds.length === 0) return null;
-    const names = activeTypingUserIds.map((id) => getUserName(id));
-    if (names.length === 1) {
-      return `${names[0]} is typing...`;
-    } else if (names.length === 2) {
-      return `${names[0]} and ${names[1]} are typing...`;
-    } else {
-      return `${names[0]}, ${names[1]} and ${names.length - 2} ${names.length - 2 === 1 ? 'other' : 'others'} are typing...`;
-    }
-  }, [activeTypingUserIds, getUserName]);
-
-  // Scroll adjustment when older messages are prepended
-  useLayoutEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    if (isPrependingOlderRef.current && prevScrollHeightRef.current > 0) {
-      const heightDelta = container.scrollHeight - prevScrollHeightRef.current;
-      if (heightDelta > 0) {
-        container.scrollTop = prevScrollTopRef.current + heightDelta;
-      }
-      isPrependingOlderRef.current = false;
-      prevScrollHeightRef.current = 0;
-      prevScrollTopRef.current = 0;
-    }
-  }, [messages]);
-
-  // Instant scroll to bottom on initial message load for a conversation
-  useLayoutEffect(() => {
-    if (!activeKey || isLoadingMessages) return;
-
-    if (lastLoadedConvoKeyRef.current !== activeKey) {
-      const scrollToBottomInstant = () => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-      };
-
-      scrollToBottomInstant();
-      const rafId = requestAnimationFrame(scrollToBottomInstant);
-      lastLoadedConvoKeyRef.current = activeKey;
-      justLoadedInitialRef.current = true;
-      lastSeenTailMessageIdRef.current = messages[messages.length - 1]?.id || null;
-
-      return () => cancelAnimationFrame(rafId);
-    }
-  }, [activeKey, isLoadingMessages, messages]);
-
-  // Smooth scroll for new incoming/outgoing messages or typing indicator
-  useEffect(() => {
-    if (!activeKey || isLoadingMessages) return;
-
-    if (justLoadedInitialRef.current) {
-      justLoadedInitialRef.current = false;
-      return;
-    }
-
-    const currentTailId = messages[messages.length - 1]?.id || null;
-    const hasNewTailMessage = currentTailId && currentTailId !== lastSeenTailMessageIdRef.current;
-    lastSeenTailMessageIdRef.current = currentTailId;
-
-    if (hasNewTailMessage) {
-      // In historical mode or while actively jumping/loading newer, DO NOT auto-scroll to the bottom!
-      // This allows the user to browse downward without the view abruptly teleporting to the bottom.
-      if (hasNewerMessages || isLoadingNewerMessages || isJumpingToLatestRef.current) {
-        return;
-      }
-
-      // In live mode (!hasNewerMessages): only auto-scroll if user is already near bottom or sent own message
-      const container = messagesContainerRef.current;
-      if (container) {
-        const distanceFromBottom =
-          container.scrollHeight - container.scrollTop - container.clientHeight;
-        const isLatestMine = messages[messages.length - 1]?.senderId === currentUserId;
-        if (isLatestMine || distanceFromBottom < 150) {
-          scrollToBottom('smooth');
-        }
-      } else {
-        scrollToBottom('smooth');
-      }
-      return;
-    }
-
-    // If typing text appeared, only scroll to bottom if user is already near bottom and in live mode
-    if (typingText && messagesContainerRef.current && !hasNewerMessages) {
-      const container = messagesContainerRef.current;
-      const distanceFromBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
-      if (distanceFromBottom < 150) {
-        scrollToBottom('smooth');
-      }
-    }
-  }, [
-    messages,
-    typingText,
-    activeKey,
-    isLoadingMessages,
-    hasNewerMessages,
-    isLoadingNewerMessages,
-    currentUserId,
-    scrollToBottom,
-  ]);
-
-  // Reset tracked conversation if none is selected
-  useEffect(() => {
-    if (!activeKey) {
-      lastLoadedConvoKeyRef.current = null;
-      lastSeenTailMessageIdRef.current = null;
-    }
-  }, [activeKey]);
+  }, [jumpToLatest, scrollToBottom, isJumpingToLatestRef]);
 
   // Initial Empty / Loading States
   if (!activeConversation) {
