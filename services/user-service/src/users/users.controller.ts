@@ -5,14 +5,12 @@ import {
   Patch,
   Body,
   Param,
-  Query,
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { QueryUserDto } from './dto/query-user.dto';
 
 @Controller()
 export class UsersController {
@@ -29,12 +27,12 @@ export class UsersController {
   }
 
   /**
-   * List users with optional role filtering and pagination (consumed by frontend)
+   * List all users
    * GET /api/users
    */
   @Get()
-  async findAll(@Query() query: QueryUserDto) {
-    return this.usersService.findAll(query);
+  async findAll() {
+    return this.usersService.findAll();
   }
 
   /**

@@ -29,7 +29,7 @@ export async function fetchUsers(token?: string | null, signal?: AbortSignal): P
     throw new Error(`Failed to fetch users: HTTP ${response.status} (${response.statusText || 'Error'})`);
   }
 
-  const result: UsersResponse = await response.json();
-  return result.data ?? [];
+  const result = await response.json();
+  return Array.isArray(result) ? result : (result?.data ?? []);
 }
 
