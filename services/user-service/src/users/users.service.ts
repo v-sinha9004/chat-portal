@@ -2,7 +2,6 @@ import { Injectable, ConflictException, NotFoundException } from '@nestjs/common
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
 
 export const USER_SAFE_SELECT: Prisma.UserSelect = {
@@ -70,19 +69,6 @@ export class UsersService {
     return user;
   }
 
-  async findByEmail(email: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
-      select: USER_SAFE_SELECT,
-    });
-
-    if (!user) {
-      throw new NotFoundException(`User with email '${email}' not found`);
-    }
-
-    return user;
-  }
-
   async findAll(query: QueryUserDto) {
     const page = query.page && query.page > 0 ? Number(query.page) : 1;
     const limit = query.limit && query.limit > 0 ? Number(query.limit) : 20;
@@ -122,76 +108,6 @@ export class UsersService {
         totalPages: Math.ceil(total / limit),
       },
     };
-  }
-
-  async findByUsername(username: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { username: username.trim() },
-      select: USER_SAFE_SELECT,
-    });
-
-    if (!user) {
-      throw new NotFoundException(`User with username '${username}' not found`);
-    }
-
-    return user;
-  }
-
-  async update(id: string, dto: UpdateUserDto) {
-    await this.findById(id);
-
-    const data: Prisma.UserUpdateInput = {
-      ...(dto.name !== undefined && { name: dto.name.trim() }),
-      ...(dto.bio !== undefined && { bio: dto.bio }),
-      ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
-      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-      ...(dto.role !== undefined && { role: dto.role }),
-    };
-
-    if (dto.email) {
-      const normalizedEmail = dto.email.toLowerCase().trim();
-      const existing = await this.prisma.user.findUnique({
-        where: { email: normalizedEmail },
-      });
-      if (existing && existing.id !== id) {
-        throw new ConflictException('A user with this email already exists');
-      }
-      data.email = normalizedEmail;
-    }
-
-    if (dto.username) {
-      const normalizedUsername = dto.username.trim();
-      const existing = await this.prisma.user.findUnique({
-        where: { username: normalizedUsername },
-      });
-      if (existing && existing.id !== id) {
-        throw new ConflictException('A user with this username already exists');
-      }
-      data.username = normalizedUsername;
-    }
-
-    return this.prisma.user.update({
-      where: { id },
-      data,
-      select: USER_SAFE_SELECT,
-    });
-  }
-
-  async softDelete(id: string) {
-    await this.findById(id);
-    return this.prisma.user.update({
-      where: { id },
-      data: { isActive: false },
-      select: USER_SAFE_SELECT,
-    });
-  }
-
-  async remove(id: string) {
-    await this.findById(id);
-    return this.prisma.user.delete({
-      where: { id },
-      select: USER_SAFE_SELECT,
-    });
   }
 
   async updateLastSeen(id: string, lastSeenAt: Date = new Date()) {

@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Patch,
-  Delete,
   Body,
   Param,
   Query,
@@ -13,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
 
 @Controller()
@@ -21,7 +19,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   /**
-   * Create a new user (admin, mentor, or mentee)
+   * Create a new user (called by auth-service on registration)
    * POST /api/users
    */
   @Post()
@@ -31,7 +29,7 @@ export class UsersController {
   }
 
   /**
-   * List users with optional role filtering and pagination
+   * List users with optional role filtering and pagination (consumed by frontend)
    * GET /api/users
    */
   @Get()
@@ -40,7 +38,7 @@ export class UsersController {
   }
 
   /**
-   * Get user by ID
+   * Get user by ID (consumed by chat-service)
    * GET /api/users/:id
    */
   @Get(':id')
@@ -49,46 +47,7 @@ export class UsersController {
   }
 
   /**
-   * Get user by email
-   * GET /api/users/email/:email
-   */
-  @Get('email/:email')
-  async findByEmail(@Param('email') email: string) {
-    return this.usersService.findByEmail(email);
-  }
-
-  /**
-   * Get user by username
-   * GET /api/users/username/:username
-   */
-  @Get('username/:username')
-  async findByUsername(@Param('username') username: string) {
-    return this.usersService.findByUsername(username);
-  }
-
-  /**
-   * Update user details
-   * PATCH /api/users/:id
-   */
-  @Patch(':id')
-  async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateUserDto: UpdateUserDto,
-  ) {
-    return this.usersService.update(id, updateUserDto);
-  }
-
-  /**
-   * Soft-delete / deactivate user
-   * PATCH /api/users/:id/deactivate
-   */
-  @Patch(':id/deactivate')
-  async deactivate(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.softDelete(id);
-  }
-
-  /**
-   * Update user last seen timestamp
+   * Update user last seen timestamp (consumed by chat-service presence sync)
    * PATCH /api/users/:id/last-seen
    */
   @Patch(':id/last-seen')
@@ -98,14 +57,5 @@ export class UsersController {
   ) {
     const timestamp = lastSeenAt ? new Date(lastSeenAt) : new Date();
     return this.usersService.updateLastSeen(id, timestamp);
-  }
-
-  /**
-   * Permanently delete user
-   * DELETE /api/users/:id
-   */
-  @Delete(':id')
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.remove(id);
   }
 }
