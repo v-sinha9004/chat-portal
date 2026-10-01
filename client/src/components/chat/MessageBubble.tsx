@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ChatMessage, AttachmentInfo } from '@/types';
 import { AttachmentRenderer } from '@/components/media';
-import { MessagePinTimeIcon } from './item/MessagePinTimeIcon';
+import { PinIcon } from '@/components/icons';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -63,7 +63,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       {message.text ? <p className="message-text">{message.text}</p> : null}
 
       <div className="message-meta">
-        {isPinned && <MessagePinTimeIcon />}
+        {isPinned && (
+          <PinIcon
+            size={11}
+            filled
+            className="message-time-pin-icon"
+            title="Pinned message"
+          />
+        )}
         <span className="message-timestamp">{message.timestamp}</span>
         {isMe && message.status && (
           <span

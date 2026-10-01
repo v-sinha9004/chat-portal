@@ -1,8 +1,7 @@
 import React from 'react';
 import type { ChatMessage, AttachmentInfo } from '@/types';
-import { MegaphoneIcon } from '@/components/icons';
+import { MegaphoneIcon, PinIcon } from '@/components/icons';
 import { AttachmentRenderer } from '@/components/media';
-import { MessagePinTimeIcon } from '@/components/chat/item/MessagePinTimeIcon';
 
 interface AnnouncementCardProps {
   message: ChatMessage;
@@ -82,7 +81,14 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
         </div>
 
         <div className="announcement-meta-right">
-          {isPinned && <MessagePinTimeIcon />}
+          {isPinned && (
+            <PinIcon
+              size={11}
+              filled
+              className="message-time-pin-icon"
+              title="Pinned message"
+            />
+          )}
           <span className="announcement-timestamp">{message.timestamp}</span>
           {isMe && message.status && (
             <span

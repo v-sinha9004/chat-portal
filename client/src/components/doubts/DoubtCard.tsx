@@ -1,8 +1,7 @@
 import React from 'react';
 import type { ChatMessage, AttachmentInfo } from '@/types';
-import { QuestionMarkIcon } from '@/components/icons';
+import { QuestionMarkIcon, PinIcon } from '@/components/icons';
 import { AttachmentRenderer } from '@/components/media';
-import { MessagePinTimeIcon } from '@/components/chat/item/MessagePinTimeIcon';
 
 interface DoubtCardProps {
   message: ChatMessage;
@@ -158,7 +157,14 @@ export const DoubtCard: React.FC<DoubtCardProps> = ({
         </div>
 
         <div className="doubt-meta-right">
-          {isPinned && <MessagePinTimeIcon />}
+          {isPinned && (
+            <PinIcon
+              size={11}
+              filled
+              className="message-time-pin-icon"
+              title="Pinned message"
+            />
+          )}
           <span className="doubt-timestamp">{message.timestamp}</span>
           {isMe && message.status && (
             <span
