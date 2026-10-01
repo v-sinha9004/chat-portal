@@ -2,11 +2,13 @@ import React from 'react';
 import type { ChatMessage, AttachmentInfo } from '@/types';
 import { MegaphoneIcon } from '@/components/icons';
 import { AttachmentRenderer } from '@/components/media';
+import { MessagePinTimeIcon } from '@/components/chat/item/MessagePinTimeIcon';
 
 interface AnnouncementCardProps {
   message: ChatMessage;
   senderDisplayName?: string;
   isMe: boolean;
+  isPinned?: boolean;
   onQuoteClick?: (messageId: string) => void;
   getDisplayName?: (userId: string) => string;
   onOpenLightbox?: (attachment: AttachmentInfo) => void;
@@ -16,6 +18,7 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
   message,
   senderDisplayName,
   isMe,
+  isPinned = false,
   onQuoteClick,
   getDisplayName,
   onOpenLightbox,
@@ -79,6 +82,7 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
         </div>
 
         <div className="announcement-meta-right">
+          {isPinned && <MessagePinTimeIcon />}
           <span className="announcement-timestamp">{message.timestamp}</span>
           {isMe && message.status && (
             <span

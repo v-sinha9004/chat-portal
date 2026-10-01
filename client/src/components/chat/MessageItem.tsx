@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import type { ChatMessage, AttachmentInfo } from '@/types';
 import { AnnouncementCard } from '@/components/announcements';
 import { DoubtCard } from '@/components/doubts';
 import { MessageBubble } from './MessageBubble';
-import { MessageHoverActions } from './item/MessageHoverActions';
+import { MessageActionMenu } from './item/MessageActionMenu';
+import { getMessageActions } from './item/messageActions';
+import { useLongPress } from '@/hooks/useLongPress';
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -45,12 +47,41 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onUpdateDoubtStatus,
 }) => {
   const isMe = message.senderId === currentUserId;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const rowVariantClass = message.isAnnouncement
     ? 'announcement-row'
     : message.isDoubt
     ? 'doubt-row'
     : '';
+
+  // Configurable actions list (DRY & easily extensible)
+  const actions = useMemo(
+    () =>
+      getMessageActions({
+        message,
+        isPinned,
+        canManagePins,
+        onInitiateReply,
+        onPinMessage,
+        onUnpinMessage,
+      }),
+    [message, isPinned, canManagePins, onInitiateReply, onPinMessage, onUnpinMessage]
+  );
+
+  // Mobile long-press handler
+  const longPressHandlers = useLongPress({
+    threshold: 450,
+    onLongPress: () => {
+      setIsMenuOpen(true);
+    },
+  });
+
+  // Desktop right-click context menu handler
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsMenuOpen(true);
+  };
 
   const renderContent = () => {
     if (message.isAnnouncement) {
@@ -59,6 +90,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           message={message}
           senderDisplayName={senderDisplayName}
           isMe={isMe}
+          isPinned={isPinned}
           onQuoteClick={onQuoteClick}
           getDisplayName={getDisplayName}
           onOpenLightbox={onOpenLightbox}
@@ -80,6 +112,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           senderDisplayName={senderDisplayName}
           senderRole={senderRole}
           isMe={isMe}
+          isPinned={isPinned}
           canResolve={canResolve}
           onUpdateStatus={onUpdateDoubtStatus}
           onQuoteClick={onQuoteClick}
@@ -94,6 +127,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         message={message}
         isMe={isMe}
         isGroup={isGroup}
+        isPinned={isPinned}
         senderDisplayName={senderDisplayName}
         getDisplayName={getDisplayName}
         onQuoteClick={onQuoteClick}
@@ -109,17 +143,19 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       className={`message-row ${rowVariantClass} ${isMe ? 'sent' : 'received'}`.trim()}
       data-message-id={message.id}
     >
-      <div className="message-bubble-wrapper">
+      <div
+        className={`message-bubble-wrapper ${isMenuOpen ? 'menu-active' : ''}`}
+        {...longPressHandlers}
+        onContextMenu={handleContextMenu}
+      >
         {renderContent()}
 
-        {/* Unified Hover Actions for ALL message variants */}
-        <MessageHoverActions
-          message={message}
-          isPinned={isPinned}
-          canManagePins={canManagePins}
-          onPinMessage={onPinMessage}
-          onUnpinMessage={onUnpinMessage}
-          onInitiateReply={onInitiateReply}
+        {/* WhatsApp-style Top-Right Action Menu */}
+        <MessageActionMenu
+          actions={actions}
+          isOpen={isMenuOpen}
+          onToggle={() => setIsMenuOpen((prev) => !prev)}
+          onClose={() => setIsMenuOpen(false)}
         />
       </div>
     </div>

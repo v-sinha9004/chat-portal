@@ -2,12 +2,14 @@ import React from 'react';
 import type { ChatMessage, AttachmentInfo } from '@/types';
 import { QuestionMarkIcon } from '@/components/icons';
 import { AttachmentRenderer } from '@/components/media';
+import { MessagePinTimeIcon } from '@/components/chat/item/MessagePinTimeIcon';
 
 interface DoubtCardProps {
   message: ChatMessage;
   senderDisplayName?: string;
   senderRole?: string;
   isMe: boolean;
+  isPinned?: boolean;
   canResolve: boolean;
   onUpdateStatus: (messageId: string, status: 'OPEN' | 'RESOLVED') => void;
   onQuoteClick?: (messageId: string) => void;
@@ -20,6 +22,7 @@ export const DoubtCard: React.FC<DoubtCardProps> = ({
   senderDisplayName,
   senderRole = 'MENTEE',
   isMe,
+  isPinned = false,
   canResolve,
   onUpdateStatus,
   onQuoteClick,
@@ -155,6 +158,7 @@ export const DoubtCard: React.FC<DoubtCardProps> = ({
         </div>
 
         <div className="doubt-meta-right">
+          {isPinned && <MessagePinTimeIcon />}
           <span className="doubt-timestamp">{message.timestamp}</span>
           {isMe && message.status && (
             <span
