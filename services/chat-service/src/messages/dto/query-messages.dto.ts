@@ -30,12 +30,3 @@ export class QueryMessageContextDto {
   @Max(50)
   surrounding?: number;
 }
-
-// Re-export DTOs and interfaces for seamless backward compatibility
-export * from './pin-message.dto';
-export * from './report-message.dto';
-export * from './query-doubts.dto';
-export * from '../interfaces/message-response.interface';
-export * from '../interfaces/doubt-response.interface';
-export * from '../interfaces/pin-response.interface';
-export * from '../interfaces/report-response.interface';

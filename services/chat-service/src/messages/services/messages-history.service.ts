@@ -16,11 +16,13 @@ import {
 } from '../../socket/interfaces/socket-events.interface';
 import {
   QueryMessagesDto,
+  QueryMessageContextDto,
+} from '../dto';
+import {
   ConversationHistoryResponse,
   ChatMessageResponse,
-  QueryMessageContextDto,
   MessageContextResponse,
-} from '../dto/query-messages.dto';
+} from '../interfaces';
 import {
   sanitizeLimit,
   formatMessageResponse,

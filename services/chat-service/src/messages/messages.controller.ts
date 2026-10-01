@@ -15,27 +15,29 @@ import { MessagesService } from './messages.service';
 import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 import {
   QueryMessagesDto,
-  ConversationHistoryResponse,
-  ChatMessageResponse,
   QueryMessageContextDto,
-  MessageContextResponse,
   QueryDoubtsDto,
-  DoubtsListResponse,
   QueryMentorDoubtsDto,
-  MentorDoubtsResponse,
-  PinnedMessageResponse,
   PinMessageDto,
   ReportMessageDto,
   QueryReportsDto,
+} from './dto';
+import {
+  ConversationHistoryResponse,
+  ChatMessageResponse,
+  MessageContextResponse,
+  DoubtsListResponse,
+  MentorDoubtsResponse,
+  PinnedMessageResponse,
   ReportsListResponse,
-} from './dto/query-messages.dto';
+} from './interfaces';
 
 @Controller('messages')
 export class MessagesController {
   constructor(
     private readonly messagesService: MessagesService,
     private readonly readTrackingService: ReadTrackingService,
-  ) {}
+  ) { }
 
   /**
    * Fetch real-time unread message counts for all conversations for authenticated user.

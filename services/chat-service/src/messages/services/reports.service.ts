@@ -16,9 +16,11 @@ import {
 import {
   ReportMessageDto,
   QueryReportsDto,
+} from '../dto';
+import {
   ReportedMessageResponse,
   ReportsListResponse,
-} from '../dto/query-messages.dto';
+} from '../interfaces';
 
 @Injectable()
 export class ReportsService {

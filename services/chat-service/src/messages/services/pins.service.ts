@@ -13,7 +13,7 @@ import {
   PinnedMessageDocument,
 } from '../schemas/pinned-message.schema';
 import { SocketService } from '../../socket/socket.service';
-import { PinnedMessageResponse } from '../dto/query-messages.dto';
+import { PinnedMessageResponse } from '../interfaces';
 
 @Injectable()
 export class PinsService {

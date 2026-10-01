@@ -18,19 +18,21 @@ import {
 } from '../socket/interfaces/socket-events.interface';
 import {
   QueryMessagesDto,
-  ConversationHistoryResponse,
-  ChatMessageResponse,
   QueryMessageContextDto,
-  MessageContextResponse,
   QueryDoubtsDto,
-  DoubtsListResponse,
   QueryMentorDoubtsDto,
-  MentorDoubtsResponse,
-  PinnedMessageResponse,
   ReportMessageDto,
   QueryReportsDto,
+} from './dto';
+import {
+  ConversationHistoryResponse,
+  ChatMessageResponse,
+  MessageContextResponse,
+  DoubtsListResponse,
+  MentorDoubtsResponse,
+  PinnedMessageResponse,
   ReportsListResponse,
-} from './dto/query-messages.dto';
+} from './interfaces';
 import { MessagesHistoryService } from './services/messages-history.service';
 import { DoubtsService } from './services/doubts.service';
 import { PinsService } from './services/pins.service';

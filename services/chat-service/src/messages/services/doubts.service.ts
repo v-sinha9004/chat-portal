@@ -10,12 +10,14 @@ import { Model } from 'mongoose';
 import { Message, MessageDocument } from '../schemas/message.schema';
 import { SocketService } from '../../socket/socket.service';
 import {
-  ChatMessageResponse,
   QueryDoubtsDto,
-  DoubtsListResponse,
   QueryMentorDoubtsDto,
+} from '../dto';
+import {
+  ChatMessageResponse,
+  DoubtsListResponse,
   MentorDoubtsResponse,
-} from '../dto/query-messages.dto';
+} from '../interfaces';
 import {
   sanitizeLimit,
   formatMessageResponse,
