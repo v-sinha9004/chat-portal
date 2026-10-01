@@ -38,9 +38,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
 
   return (
     <div
-      className={`user-item ${isGroup ? 'group-item' : ''} ${isSelected ? 'active' : ''} ${
-        hasUnread ? 'has-unread' : ''
-      }`}
+      className={`user-item ${isGroup ? 'group-item' : ''} ${isSelected ? 'active' : ''} ${hasUnread ? 'has-unread' : ''
+        }`}
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -76,9 +75,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
         <div className="user-username-row">
           <span className="user-username">
             {isGroup
-              ? `${item.group.memberCount ?? 1} ${
-                  item.group.memberCount === 1 ? 'member' : 'members'
-                }`
+              ? `${item.group.memberCount ?? 1} ${item.group.memberCount === 1 ? 'member' : 'members'
+              }`
               : `@${item.user.username}`}
           </span>
           {unreadCount > 0 ? (

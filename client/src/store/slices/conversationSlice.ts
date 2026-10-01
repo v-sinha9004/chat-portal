@@ -282,4 +282,40 @@ export const createConversationSlice: ChatSlice<ConversationSlice> = (set, get) 
     }));
     get().fetchMessages(newConvo);
   },
+
+  updateGroup: (updatedGroup: Group) => {
+    set((state) => {
+      const nextGroups = state.groups.map((g) => (g.id === updatedGroup.id ? updatedGroup : g));
+      let nextActive = state.activeConversation;
+      if (nextActive && nextActive.type === 'group' && nextActive.id === updatedGroup.id) {
+        nextActive = {
+          ...nextActive,
+          group: { ...nextActive.group, ...updatedGroup },
+        };
+      }
+      return {
+        groups: nextGroups,
+        activeConversation: nextActive,
+      };
+    });
+  },
+
+  removeGroup: (groupId: string) => {
+    set((state) => {
+      const nextGroups = state.groups.filter((g) => g.id !== groupId);
+      const isCurrentActive =
+        state.activeConversation &&
+        state.activeConversation.type === 'group' &&
+        state.activeConversation.id === groupId;
+
+      return {
+        groups: nextGroups,
+        ...(isCurrentActive ? { activeConversation: null, messages: [] } : {}),
+      };
+    });
+
+    // Unsubscribe from group presence
+    socketService.unsubscribeGroupPresence(groupId);
+  },
 });
+

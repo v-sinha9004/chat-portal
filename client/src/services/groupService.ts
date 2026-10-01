@@ -129,3 +129,22 @@ export async function removeMemberFromGroup(
     throw new Error(errorData?.message || `Failed to remove member: HTTP ${response.status}`);
   }
 }
+
+/**
+ * Delete a group completely (Admin / Creator only).
+ */
+export async function deleteGroup(token: string, groupId: string): Promise<void> {
+  const response = await fetch(`${GROUPS_API_URL}/${encodeURIComponent(groupId)}`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Failed to delete group: HTTP ${response.status}`);
+  }
+}
+

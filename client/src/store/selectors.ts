@@ -29,6 +29,8 @@ export const useChatActions = () =>
       fetchConversations: s.fetchConversations,
       selectConversation: s.selectConversation,
       addGroup: s.addGroup,
+      updateGroup: s.updateGroup,
+      removeGroup: s.removeGroup,
       // Presence & Typing
       sendTypingStart: s.sendTypingStart,
       sendTypingStop: s.sendTypingStop,

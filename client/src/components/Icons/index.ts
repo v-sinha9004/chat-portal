@@ -5,4 +5,8 @@ export * from './ReplyIcon';
 export * from './ReportIcon';
 export * from './DeleteIcon';
 export * from './ChevronDownIcon';
+export * from './MoreVerticalIcon';
+export * from './UserPlusIcon';
+export * from './LogOutIcon';
+
 

@@ -111,4 +111,18 @@ export class GroupsController {
     const requesterId = this.getAuthenticatedUserId(userIdHeader);
     return this.groupsService.removeMember(groupId, requesterId, targetUserId);
   }
+
+  /**
+   * Delete a group
+   * DELETE /api/users/groups/:id
+   */
+  @Delete(':id')
+  async deleteGroup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-user-id') userIdHeader: string,
+  ) {
+    const userId = this.getAuthenticatedUserId(userIdHeader);
+    return this.groupsService.deleteGroup(id, userId);
+  }
 }
+

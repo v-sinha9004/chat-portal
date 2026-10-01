@@ -81,7 +81,10 @@ export interface ConversationSlice {
   fetchConversations: () => Promise<void>;
   selectConversation: (conversation: ActiveConversation | null) => void;
   addGroup: (newGroup: Group) => void;
+  updateGroup: (group: Group) => void;
+  removeGroup: (groupId: string) => void;
 }
+
 
 // ==========================================
 // 5. MESSAGE SLICE

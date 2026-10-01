@@ -14,9 +14,10 @@ import { ReportConfirmationModal, DeleteConfirmationModal } from '@/components/m
 import { reportMessageRest } from '@/services/chatService';
 import { socketService } from '@/services/socketService';
 import { useToastStore } from '@/store/useToastStore';
-
+import { useUIStore } from '@/store/useUIStore';
 
 import { useChatScroll } from './hooks/useChatScroll';
+
 import { useChatTyping } from './hooks/useChatTyping';
 import { useMediaAttachment } from './hooks/useMediaAttachment';
 import { ChatHeader } from './ChatHeader';
@@ -153,6 +154,8 @@ export const ChatArea: React.FC = () => {
   const [reportingMessage, setReportingMessage] = useState<ChatMessage | null>(null);
   const [deletingMessage, setDeletingMessage] = useState<ChatMessage | null>(null);
   const showToast = useToastStore((s) => s.showToast);
+  const openGroupModal = useUIStore((s) => s.openGroupModal);
+
 
 
   const getDisplayName = useCallback(
@@ -410,7 +413,9 @@ export const ChatArea: React.FC = () => {
         canManagePins={canManagePins}
         onBack={() => selectConversation(null)}
         onPinClick={handleQuoteClick}
+        onOpenGroupModal={openGroupModal}
       />
+
 
       {/* Message List, Bi-directional Scroller, Jump Pill, Typing Indicator */}
       <MessageList

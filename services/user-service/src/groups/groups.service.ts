@@ -272,4 +272,48 @@ export class GroupsService {
       groupIds: memberships.map((m) => m.groupId),
     };
   }
+
+  /**
+   * Delete a group.
+   * Only the group creator or a group ADMIN is allowed to delete the group.
+   * Cascades deletion of all GroupMember records and the Group record.
+   */
+  async deleteGroup(groupId: string, requesterId: string) {
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+    });
+    if (!group) {
+      throw new NotFoundException(`Group with ID '${groupId}' not found`);
+    }
+
+    const requesterMember = await this.prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId, userId: requesterId } },
+    });
+
+    const isCreator = group.createdById === requesterId;
+    const isAdmin = requesterMember?.role === GroupRole.ADMIN;
+
+    if (!isCreator && !isAdmin) {
+      throw new ForbiddenException('Only the group creator or an admin can delete this group');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Remove all group members
+      await tx.groupMember.deleteMany({
+        where: { groupId },
+      });
+
+      // 2. Remove group record
+      await tx.group.delete({
+        where: { id: groupId },
+      });
+    });
+
+    return {
+      success: true,
+      message: 'Group deleted successfully',
+      groupId,
+    };
+  }
 }
+

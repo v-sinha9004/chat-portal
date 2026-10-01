@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ActiveConversation, UserPresence, GroupPresence } from '@/types';
 import { PinnedMessageCarousel } from '@/components/pins';
+import { MoreVerticalIcon } from '@/components/icons';
 import { GroupChatHeader } from './header/GroupChatHeader';
 import { DirectChatHeader } from './header/DirectChatHeader';
 
@@ -14,6 +15,7 @@ interface ChatHeaderProps {
   canManagePins: boolean;
   onBack: () => void;
   onPinClick: (targetMessageId: string) => void;
+  onOpenGroupModal?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -26,8 +28,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   canManagePins,
   onBack,
   onPinClick,
+  onOpenGroupModal,
 }) => {
   const isTyping = activeTypingUserIds.length > 0;
+  const isGroup = activeConversation.type === 'group';
 
   return (
     <>
@@ -55,7 +59,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             </svg>
           </button>
 
-          {activeConversation.type === 'group' ? (
+          {isGroup ? (
             <GroupChatHeader
               group={activeConversation.group}
               activeGroupPresence={activeGroupPresence}
@@ -70,8 +74,23 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               isTyping={isTyping}
             />
           )}
+
+          {isGroup && onOpenGroupModal && (
+            <div className="chat-header-actions">
+              <button
+                type="button"
+                className="chat-header-menu-btn"
+                onClick={onOpenGroupModal}
+                aria-label="Group settings and options"
+                title="Group settings"
+              >
+                <MoreVerticalIcon size={20} />
+              </button>
+            </div>
+          )}
         </div>
       </header>
+
 
       {/* Pinned Messages Carousel */}
       <PinnedMessageCarousel

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAuthStore, useConversationState, useChatActions } from '@/store';
-import { AuthView, Sidebar, ChatArea, CreateGroupModal, ToastContainer } from '@/components';
+import { AuthView, Sidebar, ChatArea, CreateGroupModal, GroupModal, ToastContainer } from '@/components';
 import './App.css';
 
 function App() {
@@ -53,11 +53,13 @@ function App() {
         <Sidebar />
         <ChatArea />
         <CreateGroupModal />
+        <GroupModal />
       </div>
       <ToastContainer />
     </>
   );
 }
+
 
 
 export default App;
