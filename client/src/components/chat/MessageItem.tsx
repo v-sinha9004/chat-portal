@@ -25,7 +25,9 @@ interface MessageItemProps {
   onPinMessage: (message: ChatMessage) => Promise<void>;
   onUnpinMessage: (message: ChatMessage) => Promise<void>;
   onUpdateDoubtStatus: (messageId: string, status: 'OPEN' | 'RESOLVED') => Promise<void>;
+  onReportMessage: (message: ChatMessage) => void;
 }
+
 
 export const MessageItem: React.FC<MessageItemProps> = ({
   message,
@@ -45,6 +47,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onPinMessage,
   onUnpinMessage,
   onUpdateDoubtStatus,
+  onReportMessage,
 }) => {
   const isMe = message.senderId === currentUserId;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -65,9 +68,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         onInitiateReply,
         onPinMessage,
         onUnpinMessage,
+        onReportMessage,
       }),
-    [message, isPinned, canManagePins, onInitiateReply, onPinMessage, onUnpinMessage]
+    [message, isPinned, canManagePins, onInitiateReply, onPinMessage, onUnpinMessage, onReportMessage]
   );
+
 
   // Mobile long-press handler
   const longPressHandlers = useLongPress({

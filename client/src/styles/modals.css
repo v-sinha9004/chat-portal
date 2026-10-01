@@ -248,7 +248,56 @@
   background-color: var(--accent-hover);
 }
 
+.btn-danger {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ============================================================
+   Report Confirmation Modal Styles
+   ============================================================ */
+
+.modal-content.report-modal {
+  width: 100%;
+  max-width: 440px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: scaleUp 0.18s ease-out;
+}
+
+.report-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.report-message-preview {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  max-height: 100px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+

@@ -372,3 +372,41 @@ export async function unpinMessageRest(
   }
 }
 
+export interface ReportMessageResponse {
+  status: string;
+  message: string;
+  reportId: string;
+}
+
+/**
+ * Report a message in a conversation.
+ */
+export async function reportMessageRest(
+  token: string,
+  messageId: string,
+  reason?: string,
+): Promise<ReportMessageResponse> {
+  const response = await fetch(
+    `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/report`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(reason ? { reason } : {}),
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to report message: HTTP ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+

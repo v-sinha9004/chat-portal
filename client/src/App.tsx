@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAuthStore, useConversationState, useChatActions } from '@/store';
-import { AuthView, Sidebar, ChatArea, CreateGroupModal } from '@/components';
+import { AuthView, Sidebar, ChatArea, CreateGroupModal, ToastContainer } from '@/components';
 import './App.css';
 
 function App() {
@@ -48,12 +48,16 @@ function App() {
   }
 
   return (
-    <div className={`chat-app-container ${activeConversation ? 'has-active-chat' : 'no-active-chat'}`}>
-      <Sidebar />
-      <ChatArea />
-      <CreateGroupModal />
-    </div>
+    <>
+      <div className={`chat-app-container ${activeConversation ? 'has-active-chat' : 'no-active-chat'}`}>
+        <Sidebar />
+        <ChatArea />
+        <CreateGroupModal />
+      </div>
+      <ToastContainer />
+    </>
   );
 }
+
 
 export default App;

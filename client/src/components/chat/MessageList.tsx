@@ -40,7 +40,9 @@ interface MessageListProps {
   onPinMessage: (message: ChatMessage) => Promise<void>;
   onUnpinMessage: (message: ChatMessage) => Promise<void>;
   onUpdateDoubtStatus: (messageId: string, status: 'OPEN' | 'RESOLVED') => Promise<void>;
+  onReportMessage: (message: ChatMessage) => void;
 }
+
 
 export const MessageList: React.FC<MessageListProps> = ({
   messagesContainerRef,
@@ -77,7 +79,9 @@ export const MessageList: React.FC<MessageListProps> = ({
   onPinMessage,
   onUnpinMessage,
   onUpdateDoubtStatus,
+  onReportMessage,
 }) => {
+
   return (
     <>
       <div
@@ -163,8 +167,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                   onPinMessage={onPinMessage}
                   onUnpinMessage={onUnpinMessage}
                   onUpdateDoubtStatus={onUpdateDoubtStatus}
+                  onReportMessage={onReportMessage}
                 />
               );
+
             })}
 
             {hasNewerMessages && (

@@ -10,6 +10,9 @@ import {
 import type { ChatMessage, AttachmentInfo } from '@/types';
 import { navigateToMessage } from '@/utils/messageNavigation';
 import { MediaLightbox } from '@/components/media/MediaLightbox';
+import { ReportConfirmationModal } from '@/components/modals';
+import { reportMessageRest } from '@/services/chatService';
+import { useToastStore } from '@/store/useToastStore';
 import { useChatScroll } from './hooks/useChatScroll';
 import { useChatTyping } from './hooks/useChatTyping';
 import { useMediaAttachment } from './hooks/useMediaAttachment';
@@ -142,6 +145,8 @@ export const ChatArea: React.FC = () => {
   });
 
   const [lightboxAttachment, setLightboxAttachment] = useState<AttachmentInfo | null>(null);
+  const [reportingMessage, setReportingMessage] = useState<ChatMessage | null>(null);
+  const showToast = useToastStore((s) => s.showToast);
 
   const getDisplayName = useCallback(
     (userId: string) =>
@@ -220,7 +225,53 @@ export const ChatArea: React.FC = () => {
     });
   }, [jumpToLatest, scrollToBottom, isJumpingToLatestRef]);
 
+  const handleInitiateReport = useCallback((msg: ChatMessage) => {
+    setReportingMessage(msg);
+  }, []);
+
+  const handleConfirmReport = useCallback(async () => {
+    const target = reportingMessage;
+    setReportingMessage(null);
+    if (!target) return;
+
+    const token = useAuthStore.getState().accessToken;
+    if (!token) {
+      showToast({
+        message: 'Authentication session expired',
+        type: 'error',
+      });
+      return;
+    }
+
+    const toastId = showToast({
+      message: 'submitting a report',
+      type: 'loading',
+      duration: 0,
+    });
+
+    try {
+      await reportMessageRest(token, target.id);
+      showToast({
+        id: toastId,
+        message: 'Thank you for reporting.',
+        type: 'success',
+        duration: 3500,
+      });
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to submit report';
+      showToast({
+        id: toastId,
+        message: errorMessage,
+        type: 'error',
+        duration: 4000,
+      });
+    }
+  }, [reportingMessage, showToast]);
+
+
   // Initial Empty / Loading States
+
   if (!activeConversation) {
     if (isLoadingInitial) {
       return (
@@ -343,6 +394,7 @@ export const ChatArea: React.FC = () => {
         onPinMessage={handlePinMessage}
         onUnpinMessage={handleUnpinMessage}
         onUpdateDoubtStatus={updateDoubtStatus}
+        onReportMessage={handleInitiateReport}
       />
 
       {/* Chat Composer (Replying preview, Action dropdown, composers, staged attachment, input) */}
@@ -374,6 +426,15 @@ export const ChatArea: React.FC = () => {
         attachment={lightboxAttachment}
         onClose={() => setLightboxAttachment(null)}
       />
+
+      {/* Confirmation Modal for Reporting Message */}
+      <ReportConfirmationModal
+        isOpen={Boolean(reportingMessage)}
+        message={reportingMessage}
+        onClose={() => setReportingMessage(null)}
+        onConfirm={handleConfirmReport}
+      />
     </main>
   );
 };
+

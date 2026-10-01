@@ -17,6 +17,7 @@ export interface BuildMessageActionsParams {
   onInitiateReply: (message: ChatMessage) => void;
   onPinMessage: (message: ChatMessage) => Promise<void>;
   onUnpinMessage: (message: ChatMessage) => Promise<void>;
+  onReportMessage: (message: ChatMessage) => void;
 }
 
 /**
@@ -30,6 +31,7 @@ export function getMessageActions({
   onInitiateReply,
   onPinMessage,
   onUnpinMessage,
+  onReportMessage,
 }: BuildMessageActionsParams): MessageActionItem[] {
   const actions: MessageActionItem[] = [
     {
@@ -63,5 +65,29 @@ export function getMessageActions({
     });
   }
 
+  actions.push({
+    id: 'report',
+    label: 'Report',
+    danger: true,
+    icon: (
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+        <line x1="4" y1="22" x2="4" y2="15" />
+      </svg>
+    ),
+    onClick: () => onReportMessage(message),
+  });
+
   return actions;
 }
+
+
