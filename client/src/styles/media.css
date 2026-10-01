@@ -1,0 +1,618 @@
+/* ==========================================================================
+   MEDIA ATTACHMENTS & COMPOSER STAGING (STEP 4)
+   ========================================================================== */
+
+/* Paperclip Attachment Button in Composer */
+.chat-attach-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.chat-attach-btn:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  color: var(--accent-color, #6366f1);
+  border-color: var(--accent-color, #6366f1);
+  transform: scale(1.05);
+}
+
+.chat-attach-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Docked Attachment Staging Bar */
+.attachment-staging-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 18px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-color, #6366f1);
+  position: relative;
+  animation: slideDownReply 0.15s ease-out;
+  flex-shrink: 0;
+}
+
+.attachment-staging-bar.staging-error {
+  border-left-color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.attachment-staging-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Thumbnail preview for staged images */
+.attachment-staging-thumb-wrapper {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+}
+
+.attachment-staging-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.attachment-staging-spinner-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attachment-staging-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: stagingSpin 0.75s linear infinite;
+}
+
+@keyframes stagingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* PDF document icon wrapper */
+.attachment-staging-pdf-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+/* Staging info text & status */
+.attachment-staging-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.attachment-staging-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-staging-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.attachment-staging-size {
+  color: var(--text-muted);
+}
+
+.attachment-staging-status.uploading {
+  color: var(--accent-color, #6366f1);
+  font-weight: 500;
+}
+
+.attachment-staging-status.ready {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.attachment-staging-status.error {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* Progress bar inside staging chip */
+.attachment-staging-progress-bar-bg {
+  width: 100%;
+  height: 3px;
+  background-color: var(--border-color);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 3px;
+}
+
+.attachment-staging-progress-bar-fill {
+  height: 100%;
+  background-color: var(--accent-color, #6366f1);
+  border-radius: 2px;
+  transition: width 0.15s ease-out;
+}
+
+/* Remove button */
+.attachment-staging-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.attachment-staging-remove-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Drag & Drop Visual Overlay */
+.chat-main.dragging-active {
+  position: relative;
+}
+
+.chat-drop-overlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 200;
+  background: rgba(99, 102, 241, 0.08);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 2.5px dashed var(--accent-color, #6366f1);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fadeInDrop 0.15s ease-out;
+}
+
+@keyframes fadeInDrop {
+  from {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.chat-drop-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 28px 36px;
+  border-radius: 16px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 12px 36px -6px rgba(0, 0, 0, 0.25);
+}
+
+.chat-drop-icon {
+  color: var(--accent-color, #6366f1);
+  margin-bottom: 4px;
+  animation: dropBounce 1.2s infinite ease-in-out;
+}
+
+@keyframes dropBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.chat-drop-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chat-drop-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+
+/* ==========================================================================
+   MESSAGE BUBBLE ATTACHMENT RENDERING (STEP 5)
+   ========================================================================== */
+
+/* Container for attachments inside message bubbles */
+.message-attachments-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+  width: 100%;
+}
+
+/* Image Attachment Card with Aspect Ratio & Blur Preview */
+.attachment-image-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  max-width: 320px;
+  max-height: 360px;
+  width: 100%;
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.attachment-image-card:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+/* Instant 0ms blurred low-res placeholder */
+.attachment-image-blur {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(12px);
+  transform: scale(1.1);
+  z-index: 1;
+  transition: opacity 0.35s ease-out;
+  pointer-events: none;
+}
+
+.attachment-image-blur.fade-out {
+  opacity: 0;
+}
+
+/* Main high-res WebP image */
+.attachment-image-main {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.3s ease-in;
+  z-index: 2;
+}
+
+.attachment-image-main.loaded {
+  opacity: 1;
+}
+
+/* Hover Zoom Indicator */
+.attachment-image-hover-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 3;
+}
+
+.attachment-image-card:hover .attachment-image-hover-overlay {
+  opacity: 1;
+}
+
+.attachment-image-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 14px;
+  background-color: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* PDF Document Card */
+.attachment-pdf-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  min-width: 230px;
+  max-width: 320px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  transition: all 0.15s ease;
+}
+
+.attachment-pdf-card.sent {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.attachment-pdf-card.received {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.attachment-pdf-card:hover {
+  filter: brightness(1.05);
+}
+
+.attachment-pdf-icon-box {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.attachment-pdf-tag {
+  position: absolute;
+  bottom: -2px;
+  font-size: 8px;
+  font-weight: 800;
+  background-color: #ef4444;
+  color: #ffffff;
+  padding: 1px 3px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1;
+}
+
+.attachment-pdf-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attachment-pdf-filename {
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-pdf-filesize {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.attachment-pdf-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.attachment-pdf-card.sent .attachment-pdf-action-btn {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.attachment-pdf-action-btn:hover {
+  transform: scale(1.08);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.attachment-pdf-card.sent .attachment-pdf-action-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+
+/* ==========================================================================
+   FULL-SCREEN LIGHTBOX MODAL
+   ========================================================================== */
+
+.media-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeInLightbox 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInLightbox {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.media-lightbox-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-width: 95vw;
+  max-height: 95vh;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.media-lightbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background-color: rgba(0, 0, 0, 0.45);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  flex-shrink: 0;
+}
+
+.media-lightbox-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.media-lightbox-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.media-lightbox-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.media-lightbox-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.media-lightbox-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.media-lightbox-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.media-lightbox-btn.close-btn {
+  padding: 6px 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.media-lightbox-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.media-lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  animation: scaleUpLightbox 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleUpLightbox {
+  from {
+    transform: scale(0.94);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

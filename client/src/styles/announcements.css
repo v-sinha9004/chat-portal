@@ -1,0 +1,306 @@
+/* ==========================================================================
+   Announcement Feature Styles (Contrasting Sunset Amber/Coral Theme)
+   ========================================================================== */
+
+@keyframes slideDownAnnouncement {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Announcement Card in Message Feed - displayed like message bubbles on left or right */
+.message-row.announcement-row {
+  display: flex;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.message-row.announcement-row.sent {
+  justify-content: flex-end;
+}
+
+.message-row.announcement-row.received {
+  justify-content: flex-start;
+}
+
+.announcement-card {
+  width: fit-content;
+  max-width: 68%;
+  min-width: 280px;
+  background-color: var(--announcement-card-bg);
+  border: 1.5px solid var(--announcement-card-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px var(--announcement-card-glow);
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  word-break: break-word;
+}
+
+.message-row.announcement-row.sent .announcement-card {
+  border-bottom-right-radius: 2px;
+}
+
+.message-row.announcement-row.received .announcement-card {
+  border-bottom-left-radius: 2px;
+}
+
+.announcement-card:hover {
+  box-shadow: 0 6px 22px var(--announcement-card-glow);
+}
+
+.announcement-header-banner {
+  background: var(--announcement-banner-bg);
+  color: #ffffff;
+  padding: 11px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.announcement-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.announcement-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+  padding: 3px;
+  color: #ffffff;
+}
+
+.announcement-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: #ffffff;
+  opacity: 0.95;
+}
+
+.announcement-headline {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.35;
+  word-break: break-word;
+  letter-spacing: -0.2px;
+}
+
+.announcement-body {
+  padding: 14px 16px 12px;
+}
+
+.announcement-text {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--announcement-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.announcement-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 16px 11px;
+  border-top: 1px dashed rgba(249, 115, 22, 0.28);
+}
+
+.announcement-author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.announcement-sender-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--announcement-subtext);
+}
+
+.announcement-role-tag {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  letter-spacing: 0.4px;
+}
+
+.announcement-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.announcement-timestamp {
+  font-size: 11px;
+  color: var(--announcement-subtext);
+  opacity: 0.9;
+}
+
+/* Announcement Composer Bar */
+.announcement-composer-bar {
+  background-color: var(--announcement-card-bg);
+  border: 1.5px solid var(--announcement-card-border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  padding: 10px 16px 12px;
+  margin: 0 24px -1px;
+  animation: slideDownAnnouncement 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 -3px 12px var(--announcement-card-glow);
+  position: relative;
+  z-index: 2;
+}
+
+.announcement-composer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.announcement-composer-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--announcement-subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.announcement-composer-icon {
+  color: var(--announcement-subtext);
+}
+
+.announcement-cancel-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--announcement-subtext);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.announcement-cancel-btn:hover {
+  background-color: rgba(249, 115, 22, 0.15);
+  color: #ea580c;
+}
+
+.announcement-heading-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.announcement-heading-input {
+  width: 100%;
+  padding: 8px 52px 8px 12px;
+  font-size: 14.5px;
+  font-weight: 600;
+  border: 1.5px solid var(--announcement-card-border);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.announcement-heading-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
+}
+
+.announcement-char-counter {
+  position: absolute;
+  right: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Announcement Toggle Button inside Form */
+.announcement-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.announcement-toggle-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.announcement-toggle-btn.active {
+  background: var(--announcement-card-bg);
+  color: #ea580c;
+  border-color: var(--announcement-card-border);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
+.chat-input-form.announcement-form-active {
+  border-top-color: var(--announcement-card-border);
+}
+
+.chat-input.announcement-body-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.22);
+}
+
+.chat-send-button.announcement-send-btn {
+  background: var(--announcement-banner-bg);
+  color: #ffffff;
+  border: none;
+}
+
+.chat-send-button.announcement-send-btn:hover:not(:disabled) {
+  opacity: 0.93;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .announcement-toggle-label {
+    display: none;
+  }
+
+  .announcement-toggle-btn {
+    padding: 8px 10px;
+  }
+
+  .announcement-composer-bar {
+    margin: 0 12px -1px;
+    padding: 8px 12px 10px;
+  }
+
+  .announcement-card {
+    max-width: 85%;
+    min-width: 220px;
+  }
+}
