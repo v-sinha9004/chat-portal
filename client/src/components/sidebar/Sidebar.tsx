@@ -9,7 +9,6 @@ import {
 import { useUIStore } from '@/store/useUIStore';
 import { getDirectConversationId, getGroupConversationId } from '@/types';
 import { CurrentUserCard } from './CurrentUserCard';
-import { SidebarHeader } from './SidebarHeader';
 import { ChatListItem, type ChatListItemData } from './ChatListItem';
 import { SidebarStatus } from './SidebarStatus';
 
@@ -64,14 +63,9 @@ export const Sidebar: React.FC = () => {
         user={activeUser}
         isSocketConnected={isSocketConnected}
         onLogout={logout}
+        onCreateGroup={openCreateGroup}
       />
 
-      {/* Chats Header with Top '+' Action Button */}
-      <SidebarHeader
-        totalConversations={totalConversations}
-        isLoading={isLoading}
-        onOpenCreateGroup={openCreateGroup}
-      />
 
       {/* Unified Conversation List */}
       <div className="user-list">

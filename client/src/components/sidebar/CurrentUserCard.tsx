@@ -6,12 +6,14 @@ interface CurrentUserCardProps {
   user: User | AuthUser | null;
   isSocketConnected: boolean;
   onLogout: () => void;
+  onCreateGroup?: () => void;
 }
 
 export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
   user,
   isSocketConnected,
   onLogout,
+  onCreateGroup,
 }) => {
   return (
     <div className="current-user-card">
@@ -25,6 +27,17 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
             <span className="socket-dot" />
             {isSocketConnected ? 'Connected' : 'Offline'}
           </span>
+          {onCreateGroup && (
+            <button
+              type="button"
+              className="action-add-btn"
+              onClick={onCreateGroup}
+              title="Create group"
+              aria-label="Create group"
+            >
+              +
+            </button>
+          )}
           <button
             type="button"
             className="current-user-logout-btn"
@@ -35,6 +48,7 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
           </button>
         </div>
       </div>
+
 
       {user && (
         <div className="current-user-info-row">
