@@ -1,9 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { useUIStore } from '../store/useUIStore';
 import { getDirectConversationId, getGroupConversationId } from '../types';
-import { getInitials } from '../utils/formatters';
+import { CurrentUserCard } from './sidebar/CurrentUserCard';
+import { SidebarHeader } from './sidebar/SidebarHeader';
+import { GroupListItem } from './sidebar/GroupListItem';
+import { DirectUserListItem } from './sidebar/DirectUserListItem';
+import { SidebarStatus } from './sidebar/SidebarStatus';
 
 export const UserList: React.FC = () => {
   const authUser = useAuthStore((s) => s.user);
@@ -26,182 +30,36 @@ export const UserList: React.FC = () => {
 
   const openCreateGroup = useUIStore((s) => s.openCreateGroup);
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
   const currentUserId = authUser?.id || null;
-
-  // Close dropdown menu if clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    };
-    if (isMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isMenuOpen]);
-
-  const handleRetry = () => {
-    fetchConversations();
-  };
-
-  const getRoleBadgeClass = (role?: string) => {
-    switch (role?.toUpperCase()) {
-      case 'ADMIN':
-        return 'role-badge badge-admin';
-      case 'MENTOR':
-        return 'role-badge badge-mentor';
-      case 'MENTEE':
-        return 'role-badge badge-mentee';
-      case 'GROUP':
-        return 'role-badge badge-group';
-      default:
-        return 'role-badge';
-    }
-  };
-
   const foundUser = users.find((u) => u.id === currentUserId);
   const activeUser = foundUser || authUser || null;
   const contacts = users.filter((u) => u.id !== currentUserId);
-
   const totalConversations = contacts.length + groups.length;
 
   return (
     <aside className="sidebar">
       {/* Current Logged-in User Identity Card */}
-      <div className="current-user-card">
-        <div className="current-user-header">
-          <span className="current-user-label">My Account</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              className={`socket-status-badge ${isSocketConnected ? 'connected' : 'disconnected'}`}
-              title={isSocketConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'}
-            >
-              <span className="socket-dot" />
-              {isSocketConnected ? 'Connected' : 'Offline'}
-            </span>
-            <button
-              type="button"
-              className="current-user-logout-btn"
-              onClick={logout}
-              title="Sign out of your session"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-
-        {activeUser && (
-          <div className="current-user-info-row">
-            <div className="current-user-avatar">
-              {'avatarUrl' in activeUser && typeof activeUser.avatarUrl === 'string' ? (
-                <img src={activeUser.avatarUrl} alt={activeUser.name || 'User'} />
-              ) : (
-                <div
-                  className={`avatar-placeholder avatar-${(activeUser.role || 'mentee').toLowerCase()}`}
-                >
-                  {getInitials(activeUser.name || activeUser.email)}
-                </div>
-              )}
-            </div>
-            <div className="current-user-details">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span className="current-user-name">{activeUser.name || activeUser.email}</span>
-                <span className={getRoleBadgeClass(activeUser.role)}>{activeUser.role}</span>
-              </div>
-              <span className="current-user-email">
-                {activeUser.username ? `@${activeUser.username}` : activeUser.email}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
+      <CurrentUserCard
+        user={activeUser}
+        isSocketConnected={isSocketConnected}
+        onLogout={logout}
+      />
 
       {/* Chats Header with Top '+' Action Button */}
-      <div className="sidebar-header">
-        <div className="sidebar-title-row">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h2>Chats</h2>
-            <span className="user-count-badge">
-              {isLoading ? '...' : `${totalConversations}`}
-            </span>
-          </div>
-
-          {/* '+' Button & Dropdown Menu */}
-          <div className="sidebar-action-wrapper" ref={menuRef}>
-            <button
-              type="button"
-              className="action-add-btn"
-              onClick={() => setIsMenuOpen((prev) => !prev)}
-              title="New chat options"
-              aria-label="New chat options"
-              aria-expanded={isMenuOpen}
-            >
-              +
-            </button>
-
-            {isMenuOpen && (
-              <div className="action-dropdown-menu">
-                <button
-                  type="button"
-                  className="dropdown-menu-item"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    openCreateGroup();
-                  }}
-                >
-                  <span className="dropdown-item-icon">👥</span>
-                  <div className="dropdown-item-text">
-                    <span className="dropdown-item-title">Create Group</span>
-                    <span className="dropdown-item-desc">Chat with multiple members</span>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-        <p className="sidebar-subtitle">Direct messages and group conversations</p>
-      </div>
+      <SidebarHeader
+        totalConversations={totalConversations}
+        isLoading={isLoading}
+        onOpenCreateGroup={openCreateGroup}
+      />
 
       {/* Unified Conversation List */}
       <div className="user-list">
-        {isLoading && (
-          <div className="user-skeletons" aria-label="Loading conversations">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="skeleton-user-item">
-                <div className="skeleton-avatar" />
-                <div className="skeleton-info">
-                  <div className="skeleton-line skeleton-name" />
-                  <div className="skeleton-line skeleton-username" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!isLoading && error && (
-          <div className="user-list-error">
-            <div className="error-icon">⚠️</div>
-            <p className="error-message">{error}</p>
-            <button type="button" className="retry-btn" onClick={handleRetry}>
-              Try Again
-            </button>
-          </div>
-        )}
-
-        {!isLoading && !error && totalConversations === 0 && (
-          <div className="user-list-empty">
-            <p>No conversations yet</p>
-            <span className="user-list-empty-sub">
-              Click <strong>+</strong> above to create a group or wait for contacts to appear.
-            </span>
-          </div>
-        )}
+        <SidebarStatus
+          isLoading={isLoading}
+          error={error}
+          totalConversations={totalConversations}
+          onRetry={fetchConversations}
+        />
 
         {/* Groups Section (if any groups exist) */}
         {!isLoading && !error && groups.length > 0 && (
@@ -218,70 +76,19 @@ export const UserList: React.FC = () => {
             const groupConvoId = getGroupConversationId(group.id);
             const unreadCount = unreadCountsByConversation[groupConvoId] || 0;
             const hasUnread = unreadCount > 0 || unreadGroupIds.has(group.id);
-
             const isGroupTyping =
               (typingUsersByConversation[`group:${group.id}`] || []).length > 0;
 
             return (
-              <div
+              <GroupListItem
                 key={`group-${group.id}`}
-                className={`user-item group-item ${isSelected ? 'active' : ''} ${
-                  hasUnread ? 'has-unread' : ''
-                }`}
-                onClick={() => selectConversation({ type: 'group', id: group.id, group })}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    selectConversation({ type: 'group', id: group.id, group });
-                  }
-                }}
-              >
-                <div className="avatar-wrapper group-avatar">
-                  {group.avatarUrl ? (
-                    <img src={group.avatarUrl} alt={group.name} className="avatar-img" />
-                  ) : (
-                    <div className="avatar-placeholder avatar-group-bg">
-                      <span className="avatar-group-icon">👥</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="user-info">
-                  <div className="user-info-top">
-                    <span className="user-name">{group.name}</span>
-                    <span className={getRoleBadgeClass('GROUP')}>Group</span>
-                  </div>
-                  <div className="user-username-row">
-                    <span className="user-username">
-                      {group.memberCount ?? 1} {group.memberCount === 1 ? 'member' : 'members'}
-                    </span>
-                    {unreadCount > 0 ? (
-                      <span
-                        className="unread-badge"
-                        title={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
-                      >
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </span>
-                    ) : hasUnread ? (
-                      <span className="unread-dot" title="New group message" />
-                    ) : null}
-                  </div>
-                  {isGroupTyping ? (
-                    <p className="user-typing-indicator-sidebar">
-                      <span className="typing-dots mini">
-                        <span className="typing-dot" />
-                        <span className="typing-dot" />
-                        <span className="typing-dot" />
-                      </span>
-                      <span>typing...</span>
-                    </p>
-                  ) : group.description ? (
-                    <p className="user-bio">{group.description}</p>
-                  ) : null}
-                </div>
-              </div>
+                group={group}
+                isSelected={isSelected}
+                hasUnread={hasUnread}
+                unreadCount={unreadCount}
+                isTyping={isGroupTyping}
+                onSelect={(grp) => selectConversation({ type: 'group', id: grp.id, group: grp })}
+              />
             );
           })}
 
@@ -306,65 +113,15 @@ export const UserList: React.FC = () => {
               (typingUsersByConversation[`user:${contact.id}`] || []).length > 0;
 
             return (
-              <div
+              <DirectUserListItem
                 key={`user-${contact.id}`}
-                className={`user-item ${isSelected ? 'active' : ''} ${
-                  hasUnread ? 'has-unread' : ''
-                }`}
-                onClick={() => selectConversation({ type: 'direct', id: contact.id, user: contact })}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    selectConversation({ type: 'direct', id: contact.id, user: contact });
-                  }
-                }}
-              >
-                <div className="avatar-wrapper">
-                  {contact.avatarUrl ? (
-                    <img src={contact.avatarUrl} alt={contact.name} className="avatar-img" />
-                  ) : (
-                    <div className={`avatar-placeholder avatar-${contact.role.toLowerCase()}`}>
-                      {getInitials(contact.name)}
-                    </div>
-                  )}
-                </div>
-
-                <div className="user-info">
-                  <div className="user-info-top">
-                    <span className="user-name">{contact.name}</span>
-                    <span className={getRoleBadgeClass(contact.role)}>{contact.role}</span>
-                  </div>
-                  <div className="user-username-row">
-                    <span className="user-username">@{contact.username}</span>
-                    {unreadCount > 0 ? (
-                      <span
-                        className="unread-badge"
-                        title={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
-                      >
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </span>
-                    ) : hasUnread ? (
-                      <span className="unread-dot" title="New direct message" />
-                    ) : null}
-                  </div>
-                  {isContactTyping ? (
-                    <p className="user-typing-indicator-sidebar">
-                      <span className="typing-dots mini">
-                        <span className="typing-dot" />
-                        <span className="typing-dot" />
-                        <span className="typing-dot" />
-                      </span>
-                      <span>typing...</span>
-                    </p>
-                  ) : contact.bio ? (
-                    <p className="user-bio">{contact.bio}</p>
-                  ) : (
-                    <p className="user-email">{contact.email}</p>
-                  )}
-                </div>
-              </div>
+                contact={contact}
+                isSelected={isSelected}
+                hasUnread={hasUnread}
+                unreadCount={unreadCount}
+                isTyping={isContactTyping}
+                onSelect={(usr) => selectConversation({ type: 'direct', id: usr.id, user: usr })}
+              />
             );
           })}
       </div>

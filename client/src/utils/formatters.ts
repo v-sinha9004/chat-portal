@@ -50,3 +50,22 @@ export function getInitials(name?: string): string {
     .toUpperCase()
     .slice(0, 2) || 'U';
 }
+
+/**
+ * Return CSS class for a user or group role badge.
+ */
+export function getRoleBadgeClass(role?: string): string {
+  switch (role?.toUpperCase()) {
+    case 'ADMIN':
+      return 'role-badge badge-admin';
+    case 'MENTOR':
+      return 'role-badge badge-mentor';
+    case 'MENTEE':
+      return 'role-badge badge-mentee';
+    case 'GROUP':
+      return 'role-badge badge-group';
+    default:
+      return 'role-badge';
+  }
+}
+
