@@ -1,4 +1,5 @@
 import type { ReplyToInfo, PinnedMessage, AttachmentInfo } from '@/types';
+import { apiClient } from '@/utils/httpClient';
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/chat';
 
@@ -58,6 +59,20 @@ export interface MessageContextResponse {
   memberLastReadMap?: Record<string, string>;
 }
 
+export interface DoubtsApiResponse {
+  conversationId: string;
+  doubts: ChatHistoryMessage[];
+  total: number;
+  openCount: number;
+  resolvedCount: number;
+}
+
+export interface ReportMessageResponse {
+  status: string;
+  message: string;
+  reportId: string;
+}
+
 /**
  * Fetch a slice of messages surrounding a specific messageId.
  * Modular primitive used by reply quotes, pinned messages, and search jumps.
@@ -68,28 +83,14 @@ export async function fetchMessageContext(
   surrounding = 25,
   signal?: AbortSignal,
 ): Promise<MessageContextResponse> {
-  const queryParams = new URLSearchParams({
-    messageId,
-    surrounding: String(surrounding),
-  });
-
-  const response = await fetch(`${CHAT_API_URL}/messages/context?${queryParams.toString()}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+  return apiClient.get<MessageContextResponse>(`${CHAT_API_URL}/messages/context`, {
+    token,
     signal,
+    params: {
+      messageId,
+      surrounding,
+    },
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to fetch message context: HTTP ${response.status}`,
-    );
-  }
-
-  return response.json();
 }
 
 /**
@@ -105,38 +106,18 @@ export async function fetchDirectMessages(
       ? { signal: optionsOrSignal }
       : optionsOrSignal || {};
 
-  const queryParams = new URLSearchParams();
-  if (options.limit !== undefined) {
-    queryParams.set('limit', String(options.limit));
-  }
-  if (options.before) {
-    queryParams.set('before', options.before);
-  }
-  if (options.after) {
-    queryParams.set('after', options.after);
-  }
-  const queryString = queryParams.toString();
-  const url = `${CHAT_API_URL}/messages/direct/${encodeURIComponent(targetUserId)}${
-    queryString ? `?${queryString}` : ''
-  }`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
+  return apiClient.get<ChatHistoryResponse>(
+    `${CHAT_API_URL}/messages/direct/${encodeURIComponent(targetUserId)}`,
+    {
+      token,
+      signal: options.signal,
+      params: {
+        limit: options.limit,
+        before: options.before,
+        after: options.after,
+      },
     },
-    signal: options.signal,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to fetch direct messages: HTTP ${response.status}`,
-    );
-  }
-
-  return response.json();
+  );
 }
 
 /**
@@ -152,38 +133,18 @@ export async function fetchGroupMessages(
       ? { signal: optionsOrSignal }
       : optionsOrSignal || {};
 
-  const queryParams = new URLSearchParams();
-  if (options.limit !== undefined) {
-    queryParams.set('limit', String(options.limit));
-  }
-  if (options.before) {
-    queryParams.set('before', options.before);
-  }
-  if (options.after) {
-    queryParams.set('after', options.after);
-  }
-  const queryString = queryParams.toString();
-  const url = `${CHAT_API_URL}/messages/group/${encodeURIComponent(groupId)}${
-    queryString ? `?${queryString}` : ''
-  }`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
+  return apiClient.get<ChatHistoryResponse>(
+    `${CHAT_API_URL}/messages/group/${encodeURIComponent(groupId)}`,
+    {
+      token,
+      signal: options.signal,
+      params: {
+        limit: options.limit,
+        before: options.before,
+        after: options.after,
+      },
     },
-    signal: options.signal,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to fetch group messages: HTTP ${response.status}`,
-    );
-  }
-
-  return response.json();
+  );
 }
 
 /**
@@ -193,32 +154,15 @@ export async function fetchUnreadCounts(
   token: string,
   signal?: AbortSignal,
 ): Promise<Record<string, number>> {
-  const response = await fetch(`${CHAT_API_URL}/messages/unread-counts`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
+  const data = await apiClient.get<{ unreadCounts: Record<string, number> }>(
+    `${CHAT_API_URL}/messages/unread-counts`,
+    {
+      token,
+      signal,
     },
-    signal,
-  });
+  );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to fetch unread counts: HTTP ${response.status}`,
-    );
-  }
-
-  const data = await response.json();
   return data?.unreadCounts || {};
-}
-
-export interface DoubtsApiResponse {
-  conversationId: string;
-  doubts: ChatHistoryMessage[];
-  total: number;
-  openCount: number;
-  resolvedCount: number;
 }
 
 /**
@@ -230,27 +174,14 @@ export async function fetchDoubts(
   status?: 'OPEN' | 'RESOLVED' | 'ALL',
   signal?: AbortSignal,
 ): Promise<DoubtsApiResponse> {
-  const queryParams = new URLSearchParams({ conversationId });
-  if (status && status !== 'ALL') {
-    queryParams.set('status', status);
-  }
-  const response = await fetch(`${CHAT_API_URL}/messages/doubts?${queryParams.toString()}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+  return apiClient.get<DoubtsApiResponse>(`${CHAT_API_URL}/messages/doubts`, {
+    token,
     signal,
+    params: {
+      conversationId,
+      status: status && status !== 'ALL' ? status : undefined,
+    },
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to fetch doubts: HTTP ${response.status}`,
-    );
-  }
-
-  return response.json();
 }
 
 /**
@@ -262,27 +193,11 @@ export async function updateDoubtStatusRest(
   conversationId: string,
   status: 'OPEN' | 'RESOLVED',
 ): Promise<ChatHistoryMessage> {
-  const response = await fetch(
+  return apiClient.patch<ChatHistoryMessage>(
     `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/doubt-status`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ conversationId, status }),
-    },
+    { conversationId, status },
+    { token },
   );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to update doubt status: HTTP ${response.status}`,
-    );
-  }
-
-  return response.json();
 }
 
 /**
@@ -293,24 +208,11 @@ export async function fetchPinnedMessages(
   conversationId: string,
   signal?: AbortSignal,
 ): Promise<PinnedMessage[]> {
-  const queryParams = new URLSearchParams({ conversationId });
-  const response = await fetch(`${CHAT_API_URL}/messages/pins?${queryParams.toString()}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+  return apiClient.get<PinnedMessage[]>(`${CHAT_API_URL}/messages/pins`, {
+    token,
     signal,
+    params: { conversationId },
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to fetch pinned messages: HTTP ${response.status}`,
-    );
-  }
-
-  return response.json();
 }
 
 /**
@@ -321,27 +223,11 @@ export async function pinMessageRest(
   conversationId: string,
   messageId: string,
 ): Promise<PinnedMessage> {
-  const response = await fetch(
+  return apiClient.post<PinnedMessage>(
     `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/pin`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ conversationId }),
-    },
+    { conversationId },
+    { token },
   );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to pin message: HTTP ${response.status}`,
-    );
-  }
-
-  return response.json();
 }
 
 /**
@@ -352,30 +238,13 @@ export async function unpinMessageRest(
   conversationId: string,
   messageId: string,
 ): Promise<void> {
-  const queryParams = new URLSearchParams({ conversationId });
-  const response = await fetch(
-    `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/pin?${queryParams.toString()}`,
+  return apiClient.delete<void>(
+    `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/pin`,
     {
-      method: 'DELETE',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      token,
+      params: { conversationId },
     },
   );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to unpin message: HTTP ${response.status}`,
-    );
-  }
-}
-
-export interface ReportMessageResponse {
-  status: string;
-  message: string;
-  reportId: string;
 }
 
 /**
@@ -386,29 +255,9 @@ export async function reportMessageRest(
   messageId: string,
   reason?: string,
 ): Promise<ReportMessageResponse> {
-  const response = await fetch(
+  return apiClient.post<ReportMessageResponse>(
     `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}/report`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(reason ? { reason } : {}),
-    },
+    reason ? { reason } : {},
+    { token },
   );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    throw new Error(
-      errorData?.message || `Failed to report message: HTTP ${response.status}`,
-    );
-  }
-
-  return response.json();
 }
-
-
-
-

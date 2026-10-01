@@ -1,4 +1,5 @@
 import type { AttachmentInfo } from '../types';
+import { apiClient } from './httpClient';
 
 export const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -209,31 +210,23 @@ export async function uploadMediaAttachment(
   }
 
   // 3. Request Pre-signed URL from Gateway
-  const response = await fetch('/api/media/upload-url', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
+  const { uploadUrl, publicUrl, fileKey } = await apiClient.post<{
+    uploadUrl: string;
+    publicUrl: string;
+    fileKey: string;
+  }>(
+    '/api/media/upload-url',
+    {
       conversationId,
       fileName: file.name,
       mimeType: uploadMimeType,
       fileSize: uploadBlob.size,
-    }),
-    signal: options?.signal,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const message =
-      Array.isArray(errorData.message)
-        ? errorData.message.join(', ')
-        : errorData.message || 'Failed to initialize upload';
-    throw new Error(message);
-  }
-
-  const { uploadUrl, publicUrl, fileKey } = await response.json();
+    },
+    {
+      token,
+      signal: options?.signal,
+    },
+  );
 
   // 4. Direct PUT to S3 / MinIO
   await new Promise<void>((resolve, reject) => {

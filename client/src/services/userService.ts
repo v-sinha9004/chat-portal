@@ -1,4 +1,5 @@
 import type { User } from '@/types';
+import { apiClient } from '@/utils/httpClient';
 
 const USERS_API_URL = import.meta.env.VITE_USERS_API_URL || '/api/users';
 
@@ -8,28 +9,10 @@ const USERS_API_URL = import.meta.env.VITE_USERS_API_URL || '/api/users';
  * Default URL: http://localhost:3000/api/users
  */
 export async function fetchUsers(token?: string | null, signal?: AbortSignal): Promise<User[]> {
-  const headers: HeadersInit = {
-    'Accept': 'application/json',
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(USERS_API_URL, {
-    method: 'GET',
-    headers,
+  const result = await apiClient.get<User[] | { data: User[] }>(USERS_API_URL, {
+    token,
     signal,
   });
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('Unauthorized: Session expired or missing access token');
-    }
-    throw new Error(`Failed to fetch users: HTTP ${response.status} (${response.statusText || 'Error'})`);
-  }
-
-  const result = await response.json();
   return Array.isArray(result) ? result : (result?.data ?? []);
 }
-
