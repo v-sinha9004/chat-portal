@@ -230,4 +230,9 @@ export interface MessageDeletedEvent {
   deletedBy: string;
 }
 
+export interface DeleteMessagePayload {
+  messageId: string;
+}
+
+
 

@@ -264,25 +264,6 @@ export class MessagesController {
       body,
     );
   }
-
-  /**
-   * Soft delete a message.
-   * DELETE /api/chat/messages/:messageId
-   */
-  @Delete(':messageId')
-  async deleteMessage(
-    @Headers('x-user-id') currentUserId: string,
-    @Headers('x-user-role') currentUserRole: string,
-    @Param('messageId') messageId: string,
-  ): Promise<{ status: string; message: string; messageId: string; conversationId: string }> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
-    return this.messagesService.deleteMessage(
-      currentUserId,
-      currentUserRole || '',
-      messageId,
-    );
-  }
 }
+
 

@@ -37,7 +37,9 @@ import {
   GroupMessagesReadEvent,
   UpdateDoubtStatusPayload,
   DoubtStatusChangedEvent,
+  DeleteMessagePayload,
 } from './interfaces/socket-events.interface';
+
 import { ChatQueueProducer } from '../queue/chat-queue.producer';
 import { PresenceService } from '../presence/presence.service';
 import { ReadTrackingService } from '../read-tracking/read-tracking.service';
@@ -514,6 +516,56 @@ export class SocketGateway
       };
     }
   }
+
+  /**
+   * Real-time message soft deletion via WebSocket.
+   * Calls messagesService.deleteMessage and acknowledges caller.
+   */
+  @SubscribeMessage('delete_message')
+  async handleDeleteMessage(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: DeleteMessagePayload,
+  ) {
+    const { messageId } = payload || {};
+    if (!messageId || typeof messageId !== 'string' || !messageId.trim()) {
+      return {
+        status: 'error',
+        message: 'Invalid payload: messageId is required',
+      };
+    }
+
+    const currentUserId = client.data.userId;
+    if (!currentUserId) {
+      return {
+        status: 'error',
+        message: 'Unauthorized socket session',
+      };
+    }
+
+    const currentUserRole = client.data.user?.role || '';
+
+    try {
+      const result = await this.messagesService.deleteMessage(
+        currentUserId,
+        currentUserRole,
+        messageId.trim(),
+      );
+
+      return {
+        status: 'ok',
+        message: result.message,
+        messageId: result.messageId,
+        conversationId: result.conversationId,
+      };
+    } catch (err: any) {
+      return {
+        status: 'error',
+        message: err.message || 'Failed to delete message',
+      };
+    }
+  }
+
+
 
   /**
    * On-demand presence subscription for a single user (active direct chat).
