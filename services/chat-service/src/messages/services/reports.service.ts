@@ -22,6 +22,8 @@ import {
   ReportsListResponse,
 } from '../interfaces';
 
+import { UserServiceClient } from '../../clients/user-service.client';
+
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
@@ -31,6 +33,7 @@ export class ReportsService {
     private readonly messageModel: Model<MessageDocument>,
     @InjectModel(ReportedMessage.name)
     private readonly reportedMessageModel: Model<ReportedMessageDocument>,
+    private readonly userServiceClient: UserServiceClient,
   ) {}
 
   /**
@@ -201,36 +204,6 @@ export class ReportsService {
    * Helper to batch-fetch display names for given user IDs from user-service.
    */
   async getUserNamesMap(userIds: string[]): Promise<Map<string, string>> {
-    const map = new Map<string, string>();
-    const userServiceUrl =
-      process.env.USER_SERVICE_URL || 'http://localhost:3002';
-    const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
-
-    await Promise.all(
-      uniqueIds.map(async (userId) => {
-        try {
-          const res = await fetch(
-            `${userServiceUrl}/api/users/${encodeURIComponent(userId)}`,
-          );
-          if (res.ok) {
-            const data = (await res.json()) as {
-              name?: string;
-              username?: string;
-            };
-            if (data?.name) {
-              map.set(userId, data.name);
-            } else if (data?.username) {
-              map.set(userId, data.username);
-            }
-          }
-        } catch (err: any) {
-          this.logger.warn(
-            `Failed to fetch user name for ${userId}: ${err.message}`,
-          );
-        }
-      }),
-    );
-
-    return map;
+    return this.userServiceClient.getUserNamesMap(userIds);
   }
 }

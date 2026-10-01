@@ -23,6 +23,8 @@ import {
   formatMessageResponse,
 } from '../utils/message-format.util';
 
+import { UserServiceClient } from '../../clients/user-service.client';
+
 @Injectable()
 export class DoubtsService {
   private readonly logger = new Logger(DoubtsService.name);
@@ -31,6 +33,7 @@ export class DoubtsService {
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
     private readonly socketService: SocketService,
+    private readonly userServiceClient: UserServiceClient,
   ) {}
 
   /**
@@ -171,30 +174,7 @@ export class DoubtsService {
       return false;
     }
 
-    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
-    try {
-      const response = await fetch(
-        `${userServiceUrl}/api/users/${encodeURIComponent(userId)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      if (!response.ok) {
-        return false;
-      }
-
-      const userData = (await response.json()) as { role?: string };
-      return (userData?.role || '').toUpperCase() === 'MENTOR';
-    } catch (err: any) {
-      this.logger.error(
-        `Failed to check user role with user-service for ${userId}: ${err?.message}`,
-      );
-      return false;
-    }
+    return this.userServiceClient.checkIsMentor(userId);
   }
 
   /**

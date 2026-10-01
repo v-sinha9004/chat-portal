@@ -2,11 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
 import * as jwt from 'jsonwebtoken';
 import { JwtUserPayload } from './interfaces/socket-events.interface';
+import { UserServiceClient } from '../clients/user-service.client';
 
 @Injectable()
 export class SocketService {
   private readonly logger = new Logger(SocketService.name);
   private server: Server | null = null;
+
+  constructor(private readonly userServiceClient: UserServiceClient) {}
 
   /**
    * Verifies and decodes a JWT access token.
@@ -81,65 +84,14 @@ export class SocketService {
    * are reflected instantly with zero stale caching.
    */
   async getGroupMemberIds(groupId: string): Promise<string[]> {
-    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
-    const url = `${userServiceUrl}/api/users/groups/${encodeURIComponent(groupId)}/member-ids`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          this.logger.warn(`Group not found in user-service: ${groupId}`);
-          return [];
-        }
-        this.logger.error(
-          `Failed to fetch group members for ${groupId}: HTTP ${response.status}`,
-        );
-        return [];
-      }
-
-      const data = (await response.json()) as { groupId: string; memberIds: string[] };
-      return data?.memberIds || [];
-    } catch (err: any) {
-      this.logger.error(
-        `Error calling user-service for group ${groupId} members: ${err.message}`,
-      );
-      return [];
-    }
+    return this.userServiceClient.getGroupMemberIds(groupId);
   }
 
   /**
    * Fetches group IDs that a user belongs to from user-service.
    */
   async getUserGroupIds(userId: string): Promise<string[]> {
-    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
-    const url = `${userServiceUrl}/api/users/groups/user/${encodeURIComponent(userId)}/group-ids`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-
-      const data = (await response.json()) as { userId: string; groupIds: string[] };
-      return data?.groupIds || [];
-    } catch (err: any) {
-      this.logger.error(
-        `Error calling user-service for user ${userId} group IDs: ${err.message}`,
-      );
-      return [];
-    }
+    return this.userServiceClient.getUserGroupIds(userId);
   }
 }
 

@@ -7,6 +7,7 @@ import { ChatQueueModule } from './queue/chat-queue.module';
 import { MessagesModule } from './messages/messages.module';
 import { PresenceModule } from './presence/presence.module';
 import { ReadTrackingModule } from './read-tracking/read-tracking.module';
+import { ClientsModule } from './clients/clients.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ReadTrackingModule } from './read-tracking/read-tracking.module';
     MessagesModule,
     PresenceModule,
     ReadTrackingModule,
+    ClientsModule,
   ],
 })
 export class AppModule { }

@@ -17,6 +17,8 @@ export interface GroupPresenceResult {
   onlineMemberIds: string[];
 }
 
+import { UserServiceClient } from '../clients/user-service.client';
+
 @Injectable()
 export class PresenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PresenceService.name);
@@ -28,7 +30,10 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private server: Server | null = null;
 
-  constructor(private readonly redisService: RedisService) {
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly userServiceClient: UserServiceClient,
+  ) {
     this.redis = this.redisService.getClient();
   }
 
@@ -369,51 +374,18 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
    * Fetches lastSeenAt timestamp from user-service and caches it in Redis.
    */
   private async fetchLastSeenFromUserService(userId: string): Promise<string | null> {
-    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
-    const url = `${userServiceUrl}/api/users/${encodeURIComponent(userId)}`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) return null;
-
-      const data = await response.json();
-      const lastSeen = data?.lastSeenAt ? new Date(data.lastSeenAt).toISOString() : null;
-      if (lastSeen) {
-        await this.redis.hset(this.LAST_SEEN_KEY, userId, lastSeen);
-      }
-      return lastSeen;
-    } catch {
-      return null;
+    const user = await this.userServiceClient.getUserById(userId);
+    const lastSeen = user?.lastSeenAt ? new Date(user.lastSeenAt).toISOString() : null;
+    if (lastSeen) {
+      await this.redis.hset(this.LAST_SEEN_KEY, userId, lastSeen);
     }
+    return lastSeen;
   }
 
   /**
    * Asynchronously notifies user-service to update user's lastSeenAt in PostgreSQL.
    */
   private async syncLastSeenToUserService(userId: string, lastSeenAt: string): Promise<void> {
-    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
-    const url = `${userServiceUrl}/api/users/${encodeURIComponent(userId)}/last-seen`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ lastSeenAt }),
-      });
-
-      if (!response.ok) {
-        this.logger.warn(
-          `User service returned HTTP ${response.status} when updating last-seen for ${userId}`,
-        );
-      }
-    } catch (err: any) {
-      this.logger.warn(`Could not contact user-service to update last-seen: ${err.message}`);
-    }
+    await this.userServiceClient.updateLastSeen(userId, lastSeenAt);
   }
 }
