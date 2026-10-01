@@ -16,6 +16,8 @@ export const useChatActions = () =>
       jumpToLatest: s.jumpToLatest,
       setReplyingTo: s.setReplyingTo,
       updateDoubtStatus: s.updateDoubtStatus,
+      removeDeletedMessage: s.removeDeletedMessage,
+
       // Pins
       fetchPinnedMessages: s.fetchPinnedMessages,
       pinMessage: s.pinMessage,

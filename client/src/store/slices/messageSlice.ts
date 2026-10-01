@@ -650,4 +650,11 @@ export const createMessageSlice: ChatSlice<MessageSlice> = (set, get) => ({
       }),
     }));
   },
+
+  removeDeletedMessage: (messageId: string) => {
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== messageId),
+    }));
+  },
 });
+

@@ -10,9 +10,10 @@ import {
 import type { ChatMessage, AttachmentInfo } from '@/types';
 import { navigateToMessage } from '@/utils/messageNavigation';
 import { MediaLightbox } from '@/components/media/MediaLightbox';
-import { ReportConfirmationModal } from '@/components/modals';
-import { reportMessageRest } from '@/services/chatService';
+import { ReportConfirmationModal, DeleteConfirmationModal } from '@/components/modals';
+import { reportMessageRest, deleteMessageRest } from '@/services/chatService';
 import { useToastStore } from '@/store/useToastStore';
+
 import { useChatScroll } from './hooks/useChatScroll';
 import { useChatTyping } from './hooks/useChatTyping';
 import { useMediaAttachment } from './hooks/useMediaAttachment';
@@ -74,9 +75,11 @@ export const ChatArea: React.FC = () => {
     updateDoubtStatus,
     pinMessage,
     unpinMessage,
+    removeDeletedMessage,
     sendTypingStart,
     sendTypingStop,
   } = useChatActions();
+
 
   const activeKey = activeConversation
     ? activeConversation.type === 'group'
@@ -146,7 +149,9 @@ export const ChatArea: React.FC = () => {
 
   const [lightboxAttachment, setLightboxAttachment] = useState<AttachmentInfo | null>(null);
   const [reportingMessage, setReportingMessage] = useState<ChatMessage | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState<ChatMessage | null>(null);
   const showToast = useToastStore((s) => s.showToast);
+
 
   const getDisplayName = useCallback(
     (userId: string) =>
@@ -269,8 +274,54 @@ export const ChatArea: React.FC = () => {
     }
   }, [reportingMessage, showToast]);
 
+  const handleInitiateDelete = useCallback((msg: ChatMessage) => {
+    setDeletingMessage(msg);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    const target = deletingMessage;
+    setDeletingMessage(null);
+    if (!target) return;
+
+    const token = useAuthStore.getState().accessToken;
+    if (!token) {
+      showToast({
+        message: 'Authentication session expired',
+        type: 'error',
+      });
+      return;
+    }
+
+    const toastId = showToast({
+      message: 'Deleting message...',
+      type: 'loading',
+      duration: 0,
+    });
+
+    try {
+      await deleteMessageRest(token, target.id);
+      removeDeletedMessage(target.id);
+      showToast({
+        id: toastId,
+        message: 'Message deleted successfully.',
+        type: 'success',
+        duration: 3000,
+      });
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to delete message';
+      showToast({
+        id: toastId,
+        message: errorMessage,
+        type: 'error',
+        duration: 4000,
+      });
+    }
+  }, [deletingMessage, removeDeletedMessage, showToast]);
+
 
   // Initial Empty / Loading States
+
 
   if (!activeConversation) {
     if (isLoadingInitial) {
@@ -395,6 +446,7 @@ export const ChatArea: React.FC = () => {
         onUnpinMessage={handleUnpinMessage}
         onUpdateDoubtStatus={updateDoubtStatus}
         onReportMessage={handleInitiateReport}
+        onDeleteMessage={handleInitiateDelete}
       />
 
       {/* Chat Composer (Replying preview, Action dropdown, composers, staged attachment, input) */}
@@ -434,7 +486,16 @@ export const ChatArea: React.FC = () => {
         onClose={() => setReportingMessage(null)}
         onConfirm={handleConfirmReport}
       />
+
+      {/* Confirmation Modal for Deleting Message */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(deletingMessage)}
+        message={deletingMessage}
+        onClose={() => setDeletingMessage(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </main>
   );
 };
+
 

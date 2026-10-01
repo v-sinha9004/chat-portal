@@ -41,6 +41,7 @@ interface MessageListProps {
   onUnpinMessage: (message: ChatMessage) => Promise<void>;
   onUpdateDoubtStatus: (messageId: string, status: 'OPEN' | 'RESOLVED') => Promise<void>;
   onReportMessage: (message: ChatMessage) => void;
+  onDeleteMessage: (message: ChatMessage) => void;
 }
 
 
@@ -80,7 +81,9 @@ export const MessageList: React.FC<MessageListProps> = ({
   onUnpinMessage,
   onUpdateDoubtStatus,
   onReportMessage,
+  onDeleteMessage,
 }) => {
+
 
   return (
     <>
@@ -168,8 +171,10 @@ export const MessageList: React.FC<MessageListProps> = ({
                   onUnpinMessage={onUnpinMessage}
                   onUpdateDoubtStatus={onUpdateDoubtStatus}
                   onReportMessage={onReportMessage}
+                  onDeleteMessage={onDeleteMessage}
                 />
               );
+
 
             })}
 

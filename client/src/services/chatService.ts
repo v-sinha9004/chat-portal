@@ -409,4 +409,40 @@ export async function reportMessageRest(
   return response.json();
 }
 
+export interface DeleteMessageResponse {
+  status: string;
+  message: string;
+  messageId: string;
+  conversationId: string;
+}
+
+/**
+ * Soft delete a message in a conversation.
+ */
+export async function deleteMessageRest(
+  token: string,
+  messageId: string,
+): Promise<DeleteMessageResponse> {
+  const response = await fetch(
+    `${CHAT_API_URL}/messages/${encodeURIComponent(messageId)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.message || `Failed to delete message: HTTP ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+
 

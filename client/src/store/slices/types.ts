@@ -132,7 +132,9 @@ export interface MessageSlice {
     status: 'OPEN' | 'RESOLVED',
     details?: { resolvedBy?: string; resolvedByName?: string; resolvedAt?: string },
   ) => void;
+  removeDeletedMessage: (messageId: string, conversationId?: string) => void;
 }
+
 
 // ==========================================
 // 6. SOCKET SLICE

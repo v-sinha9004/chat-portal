@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ChatMessage } from '@/types';
-import { PinIcon, ReplyIcon, ReportIcon } from '@/components/icons';
+import { PinIcon, ReplyIcon, ReportIcon, DeleteIcon } from '@/components/icons';
 
 export interface MessageActionItem {
   id: string;
@@ -14,10 +14,12 @@ export interface BuildMessageActionsParams {
   message: ChatMessage;
   isPinned: boolean;
   canManagePins?: boolean;
+  canDelete?: boolean;
   onInitiateReply: (message: ChatMessage) => void;
   onPinMessage: (message: ChatMessage) => Promise<void>;
   onUnpinMessage: (message: ChatMessage) => Promise<void>;
   onReportMessage: (message: ChatMessage) => void;
+  onDeleteMessage: (message: ChatMessage) => void;
 }
 
 /**
@@ -27,10 +29,12 @@ export interface BuildMessageActionsParams {
 export function getMessageActions({
   message,
   isPinned,
+  canDelete = true,
   onInitiateReply,
   onPinMessage,
   onUnpinMessage,
   onReportMessage,
+  onDeleteMessage,
 }: BuildMessageActionsParams): MessageActionItem[] {
   const actions: MessageActionItem[] = [
     {
@@ -54,8 +58,19 @@ export function getMessageActions({
     },
   ];
 
+  if (canDelete) {
+    actions.push({
+      id: 'delete',
+      label: 'Delete',
+      danger: true,
+      icon: <DeleteIcon size={15} />,
+      onClick: () => onDeleteMessage(message),
+    });
+  }
+
   return actions;
 }
+
 
 
 

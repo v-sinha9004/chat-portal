@@ -26,6 +26,7 @@ interface MessageItemProps {
   onUnpinMessage: (message: ChatMessage) => Promise<void>;
   onUpdateDoubtStatus: (messageId: string, status: 'OPEN' | 'RESOLVED') => Promise<void>;
   onReportMessage: (message: ChatMessage) => void;
+  onDeleteMessage: (message: ChatMessage) => void;
 }
 
 
@@ -48,6 +49,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onUnpinMessage,
   onUpdateDoubtStatus,
   onReportMessage,
+  onDeleteMessage,
 }) => {
   const isMe = message.senderId === currentUserId;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -58,6 +60,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     ? 'doubt-row'
     : '';
 
+  // Mentee will not see delete option in group conversations
+  const isMenteeInGroup = isGroup && currentUserRole.toUpperCase() === 'MENTEE';
+  const canDelete = !isMenteeInGroup;
+
   // Configurable actions list (DRY & easily extensible)
   const actions = useMemo(
     () =>
@@ -65,13 +71,16 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         message,
         isPinned,
         canManagePins,
+        canDelete,
         onInitiateReply,
         onPinMessage,
         onUnpinMessage,
         onReportMessage,
+        onDeleteMessage,
       }),
-    [message, isPinned, canManagePins, onInitiateReply, onPinMessage, onUnpinMessage, onReportMessage]
+    [message, isPinned, canManagePins, canDelete, onInitiateReply, onPinMessage, onUnpinMessage, onReportMessage, onDeleteMessage]
   );
+
 
 
   // Mobile long-press handler
