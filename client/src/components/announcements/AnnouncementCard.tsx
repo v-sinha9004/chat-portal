@@ -77,7 +77,6 @@ export const AnnouncementCard: React.FC<AnnouncementCardProps> = ({
           {senderDisplayName && (
             <span className="announcement-sender-name">{senderDisplayName}</span>
           )}
-          <span className="role-badge badge-mentor announcement-role-tag">MENTOR</span>
         </div>
 
         <div className="announcement-meta-right">

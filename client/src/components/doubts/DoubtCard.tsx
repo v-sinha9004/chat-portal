@@ -37,9 +37,9 @@ export const DoubtCard: React.FC<DoubtCardProps> = ({
 
   const formattedResolvedTime = message.resolvedAt
     ? new Date(message.resolvedAt).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+      hour: '2-digit',
+      minute: '2-digit',
+    })
     : '';
 
   return (
@@ -109,8 +109,7 @@ export const DoubtCard: React.FC<DoubtCardProps> = ({
           <div className="doubt-resolved-info">
             <span className="resolved-check-badge">✓</span>
             <span className="resolved-by-text">
-              Resolved{message.resolvedByName ? ` by ${message.resolvedByName}` : ''}
-              {formattedResolvedTime ? ` (${formattedResolvedTime})` : ''}
+              Resolved at {formattedResolvedTime ? ` ${formattedResolvedTime}` : ''}
             </span>
             {canResolve && (
               <button
@@ -143,17 +142,6 @@ export const DoubtCard: React.FC<DoubtCardProps> = ({
           {senderDisplayName && (
             <span className="doubt-sender-name">{senderDisplayName}</span>
           )}
-          <span
-            className={`role-badge ${
-              senderRole.toUpperCase() === 'MENTOR'
-                ? 'badge-mentor'
-                : senderRole.toUpperCase() === 'ADMIN'
-                ? 'badge-admin'
-                : 'badge-mentee'
-            } doubt-role-tag`}
-          >
-            {senderRole.toUpperCase()}
-          </span>
         </div>
 
         <div className="doubt-meta-right">
