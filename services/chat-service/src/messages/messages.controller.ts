@@ -7,8 +7,6 @@ import {
   Body,
   Param,
   Query,
-  Headers,
-  UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
 import { MessagesService } from './messages.service';
@@ -16,28 +14,32 @@ import { ReadTrackingService } from '../read-tracking/read-tracking.service';
 import {
   QueryMessagesDto,
   QueryMessageContextDto,
-  QueryDoubtsDto,
   QueryMentorDoubtsDto,
   PinMessageDto,
   ReportMessageDto,
   QueryReportsDto,
+  UpdateDoubtStatusDto,
 } from './dto';
 import {
   ConversationHistoryResponse,
   ChatMessageResponse,
   MessageContextResponse,
-  DoubtsListResponse,
   MentorDoubtsResponse,
   PinnedMessageResponse,
   ReportsListResponse,
 } from './interfaces';
+import {
+  CurrentUser,
+  CurrentUserRole,
+  CurrentUserName,
+} from '../common/decorators/current-user.decorator';
 
 @Controller('messages')
 export class MessagesController {
   constructor(
     private readonly messagesService: MessagesService,
     private readonly readTrackingService: ReadTrackingService,
-  ) { }
+  ) {}
 
   /**
    * Fetch real-time unread message counts for all conversations for authenticated user.
@@ -45,11 +47,8 @@ export class MessagesController {
    */
   @Get('unread-counts')
   async getUnreadCounts(
-    @Headers('x-user-id') currentUserId: string,
+    @CurrentUser() currentUserId: string,
   ): Promise<{ status: string; unreadCounts: Record<string, number> }> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     const unreadCounts =
       await this.readTrackingService.getUnreadCounts(currentUserId);
     return {
@@ -64,12 +63,9 @@ export class MessagesController {
    */
   @Get('context')
   async getMessageContext(
-    @Headers('x-user-id') currentUserId: string,
+    @CurrentUser() currentUserId: string,
     @Query() query: QueryMessageContextDto,
   ): Promise<MessageContextResponse> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     return this.messagesService.getMessageContext(currentUserId, query);
   }
 
@@ -79,13 +75,10 @@ export class MessagesController {
    */
   @Get('direct/:userId')
   async getDirectMessages(
-    @Headers('x-user-id') currentUserId: string,
+    @CurrentUser() currentUserId: string,
     @Param('userId') targetUserId: string,
     @Query() query: QueryMessagesDto,
   ): Promise<ConversationHistoryResponse> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     return this.messagesService.getDirectMessages(
       currentUserId,
       targetUserId,
@@ -99,13 +92,10 @@ export class MessagesController {
    */
   @Get('group/:groupId')
   async getGroupMessages(
-    @Headers('x-user-id') currentUserId: string,
+    @CurrentUser() currentUserId: string,
     @Param('groupId') groupId: string,
     @Query() query: QueryMessagesDto,
   ): Promise<ConversationHistoryResponse> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     return this.messagesService.getGroupMessages(
       groupId,
       currentUserId,
@@ -116,18 +106,14 @@ export class MessagesController {
   /**
    * Fetch all doubts for a mentor.
    * GET /api/chat/messages/doubts
-   * Takes userId from x-user-id header. Verifies user is a mentor; else returns 403 Forbidden.
+   * Verifies user is a mentor; else returns 403 Forbidden.
    */
   @Get('doubts')
   async getDoubts(
-    @Headers('x-user-id') currentUserId: string,
-    @Headers('x-user-role') currentUserRole: string,
+    @CurrentUser() currentUserId: string,
+    @CurrentUserRole() currentUserRole: string,
     @Query() query: QueryMentorDoubtsDto,
   ): Promise<MentorDoubtsResponse> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
-
     const isMentor = await this.messagesService.isUserMentor(
       currentUserId,
       currentUserRole,
@@ -145,22 +131,19 @@ export class MessagesController {
    */
   @Patch(':messageId/doubt-status')
   async updateDoubtStatus(
-    @Headers('x-user-id') currentUserId: string,
-    @Headers('x-user-role') currentUserRole: string,
-    @Headers('x-user-name') currentUserName: string,
+    @CurrentUser() currentUserId: string,
+    @CurrentUserRole() currentUserRole: string,
+    @CurrentUserName() currentUserName: string,
     @Param('messageId') messageId: string,
-    @Body() body: { conversationId: string; status: 'OPEN' | 'RESOLVED' },
+    @Body() body: UpdateDoubtStatusDto,
   ): Promise<ChatMessageResponse> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     return this.messagesService.updateDoubtStatus(
       currentUserId,
-      currentUserRole || '',
-      currentUserName || '',
-      body?.conversationId,
+      currentUserRole,
+      currentUserName,
+      body.conversationId,
       messageId,
-      body?.status,
+      body.status,
     );
   }
 
@@ -170,12 +153,9 @@ export class MessagesController {
    */
   @Get('pins')
   async getPinnedMessages(
-    @Headers('x-user-id') currentUserId: string,
+    @CurrentUser() currentUserId: string,
     @Query('conversationId') conversationId: string,
   ): Promise<PinnedMessageResponse[]> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     return this.messagesService.getPinnedMessages(currentUserId, conversationId);
   }
 
@@ -185,20 +165,17 @@ export class MessagesController {
    */
   @Post(':messageId/pin')
   async pinMessage(
-    @Headers('x-user-id') currentUserId: string,
-    @Headers('x-user-role') currentUserRole: string,
-    @Headers('x-user-name') currentUserName: string,
+    @CurrentUser() currentUserId: string,
+    @CurrentUserRole() currentUserRole: string,
+    @CurrentUserName() currentUserName: string,
     @Param('messageId') messageId: string,
     @Body() body: PinMessageDto,
   ): Promise<PinnedMessageResponse> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     return this.messagesService.pinMessage(
       currentUserId,
-      currentUserRole || '',
-      currentUserName || '',
-      body?.conversationId,
+      currentUserRole,
+      currentUserName,
+      body.conversationId,
       messageId,
     );
   }
@@ -209,19 +186,16 @@ export class MessagesController {
    */
   @Delete(':messageId/pin')
   async unpinMessage(
-    @Headers('x-user-id') currentUserId: string,
-    @Headers('x-user-role') currentUserRole: string,
+    @CurrentUser() currentUserId: string,
+    @CurrentUserRole() currentUserRole: string,
     @Param('messageId') messageId: string,
     @Query('conversationId') conversationIdQuery?: string,
     @Body('conversationId') conversationIdBody?: string,
   ): Promise<{ success: boolean; conversationId: string; messageId: string }> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     const conversationId = conversationIdQuery || conversationIdBody || '';
     return this.messagesService.unpinMessage(
       currentUserId,
-      currentUserRole || '',
+      currentUserRole,
       conversationId,
       messageId,
     );
@@ -233,16 +207,13 @@ export class MessagesController {
    */
   @Get('reports')
   async getReportedMessages(
-    @Headers('x-user-id') currentUserId: string,
-    @Headers('x-user-role') currentUserRole: string,
+    @CurrentUser() currentUserId: string,
+    @CurrentUserRole() currentUserRole: string,
     @Query() query: QueryReportsDto,
   ): Promise<ReportsListResponse> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     return this.messagesService.getReportedMessages(
       currentUserId,
-      currentUserRole || '',
+      currentUserRole,
       query,
     );
   }
@@ -253,13 +224,10 @@ export class MessagesController {
    */
   @Post(':messageId/report')
   async reportMessage(
-    @Headers('x-user-id') currentUserId: string,
+    @CurrentUser() currentUserId: string,
     @Param('messageId') messageId: string,
     @Body() body: ReportMessageDto,
   ): Promise<{ status: string; message: string; reportId: string }> {
-    if (!currentUserId) {
-      throw new UnauthorizedException('Missing x-user-id header');
-    }
     return this.messagesService.reportMessage(
       currentUserId,
       messageId,
@@ -267,5 +235,3 @@ export class MessagesController {
     );
   }
 }
-
-

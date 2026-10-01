@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 interface SidebarHeaderProps {
   totalConversations: number;
   isLoading: boolean;
-  onOpenCreateGroup: () => void;
+  onOpenCreateGroup?: () => void;
 }
 
 export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
@@ -52,7 +52,7 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
             +
           </button>
 
-          {isMenuOpen && (
+          {isMenuOpen && onOpenCreateGroup && (
             <div className="action-dropdown-menu">
               <button
                 type="button"

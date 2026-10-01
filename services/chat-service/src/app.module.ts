@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { HealthModule } from './health/health.module';
 import { SocketModule } from './socket/socket.module';
 import { ChatQueueModule } from './queue/chat-queue.module';
 import { MessagesModule } from './messages/messages.module';
@@ -13,17 +12,15 @@ import { ReadTrackingModule } from './read-tracking/read-tracking.module';
     MongooseModule.forRootAsync({
       useFactory: () => ({
         uri:
-          process.env.MONGODB_URI ||
-          'mongodb://admin:password@localhost:27017/chat_portal?authSource=admin',
+          process.env.MONGODB_URI,
       }),
     }),
+    HealthModule,
     ChatQueueModule,
     SocketModule,
     MessagesModule,
     PresenceModule,
     ReadTrackingModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

@@ -5,7 +5,7 @@ import Redis from 'ioredis';
 import {
   ConversationRead,
   ConversationReadDocument,
-} from '../messages/schemas/conversation-read.schema';
+} from './schemas/conversation-read.schema';
 
 @Injectable()
 export class ReadTrackingService implements OnModuleDestroy {

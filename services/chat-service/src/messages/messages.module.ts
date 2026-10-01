@@ -2,10 +2,6 @@ import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Message, MessageSchema } from './schemas/message.schema';
 import {
-  ConversationRead,
-  ConversationReadSchema,
-} from './schemas/conversation-read.schema';
-import {
   PinnedMessage,
   PinnedMessageSchema,
 } from './schemas/pinned-message.schema';
@@ -26,7 +22,6 @@ import { ReadTrackingModule } from '../read-tracking/read-tracking.module';
   imports: [
     MongooseModule.forFeature([
       { name: Message.name, schema: MessageSchema },
-      { name: ConversationRead.name, schema: ConversationReadSchema },
       { name: PinnedMessage.name, schema: PinnedMessageSchema },
       { name: ReportedMessage.name, schema: ReportedMessageSchema },
     ]),

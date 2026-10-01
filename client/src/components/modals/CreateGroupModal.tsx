@@ -7,13 +7,18 @@ import { getInitials } from '@/utils/formatters';
 
 export const CreateGroupModal: React.FC = () => {
   const token = useAuthStore((s) => s.accessToken);
-  const currentUserId = useAuthStore((s) => s.user?.id);
+  const authUser = useAuthStore((s) => s.user);
+  const currentUserId = authUser?.id;
 
   const isOpen = useUIStore((s) => s.isCreateGroupOpen);
   const onClose = useUIStore((s) => s.closeCreateGroup);
 
   const { users } = useConversationState();
   const { addGroup } = useChatActions();
+
+  const foundUser = users.find((u) => u.id === currentUserId);
+  const activeUser = foundUser || authUser || null;
+  const isAdmin = (activeUser?.role || authUser?.role)?.toUpperCase() === 'ADMIN';
 
   const contacts = useMemo(() => {
     return users.filter((u) => u.id !== currentUserId);
@@ -36,7 +41,7 @@ export const CreateGroupModal: React.FC = () => {
     );
   }, [contacts, searchQuery]);
 
-  if (!isOpen || !token || !currentUserId) return null;
+  if (!isOpen || !token || !currentUserId || !isAdmin) return null;
 
   const toggleUserSelection = (userId: string) => {
     setSelectedUserIds((prev) => {

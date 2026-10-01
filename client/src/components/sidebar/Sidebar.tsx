@@ -42,6 +42,7 @@ export const Sidebar: React.FC = () => {
   const activeUser = foundUser || authUser || null;
   const contacts = users.filter((u) => u.id !== currentUserId);
   const totalConversations = contacts.length + groups.length;
+  const isAdmin = (activeUser?.role || authUser?.role)?.toUpperCase() === 'ADMIN';
 
   // Combine groups and direct chat contacts into a single list
   const chatList = useMemo<ChatListItemData[]>(() => {
@@ -63,7 +64,7 @@ export const Sidebar: React.FC = () => {
         user={activeUser}
         isSocketConnected={isSocketConnected}
         onLogout={logout}
-        onCreateGroup={openCreateGroup}
+        onCreateGroup={isAdmin ? openCreateGroup : undefined}
       />
 
 

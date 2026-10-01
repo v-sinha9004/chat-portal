@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import {
   ConversationRead,
   ConversationReadSchema,
-} from '../messages/schemas/conversation-read.schema';
+} from './schemas/conversation-read.schema';
 import { ReadTrackingService } from './read-tracking.service';
 
 @Module({
