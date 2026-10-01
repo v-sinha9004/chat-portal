@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { useUIStore } from '../store/useUIStore';
 import { createGroup } from '../services/groupService';
+import { getInitials } from '../utils/formatters';
 
 export const CreateGroupModal: React.FC = () => {
   const token = useAuthStore((s) => s.accessToken);
@@ -85,16 +86,6 @@ export const CreateGroupModal: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const getInitials = (name?: string) => {
-    if (!name) return 'U';
-    return name
-      .split(' ')
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
   };
 
   return (

@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { useUIStore } from '../store/useUIStore';
 import { getDirectConversationId, getGroupConversationId } from '../types';
+import { getInitials } from '../utils/formatters';
 
 export const UserList: React.FC = () => {
   const authUser = useAuthStore((s) => s.user);
@@ -47,16 +48,6 @@ export const UserList: React.FC = () => {
 
   const handleRetry = () => {
     fetchConversations();
-  };
-
-  const getInitials = (name?: string) => {
-    if (!name) return 'U';
-    return name
-      .split(' ')
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
   };
 
   const getRoleBadgeClass = (role?: string) => {

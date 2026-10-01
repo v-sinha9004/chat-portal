@@ -10,6 +10,11 @@ import { useMediaAttachment } from './chat/hooks/useMediaAttachment';
 import { ChatHeader } from './chat/ChatHeader';
 import { MessageList } from './chat/MessageList';
 import { ChatComposer } from './chat/ChatComposer';
+import {
+  resolveDisplayName,
+  resolveUserRole,
+  formatTypingText,
+} from './chat/utils/chatUserHelpers';
 
 export const ChatArea: React.FC = () => {
   const currentUserId = useAuthStore((s) => s.user?.id || null);
@@ -70,30 +75,11 @@ export const ChatArea: React.FC = () => {
   }, [activeKey, typingUsersByConversation, currentUserId]);
 
   const typingText = useMemo(() => {
-    if (activeTypingUserIds.length === 0) return null;
-    const names = activeTypingUserIds.map((id) => {
-      if (id === currentUserId) return 'You';
-      if (activeConversation?.type === 'direct') {
-        if (activeConversation.user.id === id) {
-          return activeConversation.user.name || `@${activeConversation.user.username}`;
-        }
-      }
-      if (activeConversation?.type === 'group') {
-        const member = activeConversation.group.members?.find((m) => m.userId === id);
-        if (member?.user) {
-          return member.user.name || (member.user.username ? `@${member.user.username}` : 'Member');
-        }
-      }
-      const found = users.find((u) => u.id === id);
-      return found?.name || (found?.username ? `@${found.username}` : 'Member');
+    return formatTypingText(activeTypingUserIds, {
+      currentUserId,
+      activeConversation,
+      users,
     });
-    if (names.length === 1) {
-      return `${names[0]} is typing...`;
-    } else if (names.length === 2) {
-      return `${names[0]} and ${names[1]} are typing...`;
-    } else {
-      return `${names[0]}, ${names[1]} and ${names.length - 2} ${names.length - 2 === 1 ? 'other' : 'others'} are typing...`;
-    }
   }, [activeTypingUserIds, currentUserId, activeConversation, users]);
 
   // Hook 1: Typing Indicator State & Throttling
@@ -144,45 +130,23 @@ export const ChatArea: React.FC = () => {
   const [lightboxAttachment, setLightboxAttachment] = useState<AttachmentInfo | null>(null);
 
   const getDisplayName = useCallback(
-    (userId: string) => {
-      if (userId === currentUserId) return 'You';
-
-      if (activeConversation?.type === 'direct') {
-        if (activeConversation.user.id === userId) {
-          return activeConversation.user.name || `@${activeConversation.user.username}`;
-        }
-      }
-
-      if (activeConversation?.type === 'group') {
-        const member = activeConversation.group.members?.find((m) => m.userId === userId);
-        if (member?.user) {
-          return member.user.name || (member.user.username ? `@${member.user.username}` : 'Member');
-        }
-      }
-
-      const found = users.find((u) => u.id === userId);
-      return found?.name || (found?.username ? `@${found.username}` : 'Member');
-    },
+    (userId: string) =>
+      resolveDisplayName(userId, {
+        currentUserId,
+        activeConversation,
+        users,
+      }),
     [currentUserId, activeConversation, users],
   );
 
   const getUserRole = useCallback(
-    (userId: string) => {
-      if (userId === currentUserId) return currentUserRole;
-      if (activeConversation?.type === 'direct') {
-        if (activeConversation.user.id === userId) {
-          return activeConversation.user.role || 'MENTEE';
-        }
-      }
-      if (activeConversation?.type === 'group') {
-        const member = activeConversation.group.members?.find((m) => m.userId === userId);
-        if (member?.user) {
-          return member.user.role || 'MENTEE';
-        }
-      }
-      const found = users.find((u) => u.id === userId);
-      return found?.role || 'MENTEE';
-    },
+    (userId: string) =>
+      resolveUserRole(userId, {
+        currentUserId,
+        currentUserRole,
+        activeConversation,
+        users,
+      }),
     [currentUserId, currentUserRole, activeConversation, users],
   );
 
