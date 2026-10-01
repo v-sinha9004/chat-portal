@@ -110,7 +110,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
         ) : item.user.bio ? (
           <p className="user-bio">{item.user.bio}</p>
         ) : (
-          <p className="user-email">{item.user.email}</p>
+          null
         )}
       </div>
     </div>
