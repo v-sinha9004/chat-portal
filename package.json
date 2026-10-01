@@ -48,7 +48,8 @@
     "build:all": "npm run build:gateway && npm run build:auth && npm run build:user && npm run build:chat && npm run build:worker && npm run build:media",
     "compose:prod": "docker compose -f docker-compose.prod.yml up -d --build",
     "compose:prod:down": "docker compose -f docker-compose.prod.yml down",
-    "compose:prod:logs": "docker compose -f docker-compose.prod.yml logs -f"
+    "compose:prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
+    "deploy:ec2": "bash scripts/deploy-ec2.sh"
   },
 
   "devDependencies": {
