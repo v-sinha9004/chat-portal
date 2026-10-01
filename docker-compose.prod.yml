@@ -210,6 +210,22 @@ services:
     networks:
       - chat-network
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: chat-portal-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-gateway
+    networks:
+      - chat-network
+
 # ------------------------------------------------------------------------------
 # VOLUMES & NETWORKS
 # ------------------------------------------------------------------------------
@@ -218,7 +234,12 @@ volumes:
     name: chat-portal-postgres-data
   mongodb_data:
     name: chat-portal-mongodb-data
+  caddy_data:
+    name: chat-portal-caddy-data
+  caddy_config:
+    name: chat-portal-caddy-config
 
 networks:
   chat-network:
     name: chat-portal-network
+

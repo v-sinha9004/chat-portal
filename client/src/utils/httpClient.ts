@@ -50,7 +50,8 @@ export async function apiRequest<T>(
   } = options;
 
   // 1. Build URL with query parameters if present
-  let fullUrl = url;
+  const apiBase = (import.meta.env.VITE_API_GATEWAY_URL || import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+  let fullUrl = url.startsWith('/') && apiBase ? `${apiBase}${url}` : url;
   if (params) {
     const searchParams = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
