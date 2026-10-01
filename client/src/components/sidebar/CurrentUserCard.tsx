@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { User, AuthUser } from '@/types';
 import { getInitials, getRoleBadgeClass } from '@/utils';
 
@@ -15,6 +15,23 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
   onLogout,
   onCreateGroup,
 }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
   return (
     <div className="current-user-card">
       <div className="current-user-header">
@@ -27,27 +44,67 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
             <span className="socket-dot" />
             {isSocketConnected ? 'Connected' : 'Offline'}
           </span>
-          {onCreateGroup && (
+
+          <div className="sidebar-action-wrapper" ref={menuRef}>
             <button
               type="button"
-              className="action-add-btn"
-              onClick={onCreateGroup}
-              title="Create group"
-              aria-label="Create group"
+              className="action-add-btn current-user-menu-btn"
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              title="More options"
+              aria-label="More options"
+              aria-expanded={isMenuOpen}
             >
-              +
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="8" cy="3" r="1.5" />
+                <circle cx="8" cy="8" r="1.5" />
+                <circle cx="8" cy="13" r="1.5" />
+              </svg>
             </button>
-          )}
-          <button
-            type="button"
-            className="current-user-logout-btn"
-            onClick={onLogout}
-            title="Sign out of your session"
-          >
-            Sign out
-          </button>
+
+            {isMenuOpen && (
+              <div className="action-dropdown-menu">
+                {onCreateGroup && (
+                  <button
+                    type="button"
+                    className="dropdown-menu-item"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onCreateGroup();
+                    }}
+                  >
+                    <span className="dropdown-item-icon">👥</span>
+                    <div className="dropdown-item-text">
+                      <span className="dropdown-item-title">New Group</span>
+                      <span className="dropdown-item-desc">Create a group chat</span>
+                    </div>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="dropdown-menu-item"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onLogout();
+                  }}
+                >
+                  <span className="dropdown-item-icon">🚪</span>
+                  <div className="dropdown-item-text">
+                    <span className="dropdown-item-title">Sign Out</span>
+                    <span className="dropdown-item-desc">Log out of your account</span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
 
 
       {user && (
