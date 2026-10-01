@@ -19,7 +19,6 @@ interface DoubtCardProps {
 export const DoubtCard: React.FC<DoubtCardProps> = ({
   message,
   senderDisplayName,
-  senderRole = 'MENTEE',
   isMe,
   isPinned = false,
   canResolve,

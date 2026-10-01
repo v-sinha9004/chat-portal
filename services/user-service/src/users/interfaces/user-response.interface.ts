@@ -5,5 +5,10 @@ export interface SafeUser {
   username: string;
   name: string | null;
   role: Role;
+  avatarUrl: string | null;
+  bio: string | null;
+  isActive: boolean;
   lastSeenAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }

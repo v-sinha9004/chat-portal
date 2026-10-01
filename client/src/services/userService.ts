@@ -1,4 +1,4 @@
-import type { UsersResponse, User } from '@/types';
+import type { User } from '@/types';
 
 const USERS_API_URL = import.meta.env.VITE_USERS_API_URL || '/api/users';
 

@@ -24,8 +24,7 @@ export const AddMembersSection: React.FC<AddMembersSectionProps> = ({
     return availableContacts.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        c.username.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q),
+        c.username.toLowerCase().includes(q),
     );
   }, [availableContacts, searchQuery]);
 

@@ -116,17 +116,23 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
               <div
                 className={`avatar-placeholder avatar-${(user.role || 'mentee').toLowerCase()}`}
               >
-                {getInitials(user.name || user.email)}
+                {getInitials(user.name || ('email' in user && user.email ? user.email : ''))}
               </div>
             )}
           </div>
           <div className="current-user-details">
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span className="current-user-name">{user.name || user.email}</span>
+              <span className="current-user-name">
+                {user.name || ('email' in user && user.email ? user.email : '')}
+              </span>
               <span className={getRoleBadgeClass(user.role)}>{user.role}</span>
             </div>
             <span className="current-user-email">
-              {user.username ? `@${user.username}` : user.email}
+              {user.username
+                ? `@${user.username}`
+                : 'email' in user && user.email
+                ? user.email
+                : ''}
             </span>
           </div>
         </div>

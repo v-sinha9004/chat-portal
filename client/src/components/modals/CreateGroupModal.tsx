@@ -32,8 +32,7 @@ export const CreateGroupModal: React.FC = () => {
     return contacts.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        c.username.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q),
+        c.username.toLowerCase().includes(q),
     );
   }, [contacts, searchQuery]);
 

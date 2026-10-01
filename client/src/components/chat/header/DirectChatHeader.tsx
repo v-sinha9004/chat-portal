@@ -53,7 +53,7 @@ export const DirectChatHeader: React.FC<DirectChatHeaderProps> = ({
           ) : (
             <span className="status-text offline">
               <span className="presence-dot offline" /> Offline{' '}
-              {formatLastSeen(activePresence?.lastSeen)}
+              {formatLastSeen(activePresence?.lastSeen ?? user.lastSeenAt)}
             </span>
           )}
         </div>

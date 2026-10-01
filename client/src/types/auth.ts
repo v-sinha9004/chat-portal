@@ -2,15 +2,15 @@ export type UserRole = 'ADMIN' | 'MENTOR' | 'MENTEE';
 
 export interface User {
   id: string;
-  email: string;
   username: string;
   name: string;
   role: 'ADMIN' | 'MENTEE' | 'MENTOR' | string;
-  avatarUrl: string | null;
-  bio: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  lastSeenAt: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UsersResponse {

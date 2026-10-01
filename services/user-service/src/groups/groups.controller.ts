@@ -5,29 +5,18 @@ import {
   Delete,
   Body,
   Param,
-  Headers,
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('groups')
 export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
-
-  /**
-   * Helper to ensure requester identity is present
-   */
-  private getAuthenticatedUserId(userIdHeader?: string): string {
-    if (!userIdHeader) {
-      throw new UnauthorizedException('Authentication required: missing user identity header');
-    }
-    return userIdHeader;
-  }
 
   /**
    * Create a new group
@@ -36,10 +25,9 @@ export class GroupsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Headers('x-user-id') userIdHeader: string,
+    @CurrentUser() userId: string,
     @Body() createGroupDto: CreateGroupDto,
   ) {
-    const userId = this.getAuthenticatedUserId(userIdHeader);
     return this.groupsService.create(userId, createGroupDto);
   }
 
@@ -48,8 +36,7 @@ export class GroupsController {
    * GET /api/users/groups
    */
   @Get()
-  async findAllForUser(@Headers('x-user-id') userIdHeader: string) {
-    const userId = this.getAuthenticatedUserId(userIdHeader);
+  async findAllForUser(@CurrentUser() userId: string) {
     return this.groupsService.findAllForUser(userId);
   }
 
@@ -78,9 +65,8 @@ export class GroupsController {
   @Get(':id')
   async findById(
     @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-user-id') userIdHeader: string,
+    @CurrentUser() userId: string,
   ) {
-    const userId = this.getAuthenticatedUserId(userIdHeader);
     return this.groupsService.findById(id, userId);
   }
 
@@ -91,10 +77,9 @@ export class GroupsController {
   @Post(':id/members')
   async addMembers(
     @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-user-id') userIdHeader: string,
+    @CurrentUser() userId: string,
     @Body() addMembersDto: AddMembersDto,
   ) {
-    const userId = this.getAuthenticatedUserId(userIdHeader);
     return this.groupsService.addMembers(id, userId, addMembersDto);
   }
 
@@ -106,9 +91,8 @@ export class GroupsController {
   async removeMember(
     @Param('id', ParseUUIDPipe) groupId: string,
     @Param('userId', ParseUUIDPipe) targetUserId: string,
-    @Headers('x-user-id') userIdHeader: string,
+    @CurrentUser() requesterId: string,
   ) {
-    const requesterId = this.getAuthenticatedUserId(userIdHeader);
     return this.groupsService.removeMember(groupId, requesterId, targetUserId);
   }
 
@@ -119,9 +103,8 @@ export class GroupsController {
   @Delete(':id')
   async deleteGroup(
     @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-user-id') userIdHeader: string,
+    @CurrentUser() userId: string,
   ) {
-    const userId = this.getAuthenticatedUserId(userIdHeader);
     return this.groupsService.deleteGroup(id, userId);
   }
 }

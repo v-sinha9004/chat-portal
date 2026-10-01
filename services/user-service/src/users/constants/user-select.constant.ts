@@ -5,5 +5,10 @@ export const USER_SAFE_SELECT: Prisma.UserSelect = {
   username: true,
   name: true,
   role: true,
+  avatarUrl: true,
+  bio: true,
+  isActive: true,
   lastSeenAt: true,
+  createdAt: true,
+  updatedAt: true,
 };
