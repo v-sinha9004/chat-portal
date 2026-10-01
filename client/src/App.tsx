@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAuthStore } from './store/useAuthStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useConversationState, useChatActions } from './store/selectors';
 import { AuthView } from './components/auth/AuthView';
 import { UserList } from './components/UserList';
