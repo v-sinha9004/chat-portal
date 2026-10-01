@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { useChatStore } from '../store/useChatStore';
+import {
+  useChatActions,
+  useMessageWindowState,
+  usePresenceState,
+  usePinsState,
+  useConversationState,
+} from '../store/selectors';
 import type { ChatMessage, AttachmentInfo } from '../types';
 import { navigateToMessage } from '../utils/messageNavigation';
 import { MediaLightbox } from './media/MediaLightbox';
@@ -22,44 +28,52 @@ export const ChatArea: React.FC = () => {
   const isMentor =
     currentUserRole.toUpperCase() === 'MENTOR' || currentUserRole.toUpperCase() === 'ADMIN';
 
-  const activeConversation = useChatStore((s) => s.activeConversation);
-  const selectConversation = useChatStore((s) => s.selectConversation);
-  const activePresence = useChatStore((s) => s.activePresence);
-  const activeGroupPresence = useChatStore((s) => s.activeGroupPresence);
-  const isLoadingPresence = useChatStore((s) => s.isLoadingPresence);
-  const users = useChatStore((s) => s.users);
-  const isSocketConnected = useChatStore((s) => s.isSocketConnected);
-  const isLoadingInitial = useChatStore((s) => s.isLoadingConversations);
-  const errorInitial = useChatStore((s) => s.conversationsError);
+  // Grouped Store Subscriptions via useShallow
+  const {
+    activeConversation,
+    users,
+    isSocketConnected,
+    isLoadingConversations: isLoadingInitial,
+    conversationsError: errorInitial,
+  } = useConversationState();
 
-  const messages = useChatStore((s) => s.messages);
-  const isLoadingMessages = useChatStore((s) => s.isLoadingMessages);
-  const messageFetchError = useChatStore((s) => s.messageError);
-  const sendMessage = useChatStore((s) => s.sendMessage);
-  const fetchMessages = useChatStore((s) => s.fetchMessages);
-  const hasMoreMessages = useChatStore((s) => s.hasMoreMessages);
-  const isLoadingOlderMessages = useChatStore((s) => s.isLoadingOlderMessages);
-  const loadOlderMessages = useChatStore((s) => s.loadOlderMessages);
-  const replyingTo = useChatStore((s) => s.replyingTo);
-  const setReplyingTo = useChatStore((s) => s.setReplyingTo);
+  const {
+    activePresence,
+    activeGroupPresence,
+    isLoadingPresence,
+    typingUsersByConversation,
+  } = usePresenceState();
 
-  // Bidirectional window state and actions
-  const hasNewerMessages = useChatStore((s) => s.hasNewerMessages);
-  const isLoadingNewerMessages = useChatStore((s) => s.isLoadingNewerMessages);
-  const isLoadingContext = useChatStore((s) => s.isLoadingContext);
-  const unseenLiveCountWhileInHistory = useChatStore((s) => s.unseenLiveCountWhileInHistory);
-  const loadNewerMessages = useChatStore((s) => s.loadNewerMessages);
-  const jumpToMessage = useChatStore((s) => s.jumpToMessage);
-  const jumpToLatest = useChatStore((s) => s.jumpToLatest);
-  const updateDoubtStatus = useChatStore((s) => s.updateDoubtStatus);
-  const pinnedMessages = useChatStore((s) => s.pinnedMessages);
-  const pinMessage = useChatStore((s) => s.pinMessage);
-  const unpinMessage = useChatStore((s) => s.unpinMessage);
+  const {
+    messages,
+    isLoadingMessages,
+    messageError: messageFetchError,
+    hasMoreMessages,
+    isLoadingOlderMessages,
+    hasNewerMessages,
+    isLoadingNewerMessages,
+    isLoadingContext,
+    unseenLiveCountWhileInHistory,
+    replyingTo,
+  } = useMessageWindowState();
 
-  // Typing tracking from store
-  const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
-  const sendTypingStart = useChatStore((s) => s.sendTypingStart);
-  const sendTypingStop = useChatStore((s) => s.sendTypingStop);
+  const { pinnedMessages } = usePinsState();
+
+  const {
+    selectConversation,
+    sendMessage,
+    fetchMessages,
+    loadOlderMessages,
+    loadNewerMessages,
+    jumpToMessage,
+    jumpToLatest,
+    setReplyingTo,
+    updateDoubtStatus,
+    pinMessage,
+    unpinMessage,
+    sendTypingStart,
+    sendTypingStop,
+  } = useChatActions();
 
   const activeKey = activeConversation
     ? activeConversation.type === 'group'

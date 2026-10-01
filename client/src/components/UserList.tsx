@@ -1,6 +1,11 @@
 import React from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { useChatStore } from '../store/useChatStore';
+import {
+  useConversationState,
+  useUnreadState,
+  usePresenceState,
+  useChatActions,
+} from '../store/selectors';
 import { useUIStore } from '../store/useUIStore';
 import { getDirectConversationId, getGroupConversationId } from '../types';
 import { CurrentUserCard } from './sidebar/CurrentUserCard';
@@ -13,20 +18,24 @@ export const UserList: React.FC = () => {
   const authUser = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
-  const users = useChatStore((s) => s.users);
-  const groups = useChatStore((s) => s.groups);
-  const activeConversation = useChatStore((s) => s.activeConversation);
-  const selectConversation = useChatStore((s) => s.selectConversation);
-  const isLoading = useChatStore((s) => s.isLoadingConversations);
-  const error = useChatStore((s) => s.conversationsError);
-  const fetchConversations = useChatStore((s) => s.fetchConversations);
-  const isSocketConnected = useChatStore((s) => s.isSocketConnected);
-  const unreadCountsByConversation = useChatStore(
-    (s) => s.unreadCountsByConversation,
-  );
-  const unreadUserIds = useChatStore((s) => s.unreadUserIds);
-  const unreadGroupIds = useChatStore((s) => s.unreadGroupIds);
-  const typingUsersByConversation = useChatStore((s) => s.typingUsersByConversation);
+  const {
+    users,
+    groups,
+    activeConversation,
+    isLoadingConversations: isLoading,
+    conversationsError: error,
+    isSocketConnected,
+  } = useConversationState();
+
+  const {
+    unreadCountsByConversation,
+    unreadUserIds,
+    unreadGroupIds,
+  } = useUnreadState();
+
+  const { typingUsersByConversation } = usePresenceState();
+
+  const { selectConversation, fetchConversations } = useChatActions();
 
   const openCreateGroup = useUIStore((s) => s.openCreateGroup);
 

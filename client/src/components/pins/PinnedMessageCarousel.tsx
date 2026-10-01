@@ -1,5 +1,5 @@
 import React from 'react';
-import { useChatStore } from '../../store/useChatStore';
+import { usePinsState, useChatActions } from '../../store/selectors';
 
 interface PinnedMessageCarouselProps {
   onPinClick: (messageId: string) => void;
@@ -10,11 +10,8 @@ export const PinnedMessageCarousel: React.FC<PinnedMessageCarouselProps> = ({
   onPinClick,
   canManagePins,
 }) => {
-  const pinnedMessages = useChatStore((s) => s.pinnedMessages);
-  const activePinIndex = useChatStore((s) => s.activePinIndex);
-  const nextPin = useChatStore((s) => s.nextPin);
-  const prevPin = useChatStore((s) => s.prevPin);
-  const unpinMessage = useChatStore((s) => s.unpinMessage);
+  const { pinnedMessages, activePinIndex } = usePinsState();
+  const { nextPin, prevPin, unpinMessage } = useChatActions();
 
   if (!pinnedMessages || pinnedMessages.length === 0) {
     return null;

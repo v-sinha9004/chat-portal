@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { useChatStore } from '../store/useChatStore';
+import { useConversationState, useChatActions } from '../store/selectors';
 import { useUIStore } from '../store/useUIStore';
 import { createGroup } from '../services/groupService';
 import { getInitials } from '../utils/formatters';
@@ -12,8 +12,8 @@ export const CreateGroupModal: React.FC = () => {
   const isOpen = useUIStore((s) => s.isCreateGroupOpen);
   const onClose = useUIStore((s) => s.closeCreateGroup);
 
-  const users = useChatStore((s) => s.users);
-  const addGroup = useChatStore((s) => s.addGroup);
+  const { users } = useConversationState();
+  const { addGroup } = useChatActions();
 
   const contacts = useMemo(() => {
     return users.filter((u) => u.id !== currentUserId);

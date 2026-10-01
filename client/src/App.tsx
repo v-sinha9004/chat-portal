@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAuthStore } from './store/useAuthStore';
-import { useChatStore } from './store/useChatStore';
+import { useConversationState, useChatActions } from './store/selectors';
 import { AuthView } from './components/auth/AuthView';
 import { UserList } from './components/UserList';
 import { ChatArea } from './components/ChatArea';
@@ -13,10 +13,8 @@ function App() {
   const isAuthLoading = useAuthStore((s) => s.isLoading);
   const hydrateSession = useAuthStore((s) => s.hydrateSession);
 
-  const fetchConversations = useChatStore((s) => s.fetchConversations);
-  const initSocket = useChatStore((s) => s.initSocket);
-  const resetChat = useChatStore((s) => s.reset);
-  const activeConversation = useChatStore((s) => s.activeConversation);
+  const { activeConversation } = useConversationState();
+  const { fetchConversations, initSocket, reset: resetChat } = useChatActions();
 
   // Hydrate session from HttpOnly cookie on initial mount
   useEffect(() => {
