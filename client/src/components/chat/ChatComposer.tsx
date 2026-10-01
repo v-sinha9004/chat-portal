@@ -1,9 +1,11 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import type { ChatMessage, AttachmentInfo } from '../../types';
 import { AnnouncementComposer } from '../announcements/AnnouncementComposer';
 import { DoubtComposer } from '../doubts/DoubtComposer';
 import { CHAT_ACTION_ITEMS } from '../../config/chatActionsConfig';
 import { PendingAttachmentBar } from './PendingAttachmentBar';
+import { ReplyPreviewBar } from './composer/ReplyPreviewBar';
+import { ComposerActionMenu } from './composer/ComposerActionMenu';
 import type { PendingAttachmentState } from './hooks/useMediaAttachment';
 
 interface ChatComposerProps {
@@ -63,23 +65,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [doubtTopic, setDoubtTopic] = useState('');
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
 
-  const actionMenuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Close action menu on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
-        setIsActionMenuOpen(false);
-      }
-    };
-    if (isActionMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isActionMenuOpen]);
 
   // Available special actions for current conversation & user role
   const availableActions = useMemo(() => {
@@ -167,27 +153,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     <>
       {/* Docked Reply Preview Bar */}
       {replyingTo && (
-        <div className="replying-preview-bar">
-          <div className="replying-preview-bar-indicator" />
-          <div className="replying-preview-content">
-            <span className="replying-preview-label">
-              Replying to{' '}
-              <strong className="replying-preview-author">
-                {getDisplayName(replyingTo.senderId)}
-              </strong>
-            </span>
-            <p className="replying-preview-text">{replyingTo.text}</p>
-          </div>
-          <button
-            type="button"
-            className="replying-preview-close-btn"
-            onClick={onCancelReply}
-            title="Cancel reply (Esc)"
-            aria-label="Cancel reply"
-          >
-            ✕
-          </button>
-        </div>
+        <ReplyPreviewBar
+          replyingTo={replyingTo}
+          getDisplayName={getDisplayName}
+          onCancel={onCancelReply}
+        />
       )}
 
       {/* Announcement Composer (Only for mentors in groups) */}
@@ -246,66 +216,15 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         />
 
         {/* Plus Action Button & Dropdown Menu */}
-        {availableActions.length > 0 && (
-          <div className="chat-action-menu-container" ref={actionMenuRef}>
-            <button
-              type="button"
-              className={`chat-action-plus-btn ${isActionMenuOpen ? 'menu-open' : ''} ${
-                isAnnouncementMode || isDoubtMode ? 'mode-active' : ''
-              }`}
-              onClick={() => setIsActionMenuOpen((prev) => !prev)}
-              title="Add special message..."
-              aria-label="Add special message options"
-              aria-expanded={isActionMenuOpen}
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="plus-icon"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            </button>
-
-            {isActionMenuOpen && (
-              <div className="chat-action-dropdown-menu">
-                <div className="chat-action-menu-header">Special Message</div>
-                {availableActions.map((action) => {
-                  const isCurrentActive =
-                    (action.id === 'announcement' && isAnnouncementMode) ||
-                    (action.id === 'doubt' && isDoubtMode);
-
-                  return (
-                    <button
-                      key={action.id}
-                      type="button"
-                      className={`chat-action-menu-item ${isCurrentActive ? 'item-active' : ''}`}
-                      onClick={() => handleSelectAction(action.id)}
-                    >
-                      <span className="action-item-icon" style={{ color: action.accentColor }}>
-                        {action.icon({ size: 18, color: action.accentColor })}
-                      </span>
-                      <div className="action-item-content">
-                        <span className="action-item-label">{action.label}</span>
-                        {action.description && (
-                          <span className="action-item-desc">{action.description}</span>
-                        )}
-                      </div>
-                      {isCurrentActive && <span className="action-item-badge">Active</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+        <ComposerActionMenu
+          isOpen={isActionMenuOpen}
+          onToggle={() => setIsActionMenuOpen((prev) => !prev)}
+          onClose={() => setIsActionMenuOpen(false)}
+          availableActions={availableActions}
+          isAnnouncementMode={isAnnouncementMode}
+          isDoubtMode={isDoubtMode}
+          onSelectAction={handleSelectAction}
+        />
 
         {/* Paperclip Attachment Button */}
         <button

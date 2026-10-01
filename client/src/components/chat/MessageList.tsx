@@ -1,6 +1,9 @@
 import React from 'react';
 import type { ChatMessage, PinnedMessage, AttachmentInfo } from '../../types';
 import { MessageItem } from './MessageItem';
+import { JumpToRecentPill } from './list/JumpToRecentPill';
+import { TypingIndicatorBar } from './list/TypingIndicatorBar';
+import { MessageListEmptyState } from './list/MessageListEmptyState';
 
 interface MessageListProps {
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -107,12 +110,11 @@ export const MessageList: React.FC<MessageListProps> = ({
             </button>
           </div>
         ) : messages.length === 0 ? (
-          <div className="no-messages">
-            <p>
-              No messages yet in {isGroup && groupName ? `#${groupName}` : directUserName}.
-            </p>
-            <span className="no-messages-sub">Send a message below to start a live conversation!</span>
-          </div>
+          <MessageListEmptyState
+            isGroup={isGroup}
+            groupName={groupName}
+            directUserName={directUserName}
+          />
         ) : (
           <div className="messages-list">
             {isLoadingOlderMessages ? (
@@ -185,34 +187,14 @@ export const MessageList: React.FC<MessageListProps> = ({
 
       {/* Floating Jump to Recent Messages Pill */}
       {hasNewerMessages && (
-        <div className="jump-to-recent-container">
-          <button
-            type="button"
-            className="jump-to-recent-btn"
-            onClick={onJumpToRecent}
-            title="Jump to latest messages"
-          >
-            <span>Jump to Recent Messages ↓</span>
-            {unseenLiveCountWhileInHistory > 0 && (
-              <span className="jump-to-recent-badge">
-                {unseenLiveCountWhileInHistory > 99 ? '99+' : unseenLiveCountWhileInHistory}
-              </span>
-            )}
-          </button>
-        </div>
+        <JumpToRecentPill
+          unseenCount={unseenLiveCountWhileInHistory}
+          onJump={onJumpToRecent}
+        />
       )}
 
       {/* Typing Indicator Bar */}
-      {typingText && (
-        <div className="typing-indicator-bar" aria-live="polite">
-          <div className="typing-dots">
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-          </div>
-          <span className="typing-indicator-text">{typingText}</span>
-        </div>
-      )}
+      {typingText && <TypingIndicatorBar typingText={typingText} />}
     </>
   );
 };
