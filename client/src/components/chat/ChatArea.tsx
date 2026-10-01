@@ -11,8 +11,10 @@ import type { ChatMessage, AttachmentInfo } from '@/types';
 import { navigateToMessage } from '@/utils/messageNavigation';
 import { MediaLightbox } from '@/components/media/MediaLightbox';
 import { ReportConfirmationModal, DeleteConfirmationModal } from '@/components/modals';
-import { reportMessageRest, deleteMessageRest } from '@/services/chatService';
+import { reportMessageRest } from '@/services/chatService';
+import { socketService } from '@/services/socketService';
 import { useToastStore } from '@/store/useToastStore';
+
 
 import { useChatScroll } from './hooks/useChatScroll';
 import { useChatTyping } from './hooks/useChatTyping';
@@ -299,8 +301,9 @@ export const ChatArea: React.FC = () => {
     });
 
     try {
-      await deleteMessageRest(token, target.id);
+      await socketService.deleteMessage(target.id);
       removeDeletedMessage(target.id);
+
       showToast({
         id: toastId,
         message: 'Message deleted successfully.',

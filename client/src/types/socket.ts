@@ -67,3 +67,10 @@ export interface GroupMessagesReadEvent {
   lastReadMessageId: string;
   readAt: string;
 }
+
+export interface MessageDeletedEvent {
+  conversationId: string;
+  messageId: string;
+  deletedBy: string;
+}
+

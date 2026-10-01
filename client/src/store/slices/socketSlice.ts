@@ -23,6 +23,8 @@ let unsubscribeGroupMessagesRead: (() => void) | null = null;
 let unsubscribeDoubtStatus: (() => void) | null = null;
 let unsubscribeMessagePinned: (() => void) | null = null;
 let unsubscribeMessageUnpinned: (() => void) | null = null;
+let unsubscribeMessageDeleted: (() => void) | null = null;
+
 
 export const createSocketSlice: ChatSlice<SocketSlice> = (set, get) => ({
   isSocketConnected: false,
@@ -232,7 +234,12 @@ export const createSocketSlice: ChatSlice<SocketSlice> = (set, get) => ({
     unsubscribeMessageUnpinned = socketService.onMessageUnpinned((payload) => {
       get().handleSocketUnpin(payload.messageId, payload.conversationId);
     });
+
+    unsubscribeMessageDeleted = socketService.onMessageDeleted((payload) => {
+      get().removeDeletedMessage(payload.messageId);
+    });
   },
+
 
   disconnectSocket: (isLogout = false) => {
     if (unsubscribeConn) {
@@ -287,7 +294,12 @@ export const createSocketSlice: ChatSlice<SocketSlice> = (set, get) => ({
       unsubscribeMessageUnpinned();
       unsubscribeMessageUnpinned = null;
     }
+    if (unsubscribeMessageDeleted) {
+      unsubscribeMessageDeleted();
+      unsubscribeMessageDeleted = null;
+    }
     clearTypingSafetyTimers();
+
 
     const currentConvo = get().activeConversation;
     if (currentConvo) {

@@ -14,8 +14,10 @@ import type {
   DoubtStatusChangedEvent,
   MessagePinnedSocketEvent,
   MessageUnpinnedSocketEvent,
+  MessageDeletedEvent,
   AttachmentInfo,
 } from '@/types';
+
 
 export interface IncomingDirectMessageEvent {
   id: string;
@@ -93,6 +95,7 @@ type GroupMessagesReadListener = (event: GroupMessagesReadEvent) => void;
 type DoubtStatusListener = (event: DoubtStatusChangedEvent) => void;
 type MessagePinnedListener = (event: MessagePinnedSocketEvent) => void;
 type MessageUnpinnedListener = (event: MessageUnpinnedSocketEvent) => void;
+type MessageDeletedListener = (event: MessageDeletedEvent) => void;
 type ConnectionListener = (connected: boolean) => void;
 
 class SocketService {
@@ -111,7 +114,9 @@ class SocketService {
   private doubtStatusListeners: Set<DoubtStatusListener> = new Set();
   private messagePinnedListeners: Set<MessagePinnedListener> = new Set();
   private messageUnpinnedListeners: Set<MessageUnpinnedListener> = new Set();
+  private messageDeletedListeners: Set<MessageDeletedListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
+
 
 
   private getSocketUrl(): string {
@@ -277,8 +282,19 @@ class SocketService {
       });
     });
 
+    this.socket.on('message_deleted', (payload: MessageDeletedEvent) => {
+      this.messageDeletedListeners.forEach((listener) => {
+        try {
+          listener(payload);
+        } catch (err) {
+          console.error('Error in message_deleted listener:', err);
+        }
+      });
+    });
+
     return this.socket;
   }
+
 
 
   /**
@@ -697,7 +713,43 @@ class SocketService {
       this.messageUnpinnedListeners.delete(listener);
     };
   }
+
+  /**
+   * Real-time message deletion via WebSocket.
+   */
+  deleteMessage(messageId: string): Promise<{ status: string; message?: string; messageId?: string; conversationId?: string }> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        return reject(new Error('Socket is not connected. Please connect first.'));
+      }
+
+      this.socket.emit(
+        'delete_message',
+        { messageId },
+        (ack: { status: string; message?: string; messageId?: string; conversationId?: string }) => {
+          if (!ack) {
+            return reject(new Error('No acknowledgement received from chat server'));
+          }
+          if (ack.status === 'error') {
+            return reject(new Error(ack.message || 'Failed to delete message'));
+          }
+          resolve(ack);
+        },
+      );
+    });
+  }
+
+  /**
+   * Register a listener for message_deleted events.
+   */
+  onMessageDeleted(listener: MessageDeletedListener): () => void {
+    this.messageDeletedListeners.add(listener);
+    return () => {
+      this.messageDeletedListeners.delete(listener);
+    };
+  }
 }
+
 
 
 export const socketService = new SocketService();
