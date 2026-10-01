@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { HealthModule } from './health/health.module';
+import { RedisModule } from './redis/redis.module';
 import { SocketModule } from './socket/socket.module';
 import { ChatQueueModule } from './queue/chat-queue.module';
 import { MessagesModule } from './messages/messages.module';
@@ -16,6 +17,7 @@ import { ReadTrackingModule } from './read-tracking/read-tracking.module';
       }),
     }),
     HealthModule,
+    RedisModule,
     ChatQueueModule,
     SocketModule,
     MessagesModule,

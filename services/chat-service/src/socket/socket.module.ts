@@ -6,6 +6,10 @@ import { PresenceModule } from '../presence/presence.module';
 import { ReadTrackingModule } from '../read-tracking/read-tracking.module';
 import { MessagesModule } from '../messages/messages.module';
 
+import { SocketMessagingService } from './services/socket-messaging.service';
+import { SocketReadReceiptsService } from './services/socket-read-receipts.service';
+import { SocketPresenceHandlerService } from './services/socket-presence-handler.service';
+
 @Module({
   imports: [
     ChatQueueModule,
@@ -13,8 +17,19 @@ import { MessagesModule } from '../messages/messages.module';
     ReadTrackingModule,
     forwardRef(() => MessagesModule),
   ],
-  providers: [SocketGateway, SocketService],
-  exports: [SocketService],
+  providers: [
+    SocketGateway,
+    SocketService,
+    SocketMessagingService,
+    SocketReadReceiptsService,
+    SocketPresenceHandlerService,
+  ],
+  exports: [
+    SocketService,
+    SocketMessagingService,
+    SocketReadReceiptsService,
+    SocketPresenceHandlerService,
+  ],
 })
 export class SocketModule {}
 

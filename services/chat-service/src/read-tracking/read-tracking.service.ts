@@ -1,14 +1,15 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import Redis from 'ioredis';
+import { RedisService } from '../redis/redis.service';
 import {
   ConversationRead,
   ConversationReadDocument,
 } from './schemas/conversation-read.schema';
 
 @Injectable()
-export class ReadTrackingService implements OnModuleDestroy {
+export class ReadTrackingService {
   private readonly logger = new Logger(ReadTrackingService.name);
   private readonly redis: Redis;
   private readonly TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days sliding TTL
@@ -16,26 +17,9 @@ export class ReadTrackingService implements OnModuleDestroy {
   constructor(
     @InjectModel(ConversationRead.name)
     private readonly conversationReadModel: Model<ConversationReadDocument>,
+    private readonly redisService: RedisService,
   ) {
-    const host = process.env.REDIS_HOST || 'localhost';
-    const port = parseInt(process.env.REDIS_PORT || '6379', 10);
-    this.redis = new Redis({
-      host,
-      port,
-      lazyConnect: false,
-    });
-
-    this.redis.on('connect', () => {
-      this.logger.log(`Connected to Redis for ReadTracking on ${host}:${port}`);
-    });
-
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis ReadTracking error: ${err.message}`);
-    });
-  }
-
-  onModuleDestroy() {
-    this.redis.disconnect();
+    this.redis = this.redisService.getClient();
   }
 
   private getUnreadKey(userId: string): string {

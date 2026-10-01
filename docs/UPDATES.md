@@ -112,6 +112,10 @@
 
 | # | Task Description | Status |
 | :-: | :--- | :-: |  
+| 4 | Group Chat Management | ⏳ |
+| 5 | Report message feature | ⏳ |
+| 10 | Image preview | ⏳ |
+| 19 | Merge groups and direct chats | ⏳ |
 
 
 ---
@@ -123,8 +127,6 @@
 | 1 | Message deliver when user is connected to different chat server | ⏳ |
 | 2 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
 | 3 | Role based access | ⏳ |
-| 4 | Group Chat Management | ⏳ |
-| 5 | Report message feature | ⏳ |
 | 6 | Message search feature | ⏳ |
 | 7 | Message edit feature | ⏳ |
 | 8 | Message delete feature | ⏳ |
@@ -138,6 +140,5 @@
 | 16 | Cache invalidation when needed | ⏳ |
 | 17 | Monitoring system | ⏳ |
 | 18 | Limit character count of messages | ⏳ |
-| 19 | Merge groups and direct chats | ⏳ |
 | 20 | Sort groups and direct chats by last message time | ⏳ |
 ...More

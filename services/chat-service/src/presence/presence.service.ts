@@ -2,6 +2,8 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import Redis from 'ioredis';
 import { Server } from 'socket.io';
 
+import { RedisService } from '../redis/redis.service';
+
 export interface UserPresenceResult {
   userId: string;
   isOnline: boolean;
@@ -26,22 +28,8 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private server: Server | null = null;
 
-  constructor() {
-    const host = process.env.REDIS_HOST || 'localhost';
-    const port = parseInt(process.env.REDIS_PORT || '6379', 10);
-    this.redis = new Redis({
-      host,
-      port,
-      lazyConnect: false,
-    });
-
-    this.redis.on('connect', () => {
-      this.logger.log(`Connected to Redis for presence on ${host}:${port}`);
-    });
-
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis Presence error: ${err.message}`);
-    });
+  constructor(private readonly redisService: RedisService) {
+    this.redis = this.redisService.getClient();
   }
 
   async onModuleInit() {
@@ -57,7 +45,6 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
       clearTimeout(timer);
     }
     this.graceTimers.clear();
-    this.redis.disconnect();
   }
 
   /**
