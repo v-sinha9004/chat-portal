@@ -3,26 +3,16 @@ import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
+import { USER_SAFE_SELECT } from './constants/user-select.constant';
+import { SafeUser, PaginatedUsersResponse } from './interfaces/user-response.interface';
 
-export const USER_SAFE_SELECT: Prisma.UserSelect = {
-  id: true,
-  email: true,
-  username: true,
-  name: true,
-  role: true,
-  avatarUrl: true,
-  bio: true,
-  isActive: true,
-  lastSeenAt: true,
-  createdAt: true,
-  updatedAt: true,
-};
+export { USER_SAFE_SELECT };
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto): Promise<SafeUser> {
     const normalizedEmail = dto.email.toLowerCase().trim();
     const normalizedUsername = dto.username.trim();
 
@@ -56,7 +46,7 @@ export class UsersService {
     });
   }
 
-  async findById(id: string) {
+  async findById(id: string): Promise<SafeUser> {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: USER_SAFE_SELECT,
@@ -69,7 +59,7 @@ export class UsersService {
     return user;
   }
 
-  async findAll(query: QueryUserDto) {
+  async findAll(query: QueryUserDto): Promise<PaginatedUsersResponse> {
     const page = query.page && query.page > 0 ? Number(query.page) : 1;
     const limit = query.limit && query.limit > 0 ? Number(query.limit) : 20;
     const skip = (page - 1) * limit;
@@ -110,7 +100,7 @@ export class UsersService {
     };
   }
 
-  async updateLastSeen(id: string, lastSeenAt: Date = new Date()) {
+  async updateLastSeen(id: string, lastSeenAt: Date = new Date()): Promise<SafeUser> {
     return this.prisma.user.update({
       where: { id },
       data: { lastSeenAt },

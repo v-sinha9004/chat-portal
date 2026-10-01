@@ -6,9 +6,10 @@ import {
 } from '@nestjs/common';
 import { GroupRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { USER_SAFE_SELECT } from '../users/users.service';
+import { USER_SAFE_SELECT } from '../users/constants/user-select.constant';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { AddMembersDto } from './dto/add-members.dto';
+import { UserGroupSummary, GroupDetails } from './interfaces/group-response.interface';
 
 @Injectable()
 export class GroupsService {
@@ -78,7 +79,7 @@ export class GroupsService {
   /**
    * List all groups the requesting user belongs to.
    */
-  async findAllForUser(userId: string) {
+  async findAllForUser(userId: string): Promise<UserGroupSummary[]> {
     if (!userId) {
       throw new BadRequestException('User ID is required');
     }
@@ -120,7 +121,7 @@ export class GroupsService {
    * Get single group details with hydrated member profiles.
    * Throws ForbiddenException if requester is not a member of the group.
    */
-  async findById(groupId: string, userId: string) {
+  async findById(groupId: string, userId: string): Promise<GroupDetails> {
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
     });
