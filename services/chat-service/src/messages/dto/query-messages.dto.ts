@@ -1,188 +1,41 @@
-export interface QueryMessagesDto {
-  limit?: string | number;
+import { IsOptional, IsString, IsNotEmpty, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class QueryMessagesDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
   before?: string;
+
+  @IsOptional()
+  @IsString()
   after?: string;
 }
 
-export interface AttachmentResponse {
-  fileId: string;
-  type: 'image' | 'file';
-  url: string;
-  thumbnailUrl?: string;
-  fileName: string;
-  fileSize: number;
-  mimeType: string;
-  width?: number;
-  height?: number;
-  blurhash?: string;
-}
-
-export interface ChatMessageResponse {
-  id: string;
+export class QueryMessageContextDto {
+  @IsString()
+  @IsNotEmpty()
   messageId: string;
-  conversationId: string;
-  clientMessageId?: string;
-  type: 'direct' | 'group';
-  senderId: string;
-  recipientId?: string;
-  groupId?: string;
-  text: string;
-  content: string;
-  attachments?: AttachmentResponse[];
-  status: string;
-  timestamp: string;
-  isAnnouncement?: boolean;
-  heading?: string;
-  replyTo?: {
-    messageId: string;
-    senderId: string;
-    text: string;
-  };
-  isDoubt?: boolean;
-  doubtStatus?: 'OPEN' | 'RESOLVED';
-  doubtTopic?: string;
-  resolvedBy?: string;
-  resolvedByName?: string;
-  resolvedAt?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(5)
+  @Max(50)
+  surrounding?: number;
 }
 
-export interface QueryDoubtsDto {
-  conversationId?: string;
-  mentorId?: string;
-  userId?: string;
-  status?: 'OPEN' | 'RESOLVED' | 'ALL';
-  limit?: string | number;
-  page?: string | number;
-  all?: string | boolean;
-}
-
-export interface DoubtsListResponse {
-  conversationId: string;
-  doubts: ChatMessageResponse[];
-  total: number;
-  openCount: number;
-  resolvedCount: number;
-}
-
-export interface QueryMentorDoubtsDto {
-  mentorId?: string;
-  userId?: string;
-  groupId?: string;
-  status?: 'OPEN' | 'RESOLVED' | 'ALL';
-  limit?: string | number;
-  page?: string | number;
-  all?: string | boolean;
-}
-
-export interface MentorDoubtsResponse {
-  totalDoubtCount: number;
-  openCount: number;
-  resolvedCount: number;
-  doubts: ChatMessageResponse[];
-}
-
-export interface ConversationHistoryResponse {
-  conversationId: string;
-  groupId?: string;
-  partnerLastReadMessageId?: string | null;
-  memberLastReadMap?: Record<string, string>;
-  messages: ChatMessageResponse[];
-  hasMore: boolean;
-  hasNewer?: boolean;
-  oldestCursor?: string;
-  newestCursor?: string;
-}
-
-export interface QueryMessageContextDto {
-  messageId: string;
-  surrounding?: string | number;
-}
-
-export interface MessageContextResponse {
-  conversationId: string;
-  targetMessageId: string;
-  messages: ChatMessageResponse[];
-  hasOlder: boolean;
-  hasNewer: boolean;
-  oldestCursor?: string;
-  newestCursor?: string;
-  partnerLastReadMessageId?: string | null;
-  memberLastReadMap?: Record<string, string>;
-}
-
-export interface PinnedMessageSnapshotDto {
-  senderId: string;
-  senderName?: string;
-  content: string;
-  heading?: string;
-  isAnnouncement?: boolean;
-  isDoubt?: boolean;
-  doubtStatus?: 'OPEN' | 'RESOLVED';
-  doubtTopic?: string;
-  timestamp: string;
-  attachments?: AttachmentResponse[];
-}
-
-export interface PinnedMessageResponse {
-  id: string;
-  conversationId: string;
-  messageId: string;
-  pinnedBy: string;
-  pinnedByName?: string;
-  pinnedAt: string;
-  snapshot: PinnedMessageSnapshotDto;
-}
-
-export interface PinMessageDto {
-  conversationId: string;
-}
-
-export interface ReportMessageDto {
-  reason?: string;
-}
-
-export interface QueryReportsDto {
-  status?: string;
-  limit?: string | number;
-  page?: string | number;
-}
-
-export interface ReportedMessageSnapshotDto {
-  messageId: string;
-  conversationId: string;
-  senderId: string;
-  recipientId?: string;
-  groupId?: string;
-  type: 'direct' | 'group';
-  content: string;
-  heading?: string;
-  isAnnouncement?: boolean;
-  isDoubt?: boolean;
-  doubtStatus?: 'OPEN' | 'RESOLVED';
-  doubtTopic?: string;
-  timestamp: string;
-  attachments?: AttachmentResponse[];
-}
-
-export interface ReportedMessageResponse {
-  id: string;
-  messageId: string;
-  conversationId: string;
-  reportedBy: string;
-  reporterName?: string;
-  senderName?: string;
-  reason?: string;
-  status: string;
-  createdAt: string;
-  message: ReportedMessageSnapshotDto;
-}
-
-export interface ReportsListResponse {
-  status: string;
-  total: number;
-  page: number;
-  limit: number;
-  reports: ReportedMessageResponse[];
-}
-
-
+// Re-export DTOs and interfaces for seamless backward compatibility
+export * from './pin-message.dto';
+export * from './report-message.dto';
+export * from './query-doubts.dto';
+export * from '../interfaces/message-response.interface';
+export * from '../interfaces/doubt-response.interface';
+export * from '../interfaces/pin-response.interface';
+export * from '../interfaces/report-response.interface';

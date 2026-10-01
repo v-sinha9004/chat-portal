@@ -15,6 +15,10 @@ import {
 } from './schemas/reported-message.schema';
 import { MessagesService } from './messages.service';
 import { MessagesController } from './messages.controller';
+import { MessagesHistoryService } from './services/messages-history.service';
+import { DoubtsService } from './services/doubts.service';
+import { PinsService } from './services/pins.service';
+import { ReportsService } from './services/reports.service';
 import { SocketModule } from '../socket/socket.module';
 import { ReadTrackingModule } from '../read-tracking/read-tracking.module';
 
@@ -30,7 +34,19 @@ import { ReadTrackingModule } from '../read-tracking/read-tracking.module';
     ReadTrackingModule,
   ],
   controllers: [MessagesController],
-  providers: [MessagesService],
-  exports: [MessagesService],
+  providers: [
+    MessagesHistoryService,
+    DoubtsService,
+    PinsService,
+    ReportsService,
+    MessagesService,
+  ],
+  exports: [
+    MessagesHistoryService,
+    DoubtsService,
+    PinsService,
+    ReportsService,
+    MessagesService,
+  ],
 })
 export class MessagesModule {}
