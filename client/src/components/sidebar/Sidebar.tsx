@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import {
   useConversationState,
@@ -10,8 +10,7 @@ import { useUIStore } from '@/store/useUIStore';
 import { getDirectConversationId, getGroupConversationId } from '@/types';
 import { CurrentUserCard } from './CurrentUserCard';
 import { SidebarHeader } from './SidebarHeader';
-import { GroupListItem } from './GroupListItem';
-import { DirectUserListItem } from './DirectUserListItem';
+import { ChatListItem, type ChatListItemData } from './ChatListItem';
 import { SidebarStatus } from './SidebarStatus';
 
 export const Sidebar: React.FC = () => {
@@ -45,6 +44,19 @@ export const Sidebar: React.FC = () => {
   const contacts = users.filter((u) => u.id !== currentUserId);
   const totalConversations = contacts.length + groups.length;
 
+  // Combine groups and direct chat contacts into a single list
+  const chatList = useMemo<ChatListItemData[]>(() => {
+    const list: ChatListItemData[] = [
+      ...groups.map((group) => ({ type: 'group' as const, group })),
+      ...contacts.map((user) => ({ type: 'direct' as const, user })),
+    ];
+    return list.sort((a, b) => {
+      const nameA = a.type === 'group' ? a.group.name : a.user.name;
+      const nameB = b.type === 'group' ? b.group.name : b.user.name;
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+    });
+  }, [groups, contacts]);
+
   return (
     <aside className="sidebar">
       {/* Current Logged-in User Identity Card */}
@@ -70,47 +82,33 @@ export const Sidebar: React.FC = () => {
           onRetry={fetchConversations}
         />
 
-        {/* Groups Section (if any groups exist) */}
-        {!isLoading && !error && groups.length > 0 && (
-          <div className="conversation-section-header">
-            <span>Groups ({groups.length})</span>
-          </div>
-        )}
-
         {!isLoading &&
           !error &&
-          groups.map((group) => {
-            const isSelected =
-              activeConversation?.type === 'group' && activeConversation.id === group.id;
-            const groupConvoId = getGroupConversationId(group.id);
-            const unreadCount = unreadCountsByConversation[groupConvoId] || 0;
-            const hasUnread = unreadCount > 0 || unreadGroupIds.has(group.id);
-            const isGroupTyping =
-              (typingUsersByConversation[`group:${group.id}`] || []).length > 0;
+          chatList.map((item) => {
+            if (item.type === 'group') {
+              const { group } = item;
+              const isSelected =
+                activeConversation?.type === 'group' && activeConversation.id === group.id;
+              const groupConvoId = getGroupConversationId(group.id);
+              const unreadCount = unreadCountsByConversation[groupConvoId] || 0;
+              const hasUnread = unreadCount > 0 || unreadGroupIds.has(group.id);
+              const isGroupTyping =
+                (typingUsersByConversation[`group:${group.id}`] || []).length > 0;
 
-            return (
-              <GroupListItem
-                key={`group-${group.id}`}
-                group={group}
-                isSelected={isSelected}
-                hasUnread={hasUnread}
-                unreadCount={unreadCount}
-                isTyping={isGroupTyping}
-                onSelect={(grp) => selectConversation({ type: 'group', id: grp.id, group: grp })}
-              />
-            );
-          })}
+              return (
+                <ChatListItem
+                  key={`group-${group.id}`}
+                  item={item}
+                  isSelected={isSelected}
+                  hasUnread={hasUnread}
+                  unreadCount={unreadCount}
+                  isTyping={isGroupTyping}
+                  onSelect={selectConversation}
+                />
+              );
+            }
 
-        {/* Direct Messages Section */}
-        {!isLoading && !error && contacts.length > 0 && (
-          <div className="conversation-section-header">
-            <span>Direct Messages ({contacts.length})</span>
-          </div>
-        )}
-
-        {!isLoading &&
-          !error &&
-          contacts.map((contact) => {
+            const { user: contact } = item;
             const isSelected =
               activeConversation?.type === 'direct' && activeConversation.id === contact.id;
             const directConvoId = currentUserId
@@ -122,14 +120,14 @@ export const Sidebar: React.FC = () => {
               (typingUsersByConversation[`user:${contact.id}`] || []).length > 0;
 
             return (
-              <DirectUserListItem
+              <ChatListItem
                 key={`user-${contact.id}`}
-                contact={contact}
+                item={item}
                 isSelected={isSelected}
                 hasUnread={hasUnread}
                 unreadCount={unreadCount}
                 isTyping={isContactTyping}
-                onSelect={(usr) => selectConversation({ type: 'direct', id: usr.id, user: usr })}
+                onSelect={selectConversation}
               />
             );
           })}
@@ -137,5 +135,6 @@ export const Sidebar: React.FC = () => {
     </aside>
   );
 };
+
 
 export const UserList = Sidebar;
