@@ -22,9 +22,6 @@ import {
   fetchUnreadCounts,
   fetchMessageContext,
   updateDoubtStatusRest,
-  fetchPinnedMessages,
-  pinMessageRest,
-  unpinMessageRest,
 } from '../services/chatService';
 import {
   socketService,
@@ -123,9 +120,12 @@ interface ChatState {
   reset: () => void;
 }
 
+import { createPinSlice, cancelPinsRequest } from './slices/pinSlice';
+import { createPresenceSlice, typingSafetyTimers, clearTypingSafetyTimers } from './slices/presenceSlice';
+export type { ChatState } from './slices/types';
+
 let convoAbortController: AbortController | null = null;
 let messageAbortController: AbortController | null = null;
-let pinsAbortController: AbortController | null = null;
 let unsubscribeConn: (() => void) | null = null;
 let unsubscribeDirect: (() => void) | null = null;
 let unsubscribeGroup: (() => void) | null = null;
@@ -139,7 +139,6 @@ let unsubscribeGroupMessagesRead: (() => void) | null = null;
 let unsubscribeDoubtStatus: (() => void) | null = null;
 let unsubscribeMessagePinned: (() => void) | null = null;
 let unsubscribeMessageUnpinned: (() => void) | null = null;
-const typingSafetyTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 let markReadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedMarkRead(conversationId: string, lastReadMessageId?: string) {
@@ -206,21 +205,19 @@ function mapHistoryMessageToChatMessage(
   };
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>((set, get, api) => ({
+  ...createPinSlice(set, get, api),
+  ...createPresenceSlice(set, get, api),
+
   users: [],
   groups: [],
   isLoadingConversations: false,
   conversationsError: null,
 
   activeConversation: null,
-  activePresence: null,
-  activeGroupPresence: null,
-  isLoadingPresence: false,
 
   partnerLastReadMessageId: null,
   groupMemberLastReadMap: {},
-
-  typingUsersByConversation: {},
 
   unreadCountsByConversation: {},
   unreadUserIds: new Set<string>(),
@@ -270,9 +267,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoadingContext: false,
   unseenLiveCountWhileInHistory: 0,
 
-  pinnedMessages: [],
-  activePinIndex: 0,
-  isLoadingPins: false,
 
   setReplyingTo: (message) => set({ replyingTo: message }),
 
@@ -866,115 +860,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     await get().fetchMessages();
   },
 
-  fetchPinnedMessages: async (conversationId?: string) => {
-    const convo = get().activeConversation;
-    const token = useAuthStore.getState().accessToken;
-    const currentUserId = useAuthStore.getState().user?.id;
-    if (!token || (!convo && !conversationId)) return;
-
-    const targetConvoId =
-      conversationId ||
-      (convo?.type === 'direct'
-        ? currentUserId
-          ? getDirectConversationId(currentUserId, convo.id)
-          : `direct:${convo?.id}`
-        : getGroupConversationId(convo!.id));
-
-    if (pinsAbortController) {
-      pinsAbortController.abort();
-    }
-    pinsAbortController = new AbortController();
-
-    set({ isLoadingPins: true });
-    try {
-      const pins = await fetchPinnedMessages(token, targetConvoId, pinsAbortController.signal);
-      set({ pinnedMessages: pins || [], activePinIndex: 0, isLoadingPins: false });
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      console.error('Failed to fetch pinned messages:', err);
-      set({ isLoadingPins: false });
-    }
-  },
-
-  pinMessage: async (messageId: string): Promise<boolean> => {
-    const convo = get().activeConversation;
-    const token = useAuthStore.getState().accessToken;
-    const currentUserId = useAuthStore.getState().user?.id;
-    if (!token || !convo || !messageId) return false;
-
-    const targetConvoId =
-      convo.type === 'direct'
-        ? currentUserId
-          ? getDirectConversationId(currentUserId, convo.id)
-          : `direct:${convo.id}`
-        : getGroupConversationId(convo.id);
-
-    try {
-      const newPin = await pinMessageRest(token, targetConvoId, messageId);
-      set((state) => {
-        const filtered = state.pinnedMessages.filter((p) => p.messageId !== messageId);
-        const updated = [newPin, ...filtered].slice(0, 5);
-        return { pinnedMessages: updated, activePinIndex: 0 };
-      });
-      return true;
-    } catch (err) {
-      console.error('Failed to pin message:', err);
-      return false;
-    }
-  },
-
-  unpinMessage: async (messageId: string): Promise<boolean> => {
-    const convo = get().activeConversation;
-    const token = useAuthStore.getState().accessToken;
-    const currentUserId = useAuthStore.getState().user?.id;
-    if (!token || !convo || !messageId) return false;
-
-    const targetConvoId =
-      convo.type === 'direct'
-        ? currentUserId
-          ? getDirectConversationId(currentUserId, convo.id)
-          : `direct:${convo.id}`
-        : getGroupConversationId(convo.id);
-
-    try {
-      await unpinMessageRest(token, targetConvoId, messageId);
-      set((state) => {
-        const updated = state.pinnedMessages.filter((p) => p.messageId !== messageId);
-        const nextIndex = Math.min(state.activePinIndex, Math.max(0, updated.length - 1));
-        return { pinnedMessages: updated, activePinIndex: nextIndex };
-      });
-      return true;
-    } catch (err) {
-      console.error('Failed to unpin message:', err);
-      return false;
-    }
-  },
-
-  setActivePinIndex: (index: number) => {
-    const len = get().pinnedMessages.length;
-    if (len === 0) {
-      set({ activePinIndex: 0 });
-      return;
-    }
-    const clamped = Math.max(0, Math.min(index, len - 1));
-    set({ activePinIndex: clamped });
-  },
-
-  nextPin: () => {
-    const len = get().pinnedMessages.length;
-    if (len <= 1) return;
-    set((state) => ({
-      activePinIndex: (state.activePinIndex + 1) % len,
-    }));
-  },
-
-  prevPin: () => {
-    const len = get().pinnedMessages.length;
-    if (len <= 1) return;
-    set((state) => ({
-      activePinIndex: (state.activePinIndex - 1 + len) % len,
-    }));
-  },
 
   sendMessage: async (
     text: string,
@@ -1135,25 +1020,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendTypingStart: () => {
-    const active = get().activeConversation;
-    if (!active) return;
-    if (active.type === 'direct') {
-      socketService.sendTypingStart({ recipientId: active.id });
-    } else {
-      socketService.sendTypingStart({ groupId: active.id });
-    }
-  },
-
-  sendTypingStop: () => {
-    const active = get().activeConversation;
-    if (!active) return;
-    if (active.type === 'direct') {
-      socketService.sendTypingStop({ recipientId: active.id });
-    } else {
-      socketService.sendTypingStop({ groupId: active.id });
-    }
-  },
 
   addGroup: (newGroup: Group) => {
     const newConvo: ActiveConversation = {
@@ -1812,10 +1678,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       unsubscribeMessageUnpinned();
       unsubscribeMessageUnpinned = null;
     }
-    for (const timer of typingSafetyTimers.values()) {
-      clearTimeout(timer);
-    }
-    typingSafetyTimers.clear();
+    clearTypingSafetyTimers();
 
     const currentConvo = get().activeConversation;
     if (currentConvo) {
@@ -1840,10 +1703,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messageAbortController.abort();
       messageAbortController = null;
     }
-    if (pinsAbortController) {
-      pinsAbortController.abort();
-      pinsAbortController = null;
-    }
+    cancelPinsRequest();
     set({
       users: [],
       groups: [],
