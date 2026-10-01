@@ -22,6 +22,9 @@ import {
   DoubtsListResponse,
   PinnedMessageResponse,
   PinMessageDto,
+  ReportMessageDto,
+  QueryReportsDto,
+  ReportsListResponse,
 } from './dto/query-messages.dto';
 
 @Controller('messages')
@@ -205,6 +208,46 @@ export class MessagesController {
       currentUserRole || '',
       conversationId,
       messageId,
+    );
+  }
+
+  /**
+   * Fetch all reported messages (ADMIN only).
+   * GET /api/chat/messages/reports
+   */
+  @Get('reports')
+  async getReportedMessages(
+    @Headers('x-user-id') currentUserId: string,
+    @Headers('x-user-role') currentUserRole: string,
+    @Query() query: QueryReportsDto,
+  ): Promise<ReportsListResponse> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    return this.messagesService.getReportedMessages(
+      currentUserId,
+      currentUserRole || '',
+      query,
+    );
+  }
+
+  /**
+   * Report a message.
+   * POST /api/chat/messages/:messageId/report
+   */
+  @Post(':messageId/report')
+  async reportMessage(
+    @Headers('x-user-id') currentUserId: string,
+    @Param('messageId') messageId: string,
+    @Body() body: ReportMessageDto,
+  ): Promise<{ status: string; message: string; reportId: string }> {
+    if (!currentUserId) {
+      throw new UnauthorizedException('Missing x-user-id header');
+    }
+    return this.messagesService.reportMessage(
+      currentUserId,
+      messageId,
+      body,
     );
   }
 }

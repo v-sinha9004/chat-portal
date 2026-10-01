@@ -9,6 +9,10 @@ import {
   PinnedMessage,
   PinnedMessageSchema,
 } from './schemas/pinned-message.schema';
+import {
+  ReportedMessage,
+  ReportedMessageSchema,
+} from './schemas/reported-message.schema';
 import { MessagesService } from './messages.service';
 import { MessagesController } from './messages.controller';
 import { SocketModule } from '../socket/socket.module';
@@ -20,6 +24,7 @@ import { ReadTrackingModule } from '../read-tracking/read-tracking.module';
       { name: Message.name, schema: MessageSchema },
       { name: ConversationRead.name, schema: ConversationReadSchema },
       { name: PinnedMessage.name, schema: PinnedMessageSchema },
+      { name: ReportedMessage.name, schema: ReportedMessageSchema },
     ]),
     forwardRef(() => SocketModule),
     ReadTrackingModule,
