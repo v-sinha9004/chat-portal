@@ -9,6 +9,7 @@ import { MessagesModule } from '../messages/messages.module';
 import { SocketMessagingService } from './services/socket-messaging.service';
 import { SocketReadReceiptsService } from './services/socket-read-receipts.service';
 import { SocketPresenceHandlerService } from './services/socket-presence-handler.service';
+import { SocketModerationService } from './services/socket-moderation.service';
 
 @Module({
   imports: [
@@ -23,12 +24,14 @@ import { SocketPresenceHandlerService } from './services/socket-presence-handler
     SocketMessagingService,
     SocketReadReceiptsService,
     SocketPresenceHandlerService,
+    SocketModerationService,
   ],
   exports: [
     SocketService,
     SocketMessagingService,
     SocketReadReceiptsService,
     SocketPresenceHandlerService,
+    SocketModerationService,
   ],
 })
 export class SocketModule {}
