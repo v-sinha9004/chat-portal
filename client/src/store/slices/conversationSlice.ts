@@ -72,29 +72,22 @@ export const createConversationSlice: ChatSlice<ConversationSlice> = (set, get) 
         }
       }
 
-      // Auto-select first available conversation if none active or invalid
+      // Maintain active conversation if already selected and still valid; do not auto-select on load or refresh
       let nextActive = get().activeConversation;
       if (nextActive) {
         const activeId = nextActive.id;
-        const isDirectStillValid =
-          nextActive.type === 'direct' && fetchedUsers.some((u) => u.id === activeId);
-        const isGroupStillValid =
-          nextActive.type === 'group' && fetchedGroups.some((g) => g.id === activeId);
-
-        if (!isDirectStillValid && !isGroupStillValid) {
-          nextActive = null;
+        if (nextActive.type === 'direct') {
+          const freshUser = fetchedUsers.find((u) => u.id === activeId);
+          nextActive = freshUser ? { ...nextActive, user: freshUser } : null;
+        } else {
+          const freshGroup = fetchedGroups.find((g) => g.id === activeId);
+          nextActive = freshGroup
+            ? { ...nextActive, group: { ...nextActive.group, ...freshGroup } }
+            : null;
         }
       }
 
-      const isDesktop = typeof window !== 'undefined' ? window.innerWidth > 768 : true;
-      if (!nextActive && isDesktop) {
-        const firstOther = fetchedUsers.find((u) => u.id !== currentUserId);
-        if (firstOther) {
-          nextActive = { type: 'direct', id: firstOther.id, user: firstOther };
-        } else if (fetchedGroups.length > 0) {
-          nextActive = { type: 'group', id: fetchedGroups[0].id, group: fetchedGroups[0] };
-        }
-      }
+      const prevActiveExisted = Boolean(get().activeConversation);
 
       set({
         users: fetchedUsers,
@@ -107,8 +100,9 @@ export const createConversationSlice: ChatSlice<ConversationSlice> = (set, get) 
         activeConversation: nextActive,
       });
 
-      if (nextActive && isDesktop) {
-        get().selectConversation(nextActive);
+      // If an active conversation was previously selected but is now invalid, reset it
+      if (prevActiveExisted && !nextActive) {
+        get().selectConversation(null);
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;

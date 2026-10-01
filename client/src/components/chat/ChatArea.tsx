@@ -358,8 +358,8 @@ export const ChatArea: React.FC = () => {
       <main className="chat-main empty-state">
         <div className="empty-message-box">
           <div className="empty-icon">💬</div>
-          <h3>No Conversation Selected</h3>
-          <p>Please select a contact or a group from the list on the left to start messaging.</p>
+          <h3>Welcome back!</h3>
+          <p>Select a contact or group to start messaging.</p>
         </div>
       </main>
     );
