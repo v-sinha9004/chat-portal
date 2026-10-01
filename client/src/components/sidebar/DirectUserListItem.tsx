@@ -1,6 +1,6 @@
 import React from 'react';
-import type { User } from '../../types';
-import { getInitials, getRoleBadgeClass } from '../../utils/formatters';
+import type { User } from '@/types';
+import { getInitials, getRoleBadgeClass } from '@/utils';
 
 interface DirectUserListItemProps {
   contact: User;

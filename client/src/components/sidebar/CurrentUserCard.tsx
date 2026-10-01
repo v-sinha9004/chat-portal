@@ -1,6 +1,6 @@
 import React from 'react';
-import type { User, AuthUser } from '../../types';
-import { getInitials, getRoleBadgeClass } from '../../utils/formatters';
+import type { User, AuthUser } from '@/types';
+import { getInitials, getRoleBadgeClass } from '@/utils';
 
 interface CurrentUserCardProps {
   user: User | AuthUser | null;

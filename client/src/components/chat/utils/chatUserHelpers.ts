@@ -1,4 +1,4 @@
-import type { ActiveConversation, User, GroupMember } from '../../../types';
+import type { ActiveConversation, User, GroupMember } from '@/types';
 
 interface UserLookupContext {
   currentUserId: string | null;

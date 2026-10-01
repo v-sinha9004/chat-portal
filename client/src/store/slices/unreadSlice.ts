@@ -1,5 +1,5 @@
 import type { ChatSlice, UnreadSlice } from './types';
-import { socketService } from '../../services/socketService';
+import { socketService } from '@/services';
 import { useAuthStore } from '../useAuthStore';
 
 let markReadDebounceTimer: ReturnType<typeof setTimeout> | null = null;

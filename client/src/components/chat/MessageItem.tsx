@@ -1,7 +1,7 @@
 import React from 'react';
-import type { ChatMessage, AttachmentInfo } from '../../types';
-import { AnnouncementCard } from '../announcements/AnnouncementCard';
-import { DoubtCard } from '../doubts/DoubtCard';
+import type { ChatMessage, AttachmentInfo } from '@/types';
+import { AnnouncementCard } from '@/components/announcements';
+import { DoubtCard } from '@/components/doubts';
 import { MessageBubble } from './MessageBubble';
 import { MessageHoverActions } from './item/MessageHoverActions';
 

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import type { AttachmentInfo } from '../../types';
+import type { AttachmentInfo } from '@/types';
 
 interface MediaLightboxProps {
   attachment: AttachmentInfo | null;

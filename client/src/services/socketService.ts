@@ -15,7 +15,7 @@ import type {
   MessagePinnedSocketEvent,
   MessageUnpinnedSocketEvent,
   AttachmentInfo,
-} from '../types';
+} from '@/types';
 
 export interface IncomingDirectMessageEvent {
   id: string;
@@ -409,7 +409,7 @@ class SocketService {
         return reject(new Error('Socket is not connected. Please connect first.'));
       }
 
-      this.socket.emit('update_doubt_status', payload, (ack: any) => {
+      this.socket.emit('update_doubt_status', payload, (ack: { status: string; message?: string; data?: DoubtStatusChangedEvent }) => {
         if (!ack) {
           return reject(new Error('No acknowledgement received from chat server'));
         }

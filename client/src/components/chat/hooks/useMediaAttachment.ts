@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { AttachmentInfo } from '../../../types';
-import { validateMediaFile, uploadMediaAttachment } from '../../../utils/mediaUpload';
-import { useAuthStore } from '../../../store/useAuthStore';
+import type { AttachmentInfo } from '@/types';
+import { validateMediaFile, uploadMediaAttachment } from '@/utils';
+import { useAuthStore } from '@/store';
 
 export interface PendingAttachmentState {
   file: File;

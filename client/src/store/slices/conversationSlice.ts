@@ -1,10 +1,13 @@
 import type { ChatSlice, ConversationSlice } from './types';
-import type { ActiveConversation, Group } from '../../types';
-import { getDirectConversationId, getGroupConversationId } from '../../types';
-import { fetchUsers } from '../../services/userService';
-import { fetchUserGroups, fetchGroupDetails } from '../../services/groupService';
-import { fetchUnreadCounts } from '../../services/chatService';
-import { socketService } from '../../services/socketService';
+import type { ActiveConversation, Group } from '@/types';
+import { getDirectConversationId, getGroupConversationId } from '@/types';
+import {
+  fetchUsers,
+  fetchUserGroups,
+  fetchGroupDetails,
+  fetchUnreadCounts,
+  socketService,
+} from '@/services';
 import { useAuthStore } from '../useAuthStore';
 
 let convoAbortController: AbortController | null = null;

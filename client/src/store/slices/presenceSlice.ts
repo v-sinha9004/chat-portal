@@ -1,5 +1,5 @@
 import type { ChatSlice, PresenceSlice } from './types';
-import { socketService } from '../../services/socketService';
+import { socketService } from '@/services';
 import { useAuthStore } from '../useAuthStore';
 
 export const typingSafetyTimers = new Map<string, ReturnType<typeof setTimeout>>();

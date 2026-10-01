@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import type { ChatMessage } from '../../../types';
+import type { ChatMessage } from '@/types';
 
 interface UseChatScrollOptions {
   activeKey: string | null;

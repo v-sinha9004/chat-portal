@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePinsState, useChatActions } from '../../store/selectors';
+import { usePinsState, useChatActions } from '@/store';
 
 interface PinnedMessageCarouselProps {
   onPinClick: (messageId: string) => void;

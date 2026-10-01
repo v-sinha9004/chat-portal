@@ -1,10 +1,6 @@
 import { useEffect } from 'react';
-import { useAuthStore } from '@/store/useAuthStore';
-import { useConversationState, useChatActions } from '@/store/selectors';
-import { AuthView } from '@/components/auth';
-import { Sidebar } from '@/components/sidebar';
-import { ChatArea } from '@/components/chat';
-import { CreateGroupModal } from '@/components/modals';
+import { useAuthStore, useConversationState, useChatActions } from '@/store';
+import { AuthView, Sidebar, ChatArea, CreateGroupModal } from '@/components';
 import './App.css';
 
 function App() {

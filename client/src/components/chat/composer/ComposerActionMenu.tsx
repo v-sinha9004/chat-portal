@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import type { ChatActionItem } from '../../../config/chatActionsConfig';
+import type { ChatActionItem } from '@/config/chatActionsConfig';
 
 interface ComposerActionMenuProps {
   isOpen: boolean;

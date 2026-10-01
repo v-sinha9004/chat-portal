@@ -1,13 +1,13 @@
 import type { ChatSlice, MessageSlice } from './types';
-import type { ActiveConversation, ChatMessage, AttachmentInfo, ReplyToInfo } from '../../types';
-import { getDirectConversationId, getGroupConversationId } from '../../types';
+import type { ActiveConversation, ChatMessage, AttachmentInfo, ReplyToInfo } from '@/types';
+import { getDirectConversationId, getGroupConversationId } from '@/types';
 import {
   fetchDirectMessages,
   fetchGroupMessages,
   fetchMessageContext,
   updateDoubtStatusRest,
-} from '../../services/chatService';
-import { socketService } from '../../services/socketService';
+  socketService,
+} from '@/services';
 import { useAuthStore } from '../useAuthStore';
 import { mapHistoryMessageToChatMessage, mergeAndSortMessages } from '../utils/messageHelpers';
 import { debouncedMarkRead } from './unreadSlice';

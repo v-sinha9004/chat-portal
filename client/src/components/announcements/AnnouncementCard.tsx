@@ -1,7 +1,7 @@
 import React from 'react';
-import type { ChatMessage, AttachmentInfo } from '../../types';
+import type { ChatMessage, AttachmentInfo } from '@/types';
 import { MegaphoneIcon } from '@/components/icons';
-import { AttachmentRenderer } from '../media/AttachmentRenderer';
+import { AttachmentRenderer } from '@/components/media';
 
 interface AnnouncementCardProps {
   message: ChatMessage;

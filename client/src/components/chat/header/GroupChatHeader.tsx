@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Group, GroupPresence } from '../../../types';
+import type { Group, GroupPresence } from '@/types';
 
 interface GroupChatHeaderProps {
   group: Group;

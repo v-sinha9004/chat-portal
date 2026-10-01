@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { AttachmentInfo } from '../../types';
+import type { AttachmentInfo } from '@/types';
 
 interface AttachmentRendererProps {
   attachments: AttachmentInfo[];

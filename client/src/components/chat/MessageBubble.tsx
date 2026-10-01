@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ChatMessage, AttachmentInfo } from '../../types';
-import { AttachmentRenderer } from '../media/AttachmentRenderer';
+import type { ChatMessage, AttachmentInfo } from '@/types';
+import { AttachmentRenderer } from '@/components/media';
 
 interface MessageBubbleProps {
   message: ChatMessage;

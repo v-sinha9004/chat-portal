@@ -1,13 +1,13 @@
-import type { ChatMessage } from '../../types';
+import type { ChatMessage, ConversationHistoryResponse } from '@/types';
 
 export function mapHistoryMessageToChatMessage(
-  m: any,
+  m: ConversationHistoryResponse['messages'][number],
   currentUserId: string | null,
   isGroup: boolean,
   partnerLastRead?: string | null,
   memberLastReadMap: Record<string, string> = {},
 ): ChatMessage {
-  const msgId = m.id || m.messageId;
+  const msgId = m.id || m.messageId || '';
   const isMe = m.senderId === currentUserId;
   const formattedTime = new Date(m.timestamp).toLocaleTimeString([], {
     hour: '2-digit',

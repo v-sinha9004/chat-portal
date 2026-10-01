@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ActiveConversation, UserPresence, GroupPresence } from '../../types';
-import { PinnedMessageCarousel } from '../pins/PinnedMessageCarousel';
+import type { ActiveConversation, UserPresence, GroupPresence } from '@/types';
+import { PinnedMessageCarousel } from '@/components/pins';
 import { GroupChatHeader } from './header/GroupChatHeader';
 import { DirectChatHeader } from './header/DirectChatHeader';
 

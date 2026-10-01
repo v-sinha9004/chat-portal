@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ChatMessage, PinnedMessage, AttachmentInfo } from '../../types';
+import type { ChatMessage, PinnedMessage, AttachmentInfo } from '@/types';
 import { MessageItem } from './MessageItem';
 import { JumpToRecentPill } from './list/JumpToRecentPill';
 import { TypingIndicatorBar } from './list/TypingIndicatorBar';

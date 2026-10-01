@@ -9,7 +9,7 @@ import type {
   PinnedMessage,
   AttachmentInfo,
   UserTypingEvent,
-} from '../../types';
+} from '@/types';
 
 // ==========================================
 // 1. PIN SLICE

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useMemo } from 'react';
-import type { ChatMessage, AttachmentInfo } from '../../types';
-import { AnnouncementComposer } from '../announcements/AnnouncementComposer';
-import { DoubtComposer } from '../doubts/DoubtComposer';
-import { CHAT_ACTION_ITEMS } from '../../config/chatActionsConfig';
+import type { ChatMessage, AttachmentInfo } from '@/types';
+import { AnnouncementComposer } from '@/components/announcements';
+import { DoubtComposer } from '@/components/doubts';
+import { CHAT_ACTION_ITEMS } from '@/config/chatActionsConfig';
 import { PendingAttachmentBar } from './composer/PendingAttachmentBar';
 import { ReplyPreviewBar } from './composer/ReplyPreviewBar';
 import { ComposerActionMenu } from './composer/ComposerActionMenu';

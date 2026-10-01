@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useAuthStore } from '@/store';
 
 export interface LoginProps {
   onSwitchToRegister?: () => void;

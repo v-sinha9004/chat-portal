@@ -1,11 +1,11 @@
 import type { ChatSlice, PinSlice } from './types';
 import { useAuthStore } from '../useAuthStore';
-import { getDirectConversationId, getGroupConversationId } from '../../types';
+import { getDirectConversationId, getGroupConversationId } from '@/types';
 import {
   fetchPinnedMessages,
   pinMessageRest,
   unpinMessageRest,
-} from '../../services/chatService';
+} from '@/services';
 
 let pinsAbortController: AbortController | null = null;
 

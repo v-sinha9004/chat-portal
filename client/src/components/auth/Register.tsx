@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useAuthStore } from '../../store/useAuthStore';
-import type { UserRole } from '../../types';
+import { useAuthStore } from '@/store';
+import type { UserRole } from '@/types';
 
 export interface RegisterProps {
   onSwitchToLogin?: () => void;

@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Group } from '../../types';
-import { getRoleBadgeClass } from '../../utils/formatters';
+import type { Group } from '@/types';
+import { getRoleBadgeClass } from '@/utils';
 
 interface GroupListItemProps {
   group: Group;

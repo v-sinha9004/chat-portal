@@ -1,11 +1,11 @@
 import type { ChatSlice, SocketSlice } from './types';
-import type { ChatMessage } from '../../types';
-import { getDirectConversationId, getGroupConversationId } from '../../types';
+import type { ChatMessage } from '@/types';
+import { getDirectConversationId, getGroupConversationId } from '@/types';
 import {
   socketService,
   type IncomingDirectMessageEvent,
   type IncomingGroupMessageEvent,
-} from '../../services/socketService';
+} from '@/services';
 import { useAuthStore } from '../useAuthStore';
 import { clearTypingSafetyTimers } from './presenceSlice';
 import { debouncedMarkRead } from './unreadSlice';

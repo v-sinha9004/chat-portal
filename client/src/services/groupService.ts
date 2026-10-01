@@ -1,4 +1,4 @@
-import type { Group } from '../types';
+import type { Group } from '@/types';
 
 const GROUPS_API_URL = import.meta.env.VITE_GROUPS_API_URL || '/api/users/groups';
 

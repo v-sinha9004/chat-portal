@@ -1,6 +1,6 @@
 import React from 'react';
-import type { User, UserPresence } from '../../../types';
-import { formatLastSeen, getInitials } from '../../../utils/formatters';
+import type { User, UserPresence } from '@/types';
+import { formatLastSeen, getInitials } from '@/utils';
 
 interface DirectChatHeaderProps {
   user: User;
