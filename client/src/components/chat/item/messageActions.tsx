@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ChatMessage } from '@/types';
-import { PinIcon } from '@/components/icons';
+import { PinIcon, ReplyIcon, ReportIcon } from '@/components/icons';
 
 export interface MessageActionItem {
   id: string;
@@ -36,21 +36,7 @@ export function getMessageActions({
     {
       id: 'reply',
       label: 'Reply',
-      icon: (
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="9 17 4 12 9 7" />
-          <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-        </svg>
-      ),
+      icon: <ReplyIcon size={15} />,
       onClick: () => onInitiateReply(message),
     },
     {
@@ -63,21 +49,7 @@ export function getMessageActions({
       id: 'report',
       label: 'Report',
       danger: true,
-      icon: (
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-          <line x1="4" y1="22" x2="4" y2="15" />
-        </svg>
-      ),
+      icon: <ReportIcon size={15} />,
       onClick: () => onReportMessage(message),
     },
   ];
