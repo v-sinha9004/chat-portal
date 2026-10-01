@@ -9,6 +9,7 @@ import {
   Query,
   Headers,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { ReadTrackingService } from '../read-tracking/read-tracking.service';
@@ -20,6 +21,8 @@ import {
   MessageContextResponse,
   QueryDoubtsDto,
   DoubtsListResponse,
+  QueryMentorDoubtsDto,
+  MentorDoubtsResponse,
   PinnedMessageResponse,
   PinMessageDto,
   ReportMessageDto,
@@ -109,18 +112,29 @@ export class MessagesController {
   }
 
   /**
-   * Fetch doubts for a specific conversation (open/resolved/all).
-   * GET /api/chat/messages/doubts?conversationId=xxx&status=OPEN
+   * Fetch all doubts for a mentor.
+   * GET /api/chat/messages/doubts
+   * Takes userId from x-user-id header. Verifies user is a mentor; else returns 403 Forbidden.
    */
   @Get('doubts')
   async getDoubts(
     @Headers('x-user-id') currentUserId: string,
-    @Query() query: QueryDoubtsDto,
-  ): Promise<DoubtsListResponse> {
+    @Headers('x-user-role') currentUserRole: string,
+    @Query() query: QueryMentorDoubtsDto,
+  ): Promise<MentorDoubtsResponse> {
     if (!currentUserId) {
       throw new UnauthorizedException('Missing x-user-id header');
     }
-    return this.messagesService.getDoubts(currentUserId, query);
+
+    const isMentor = await this.messagesService.isUserMentor(
+      currentUserId,
+      currentUserRole,
+    );
+    if (!isMentor) {
+      throw new ForbiddenException('Forbidden: Access restricted to mentors only');
+    }
+
+    return this.messagesService.getMentorDoubts(currentUserId, query);
   }
 
   /**

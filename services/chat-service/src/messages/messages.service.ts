@@ -31,6 +31,8 @@ import {
   MessageContextResponse,
   QueryDoubtsDto,
   DoubtsListResponse,
+  QueryMentorDoubtsDto,
+  MentorDoubtsResponse,
   PinnedMessageResponse,
   ReportMessageDto,
   QueryReportsDto,
@@ -469,6 +471,151 @@ export class MessagesService {
       total: openCount + resolvedCount,
       openCount,
       resolvedCount,
+    };
+  }
+
+  /**
+   * Verifies if a user has the MENTOR role.
+   * Checks role header first; falls back to querying user-service for user profile.
+   */
+  async isUserMentor(userId: string, roleHeader?: string): Promise<boolean> {
+    const roleNormalized = (roleHeader || '').toUpperCase();
+    if (roleNormalized === 'MENTOR') {
+      return true;
+    }
+    if (roleNormalized && roleNormalized !== 'MENTOR') {
+      return false;
+    }
+
+    // If role header is not provided, query user-service
+    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3002';
+    try {
+      const response = await fetch(
+        `${userServiceUrl}/api/users/${encodeURIComponent(userId)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const userData = (await response.json()) as { role?: string };
+      return (userData?.role || '').toUpperCase() === 'MENTOR';
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to check user role with user-service for ${userId}: ${err?.message}`,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Fetches all doubts for a user (mentor).
+   * Aggregates doubts from all groups the mentor belongs to as well as direct conversations.
+   * Returns total doubt count and doubts list.
+   */
+  async getMentorDoubts(
+    currentUserId: string,
+    query?: QueryMentorDoubtsDto,
+  ): Promise<MentorDoubtsResponse> {
+    const targetUserId = query?.mentorId || query?.userId || currentUserId;
+    if (!targetUserId || typeof targetUserId !== 'string' || !targetUserId.trim()) {
+      throw new BadRequestException('User or mentor ID is required');
+    }
+
+    const mentorId = targetUserId.trim();
+
+    // 1. Fetch group IDs the mentor is a member of from user-service
+    let groupIds: string[] = [];
+    if (query?.groupId) {
+      groupIds = [query.groupId.trim()];
+    } else {
+      try {
+        groupIds = await this.socketService.getUserGroupIds(mentorId);
+      } catch (err: any) {
+        this.logger.warn(
+          `Failed to fetch user group IDs for mentor ${mentorId}: ${err?.message}`,
+        );
+        groupIds = [];
+      }
+    }
+
+    // 2. Build the MongoDB filter
+    const orConditions: Record<string, any>[] = [];
+
+    // Group doubts where mentor is a member
+    if (groupIds && groupIds.length > 0) {
+      orConditions.push({ groupId: { $in: groupIds } });
+      orConditions.push({ conversationId: { $in: groupIds.map((gid) => `group:${gid}`) } });
+    }
+
+    // Direct doubts where mentor is recipient, sender, or conversation participant
+    orConditions.push({ recipientId: mentorId });
+    orConditions.push({ senderId: mentorId });
+    orConditions.push({ conversationId: new RegExp(`(^|:)${mentorId}(:|$)`) });
+    orConditions.push({ resolvedBy: mentorId });
+
+    const baseFilter: Record<string, any> = {
+      isDoubt: true,
+      isDeleted: { $ne: true },
+    };
+
+    if (query?.all !== true && query?.all !== 'true' && orConditions.length > 0) {
+      baseFilter.$or = orConditions;
+    }
+
+    const filter: Record<string, any> = { ...baseFilter };
+
+    const status = query?.status;
+    if (status && status !== 'ALL') {
+      filter.doubtStatus = status;
+    }
+
+    // 3. Count documents
+    const openCountFilter = { ...baseFilter, doubtStatus: 'OPEN' };
+    const resolvedCountFilter = { ...baseFilter, doubtStatus: 'RESOLVED' };
+
+    const [openCount, resolvedCount] = await Promise.all([
+      this.messageModel.countDocuments(openCountFilter),
+      this.messageModel.countDocuments(resolvedCountFilter),
+    ]);
+
+    const totalDoubtCount = openCount + resolvedCount;
+
+    // 4. Query messages
+    let queryBuilder = this.messageModel
+      .find(filter)
+      .sort({ messageId: -1, timestamp: -1, createdAt: -1 });
+
+    if (query?.limit !== undefined && query?.limit !== null && query?.limit !== '') {
+      const limit = typeof query.limit === 'number' ? query.limit : parseInt(String(query.limit), 10);
+      if (!isNaN(limit) && limit > 0) {
+        queryBuilder = queryBuilder.limit(limit);
+        if (query?.page) {
+          const page = typeof query.page === 'number' ? query.page : parseInt(String(query.page), 10);
+          if (!isNaN(page) && page > 1) {
+            queryBuilder = queryBuilder.skip((page - 1) * limit);
+          }
+        }
+      }
+    }
+
+    const docs = await queryBuilder.lean().exec();
+
+    const doubts: ChatMessageResponse[] = docs.map((d: any) =>
+      this.formatMessageResponse(d),
+    );
+
+    return {
+      totalDoubtCount,
+      openCount,
+      resolvedCount,
+      doubts,
     };
   }
 

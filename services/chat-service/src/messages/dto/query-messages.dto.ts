@@ -47,9 +47,13 @@ export interface ChatMessageResponse {
 }
 
 export interface QueryDoubtsDto {
-  conversationId: string;
+  conversationId?: string;
+  mentorId?: string;
+  userId?: string;
   status?: 'OPEN' | 'RESOLVED' | 'ALL';
   limit?: string | number;
+  page?: string | number;
+  all?: string | boolean;
 }
 
 export interface DoubtsListResponse {
@@ -58,6 +62,23 @@ export interface DoubtsListResponse {
   total: number;
   openCount: number;
   resolvedCount: number;
+}
+
+export interface QueryMentorDoubtsDto {
+  mentorId?: string;
+  userId?: string;
+  groupId?: string;
+  status?: 'OPEN' | 'RESOLVED' | 'ALL';
+  limit?: string | number;
+  page?: string | number;
+  all?: string | boolean;
+}
+
+export interface MentorDoubtsResponse {
+  totalDoubtCount: number;
+  openCount: number;
+  resolvedCount: number;
+  doubts: ChatMessageResponse[];
 }
 
 export interface ConversationHistoryResponse {
