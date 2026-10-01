@@ -272,7 +272,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           onChange={onInputChange}
           onPaste={onPaste}
           disabled={!isSocketConnected}
-          autoFocus
+          autoFocus={typeof window !== 'undefined' && window.innerWidth > 768}
         />
         <button
           type="submit"
