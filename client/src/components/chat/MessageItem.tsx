@@ -46,75 +46,73 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 }) => {
   const isMe = message.senderId === currentUserId;
 
-  if (message.isAnnouncement) {
+  const rowVariantClass = message.isAnnouncement
+    ? 'announcement-row'
+    : message.isDoubt
+    ? 'doubt-row'
+    : '';
+
+  const renderContent = () => {
+    if (message.isAnnouncement) {
+      return (
+        <AnnouncementCard
+          message={message}
+          senderDisplayName={senderDisplayName}
+          isMe={isMe}
+          onQuoteClick={onQuoteClick}
+          getDisplayName={getDisplayName}
+          onOpenLightbox={onOpenLightbox}
+        />
+      );
+    }
+
+    if (message.isDoubt) {
+      const canResolve = isMentor || isMe;
+      const senderRole = isMe
+        ? currentUserRole
+        : isGroup
+          ? getUserRole(message.senderId)
+          : directUserRole;
+
+      return (
+        <DoubtCard
+          message={message}
+          senderDisplayName={senderDisplayName}
+          senderRole={senderRole}
+          isMe={isMe}
+          canResolve={canResolve}
+          onUpdateStatus={onUpdateDoubtStatus}
+          onQuoteClick={onQuoteClick}
+          getDisplayName={getDisplayName}
+          onOpenLightbox={onOpenLightbox}
+        />
+      );
+    }
+
     return (
-      <AnnouncementCard
-        key={message.id}
+      <MessageBubble
         message={message}
-        senderDisplayName={senderDisplayName}
         isMe={isMe}
-        onReply={onInitiateReply}
-        onQuoteClick={onQuoteClick}
+        isGroup={isGroup}
+        senderDisplayName={senderDisplayName}
         getDisplayName={getDisplayName}
-        isPinned={isPinned}
+        onQuoteClick={onQuoteClick}
         onOpenLightbox={onOpenLightbox}
-        onPin={
-          canManagePins
-            ? () => (isPinned ? onUnpinMessage(message) : onPinMessage(message))
-            : undefined
-        }
       />
     );
-  }
-
-  if (message.isDoubt) {
-    const canResolve = isMentor || isMe;
-    const senderRole = isMe
-      ? currentUserRole
-      : isGroup
-      ? getUserRole(message.senderId)
-      : directUserRole;
-
-    return (
-      <DoubtCard
-        key={message.id}
-        message={message}
-        senderDisplayName={senderDisplayName}
-        senderRole={senderRole}
-        isMe={isMe}
-        canResolve={canResolve}
-        onUpdateStatus={onUpdateDoubtStatus}
-        onReply={onInitiateReply}
-        onQuoteClick={onQuoteClick}
-        getDisplayName={getDisplayName}
-        isPinned={isPinned}
-        onOpenLightbox={onOpenLightbox}
-        onPin={
-          canManagePins
-            ? () => (isPinned ? onUnpinMessage(message) : onPinMessage(message))
-            : undefined
-        }
-      />
-    );
-  }
+  };
 
   return (
     <div
       key={message.id}
       id={`msg-${message.id}`}
-      className={`message-row ${isMe ? 'sent' : 'received'}`}
+      className={`message-row ${rowVariantClass} ${isMe ? 'sent' : 'received'}`.trim()}
+      data-message-id={message.id}
     >
       <div className="message-bubble-wrapper">
-        <MessageBubble
-          message={message}
-          isMe={isMe}
-          isGroup={isGroup}
-          senderDisplayName={senderDisplayName}
-          getDisplayName={getDisplayName}
-          onQuoteClick={onQuoteClick}
-          onOpenLightbox={onOpenLightbox}
-        />
+        {renderContent()}
 
+        {/* Unified Hover Actions for ALL message variants */}
         <MessageHoverActions
           message={message}
           isPinned={isPinned}
