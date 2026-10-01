@@ -2,18 +2,16 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import type { ChatMessage, AttachmentInfo } from '../types';
-import { AnnouncementCard } from './announcements/AnnouncementCard';
 import { AnnouncementComposer } from './announcements/AnnouncementComposer';
-import { DoubtCard } from './doubts/DoubtCard';
 import { DoubtComposer } from './doubts/DoubtComposer';
 import { CHAT_ACTION_ITEMS } from '../config/chatActionsConfig';
 import { navigateToMessage } from '../utils/messageNavigation';
-import { AttachmentRenderer } from './media/AttachmentRenderer';
 import { MediaLightbox } from './media/MediaLightbox';
 import { useChatScroll } from './chat/hooks/useChatScroll';
 import { useChatTyping } from './chat/hooks/useChatTyping';
 import { useMediaAttachment } from './chat/hooks/useMediaAttachment';
 import { ChatHeader } from './chat/ChatHeader';
+import { MessageList } from './chat/MessageList';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -460,288 +458,43 @@ export const ChatArea: React.FC = () => {
         onPinClick={handleQuoteClick}
       />
 
-      {/* Messages Container */}
-      <div
-        className="chat-messages-container"
-        ref={messagesContainerRef}
+      {/* Message List, Bi-directional Scroller, Jump Pill, Typing Indicator */}
+      <MessageList
+        messagesContainerRef={messagesContainerRef}
+        messagesEndRef={messagesEndRef}
+        messages={messages}
+        pinnedMessages={pinnedMessages}
+        currentUserId={currentUserId}
+        currentUserRole={currentUserRole}
+        isGroup={isGroup}
+        isMentor={isMentor}
+        groupName={group?.name}
+        directUserName={directUser?.name}
+        directUserRole={directUser?.role}
+        isLoadingContext={isLoadingContext}
+        isLoadingMessages={isLoadingMessages}
+        messageFetchError={messageFetchError}
+        isLoadingOlderMessages={isLoadingOlderMessages}
+        hasMoreMessages={hasMoreMessages}
+        hasNewerMessages={hasNewerMessages}
+        isLoadingNewerMessages={isLoadingNewerMessages}
+        unseenLiveCountWhileInHistory={unseenLiveCountWhileInHistory}
+        typingText={typingText}
+        canManagePins={canManagePins}
+        getDisplayName={getDisplayName}
+        getUserRole={getUserRole}
         onScroll={handleScroll}
-      >
-        {isLoadingContext && (
-          <div className="context-loading-indicator">
-            <div className="loading-spinner small" />
-            <span>Jumping to message...</span>
-          </div>
-        )}
-
-        {isLoadingMessages ? (
-          <div className="messages-loading-state">
-            <div className="loading-spinner" />
-            <p>Loading past messages...</p>
-          </div>
-        ) : messageFetchError ? (
-          <div className="messages-error-state">
-            <div className="empty-icon">⚠️</div>
-            <p>{messageFetchError}</p>
-            <button
-              type="button"
-              className="retry-btn"
-              onClick={() => fetchMessages()}
-            >
-              Retry
-            </button>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="no-messages">
-            <p>
-              No messages yet in {isGroup && group ? `#${group.name}` : directUser?.name}.
-            </p>
-            <span className="no-messages-sub">Send a message below to start a live conversation!</span>
-          </div>
-        ) : (
-          <div className="messages-list">
-            {isLoadingOlderMessages ? (
-              <div className="load-older-indicator loading">
-                <div className="loading-spinner small" />
-                <span>Loading earlier messages...</span>
-              </div>
-            ) : hasMoreMessages ? (
-              <div className="load-older-indicator">
-                <button
-                  type="button"
-                  className="load-older-btn"
-                  onClick={triggerLoadOlder}
-                >
-                  ↑ Load earlier messages
-                </button>
-              </div>
-            ) : (
-              <div className="messages-history-start">
-                <span>Beginning of message history</span>
-              </div>
-            )}
-
-            {messages.map((msg) => {
-              const isMe = msg.senderId === currentUserId;
-              const senderDisplayName =
-                msg.senderName || (isGroup ? getDisplayName(msg.senderId) : '');
-
-              const isMsgPinned = pinnedMessages.some((p) => p.messageId === msg.id);
-
-              if (msg.isAnnouncement) {
-                return (
-                  <AnnouncementCard
-                    key={msg.id}
-                    message={msg}
-                    senderDisplayName={senderDisplayName}
-                    isMe={isMe}
-                    onReply={handleInitiateReply}
-                    onQuoteClick={handleQuoteClick}
-                    getDisplayName={getDisplayName}
-                    isPinned={isMsgPinned}
-                    onOpenLightbox={(att) => setLightboxAttachment(att)}
-                    onPin={
-                      canManagePins
-                        ? () => (isMsgPinned ? handleUnpinMessage(msg) : handlePinMessage(msg))
-                        : undefined
-                    }
-                  />
-                );
-              }
-
-              if (msg.isDoubt) {
-                const canResolve = isMentor || isMe;
-                const senderRole = isMe
-                  ? currentUserRole
-                  : isGroup
-                  ? getUserRole(msg.senderId)
-                  : directUser?.role;
-
-                return (
-                  <DoubtCard
-                    key={msg.id}
-                    message={msg}
-                    senderDisplayName={senderDisplayName}
-                    senderRole={senderRole}
-                    isMe={isMe}
-                    canResolve={canResolve}
-                    onUpdateStatus={updateDoubtStatus}
-                    onReply={handleInitiateReply}
-                    onQuoteClick={handleQuoteClick}
-                    getDisplayName={getDisplayName}
-                    isPinned={isMsgPinned}
-                    onOpenLightbox={(att) => setLightboxAttachment(att)}
-                    onPin={
-                      canManagePins
-                        ? () => (isMsgPinned ? handleUnpinMessage(msg) : handlePinMessage(msg))
-                        : undefined
-                    }
-                  />
-                );
-              }
-
-              return (
-                <div
-                  key={msg.id}
-                  id={`msg-${msg.id}`}
-                  className={`message-row ${isMe ? 'sent' : 'received'}`}
-                >
-                  <div className="message-bubble-wrapper">
-                    <div className="message-bubble">
-                      {/* Quoted Reply Card */}
-                      {msg.replyTo && (
-                        <div
-                          className="reply-quote-card"
-                          onClick={() => handleQuoteClick(msg.replyTo!.messageId)}
-                          role="button"
-                          tabIndex={0}
-                          title="Click to jump to quoted message"
-                        >
-                          <div className="reply-quote-bar" />
-                          <div className="reply-quote-body">
-                            <span className="reply-quote-sender">
-                              {getDisplayName(msg.replyTo.senderId)}
-                            </span>
-                            <p className="reply-quote-snippet">{msg.replyTo.text}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* In group chats, show sender's name above received messages */}
-                      {isGroup && !isMe && senderDisplayName && (
-                        <span className="message-sender-name">{senderDisplayName}</span>
-                      )}
-
-                      {/* Media Attachments (Images, PDFs) */}
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <AttachmentRenderer
-                          attachments={msg.attachments}
-                          onOpenLightbox={(att) => setLightboxAttachment(att)}
-                          isSentByMe={isMe}
-                        />
-                      )}
-
-                      {/* Message Text (if non-empty) */}
-                      {msg.text ? <p className="message-text">{msg.text}</p> : null}
-                      <div className="message-meta">
-                        <span className="message-timestamp">{msg.timestamp}</span>
-                        {isMe && msg.status && (
-                          <span
-                            className={`message-status status-${msg.status}`}
-                            title={`Status: ${msg.status.charAt(0).toUpperCase() + msg.status.slice(1)}`}
-                          >
-                            {msg.status === 'sending' && '⏱'}
-                            {msg.status === 'sent' && '✓'}
-                            {msg.status === 'delivered' && '✓✓'}
-                            {msg.status === 'read' && '✓✓'}
-                            {msg.status === 'failed' && '⚠️'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Hover Pin Action Button */}
-                    {canManagePins && (
-                      <button
-                        type="button"
-                        className={`message-pin-btn ${isMsgPinned ? 'pinned' : ''}`}
-                        onClick={() =>
-                          isMsgPinned ? handleUnpinMessage(msg) : handlePinMessage(msg)
-                        }
-                        title={isMsgPinned ? 'Unpin message' : 'Pin message'}
-                        aria-label={isMsgPinned ? 'Unpin message' : 'Pin message'}
-                      >
-                        <svg
-                          width="13"
-                          height="13"
-                          viewBox="0 0 24 24"
-                          fill={isMsgPinned ? 'currentColor' : 'none'}
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <line x1="12" y1="17" x2="12" y2="22" />
-                          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-                        </svg>
-                      </button>
-                    )}
-
-                    {/* Hover Reply Action Button */}
-                    <button
-                      type="button"
-                      className="message-reply-btn"
-                      onClick={() => handleInitiateReply(msg)}
-                      title="Reply"
-                      aria-label="Reply to message"
-                    >
-                      <svg
-                        width="13"
-                        height="13"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <polyline points="9 17 4 12 9 7" />
-                        <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-
-            {hasNewerMessages && (
-              <div className="messages-load-newer-wrapper">
-                <button
-                  type="button"
-                  className="load-newer-btn"
-                  onClick={() => loadNewerMessages()}
-                  disabled={isLoadingNewerMessages}
-                >
-                  {isLoadingNewerMessages ? 'Loading newer messages...' : '↓ Load newer messages'}
-                </button>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </div>
-
-      {/* Floating Jump to Recent Messages Pill */}
-      {hasNewerMessages && (
-        <div className="jump-to-recent-container">
-          <button
-            type="button"
-            className="jump-to-recent-btn"
-            onClick={handleJumpToRecent}
-            title="Jump to latest messages"
-          >
-            <span>Jump to Recent Messages ↓</span>
-            {unseenLiveCountWhileInHistory > 0 && (
-              <span className="jump-to-recent-badge">
-                {unseenLiveCountWhileInHistory > 99 ? '99+' : unseenLiveCountWhileInHistory}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* Typing Indicator Bar */}
-      {typingText && (
-        <div className="typing-indicator-bar" aria-live="polite">
-          <div className="typing-dots">
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-          </div>
-          <span className="typing-indicator-text">{typingText}</span>
-        </div>
-      )}
+        onRetryFetch={() => fetchMessages()}
+        onTriggerLoadOlder={triggerLoadOlder}
+        onLoadNewerMessages={() => loadNewerMessages()}
+        onJumpToRecent={handleJumpToRecent}
+        onInitiateReply={handleInitiateReply}
+        onQuoteClick={handleQuoteClick}
+        onOpenLightbox={(att) => setLightboxAttachment(att)}
+        onPinMessage={handlePinMessage}
+        onUnpinMessage={handleUnpinMessage}
+        onUpdateDoubtStatus={updateDoubtStatus}
+      />
 
       {/* Docked Reply Preview Bar */}
       {replyingTo && (
