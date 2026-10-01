@@ -39,8 +39,6 @@ export const DirectChatHeader: React.FC<DirectChatHeaderProps> = ({
         </div>
         <div className="chat-header-sub">
           <span>@{user.username}</span>
-          <span className="dot-separator header-email-sep">•</span>
-          <span className="user-email-text">{user.email}</span>
           <span className="dot-separator">•</span>
           {isTyping ? (
             <span className="status-text typing">
