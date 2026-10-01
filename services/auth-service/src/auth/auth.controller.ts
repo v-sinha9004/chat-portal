@@ -71,11 +71,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
     const token = dto.refreshToken || req.cookies?.refreshToken;
-    const isProd = process.env.NODE_ENV === 'production';
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      sameSite: 'lax',
       path: '/api/auth',
     });
     return this.authService.logout(token);
@@ -89,15 +87,12 @@ export class AuthController {
 
   /**
    * Helper to set HttpOnly refresh token cookie on HTTP responses.
-   * Uses sameSite: 'none' in production so cross-origin frontends (e.g., Vercel)
-   * can transmit the cookie to the backend API Gateway.
    */
   private setRefreshTokenCookie(res: Response, refreshToken: string) {
-    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       path: '/api/auth',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
