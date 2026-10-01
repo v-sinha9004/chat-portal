@@ -9,7 +9,7 @@ import {
 } from '../../services/chatService';
 import { socketService } from '../../services/socketService';
 import { useAuthStore } from '../useAuthStore';
-import { mapHistoryMessageToChatMessage } from '../utils/messageHelpers';
+import { mapHistoryMessageToChatMessage, mergeAndSortMessages } from '../utils/messageHelpers';
 import { debouncedMarkRead } from './unreadSlice';
 
 let messageAbortController: AbortController | null = null;
@@ -90,18 +90,7 @@ export const createMessageSlice: ChatSlice<MessageSlice> = (set, get) => ({
             (!expectedConvoId || m.conversationId === expectedConvoId) &&
             m.status === 'sending',
         );
-        const merged = [...pastMessages];
-        for (const msg of pendingSending) {
-          if (
-            !merged.some(
-              (m) =>
-                (msg.clientMessageId && m.clientMessageId === msg.clientMessageId) ||
-                m.id === msg.id,
-            )
-          ) {
-            merged.push(msg);
-          }
-        }
+        const merged = mergeAndSortMessages(pastMessages, pendingSending);
         return {
           messages: merged,
           partnerLastReadMessageId: partnerLastRead,
@@ -201,16 +190,10 @@ export const createMessageSlice: ChatSlice<MessageSlice> = (set, get) => ({
       );
 
       set((state) => {
-        const existingIds = new Set(state.messages.map((m) => m.id));
-        const filteredOlder = olderMessages.filter(
-          (m) =>
-            !existingIds.has(m.id) &&
-            (!m.clientMessageId ||
-              !state.messages.some((cur) => cur.clientMessageId === m.clientMessageId)),
-        );
+        const merged = mergeAndSortMessages(state.messages, olderMessages);
 
         return {
-          messages: [...filteredOlder, ...state.messages],
+          messages: merged,
           hasMoreMessages: Boolean(response.hasMore),
           oldestMessageCursor: response.oldestCursor || null,
           partnerLastReadMessageId: partnerLastRead,
@@ -285,18 +268,11 @@ export const createMessageSlice: ChatSlice<MessageSlice> = (set, get) => ({
       );
 
       set((state) => {
-        const existingIds = new Set(state.messages.map((m) => m.id));
-        const filteredNewer = newerMessages.filter(
-          (m) =>
-            !existingIds.has(m.id) &&
-            (!m.clientMessageId ||
-              !state.messages.some((cur) => cur.clientMessageId === m.clientMessageId)),
-        );
-
+        const merged = mergeAndSortMessages(state.messages, newerMessages);
         const stillHasNewer = Boolean(response.hasNewer);
 
         return {
-          messages: [...state.messages, ...filteredNewer],
+          messages: merged,
           hasNewerMessages: stillHasNewer,
           newestMessageCursor: response.newestCursor || null,
           partnerLastReadMessageId: partnerLastRead,
@@ -441,7 +417,10 @@ export const createMessageSlice: ChatSlice<MessageSlice> = (set, get) => ({
       doubtTopic: options?.doubtTopic,
     };
 
-    set((state) => ({ messages: [...state.messages, optimisticMessage], replyingTo: null }));
+    set((state) => ({
+      messages: mergeAndSortMessages(state.messages, [optimisticMessage]),
+      replyingTo: null,
+    }));
 
     try {
       if (isGroup) {
@@ -543,31 +522,24 @@ export const createMessageSlice: ChatSlice<MessageSlice> = (set, get) => ({
 
   addIncomingMessage: (incomingMsg: ChatMessage) => {
     set((state) => {
-      const existingIndex = state.messages.findIndex(
+      // If user is scrolled up in history and this is a new message (not an update to existing), increment unseen count
+      const isExisting = state.messages.some(
         (m) =>
           m.id === incomingMsg.id ||
-          (incomingMsg.clientMessageId &&
-            m.clientMessageId === incomingMsg.clientMessageId),
+          (incomingMsg.clientMessageId && m.clientMessageId === incomingMsg.clientMessageId),
       );
 
-      if (existingIndex !== -1) {
-        const nextMessages = [...state.messages];
-        nextMessages[existingIndex] = {
-          ...nextMessages[existingIndex],
-          ...incomingMsg,
-          status: 'sent',
-        };
-        return { messages: nextMessages };
-      }
+      const nextMessages = mergeAndSortMessages(state.messages, [incomingMsg]);
 
-      if (state.hasNewerMessages) {
+      if (state.hasNewerMessages && !isExisting) {
         return {
+          messages: nextMessages,
           unseenLiveCountWhileInHistory: state.unseenLiveCountWhileInHistory + 1,
         };
       }
 
       return {
-        messages: [...state.messages, incomingMsg],
+        messages: nextMessages,
       };
     });
   },
