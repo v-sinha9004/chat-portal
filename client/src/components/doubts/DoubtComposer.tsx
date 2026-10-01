@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { QuestionMarkIcon } from '../Icons';
+import { QuestionMarkIcon } from '@/components/icons';
 
 interface DoubtComposerProps {
   topic: string;

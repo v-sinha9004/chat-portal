@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useConversationState, useChatActions } from './store/selectors';
-import { AuthView } from './components/auth/AuthView';
-import { UserList } from './components/UserList';
-import { ChatArea } from './components/ChatArea';
-import { CreateGroupModal } from './components/CreateGroupModal';
+import { useConversationState, useChatActions } from '@/store/selectors';
+import { AuthView } from '@/components/auth';
+import { Sidebar } from '@/components/sidebar';
+import { ChatArea } from '@/components/chat';
+import { CreateGroupModal } from '@/components/modals';
 import './App.css';
 
 function App() {
@@ -53,7 +53,7 @@ function App() {
 
   return (
     <div className={`chat-app-container ${activeConversation ? 'has-active-chat' : 'no-active-chat'}`}>
-      <UserList />
+      <Sidebar />
       <ChatArea />
       <CreateGroupModal />
     </div>

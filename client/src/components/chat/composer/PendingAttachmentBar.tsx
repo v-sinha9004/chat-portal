@@ -1,5 +1,5 @@
 import React from 'react';
-import type { PendingAttachmentState } from './hooks/useMediaAttachment';
+import type { PendingAttachmentState } from '../hooks/useMediaAttachment';
 
 interface PendingAttachmentBarProps {
   pendingAttachment: PendingAttachmentState;

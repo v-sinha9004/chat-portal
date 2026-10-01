@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { MegaphoneIcon } from '../Icons';
+import { MegaphoneIcon } from '@/components/icons';
 
 interface AnnouncementComposerProps {
   heading: string;

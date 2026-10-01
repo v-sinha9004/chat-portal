@@ -1,26 +1,26 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import {
   useChatActions,
   useMessageWindowState,
   usePresenceState,
   usePinsState,
   useConversationState,
-} from '../store/selectors';
-import type { ChatMessage, AttachmentInfo } from '../types';
-import { navigateToMessage } from '../utils/messageNavigation';
-import { MediaLightbox } from './media/MediaLightbox';
-import { useChatScroll } from './chat/hooks/useChatScroll';
-import { useChatTyping } from './chat/hooks/useChatTyping';
-import { useMediaAttachment } from './chat/hooks/useMediaAttachment';
-import { ChatHeader } from './chat/ChatHeader';
-import { MessageList } from './chat/MessageList';
-import { ChatComposer } from './chat/ChatComposer';
+} from '@/store/selectors';
+import type { ChatMessage, AttachmentInfo } from '@/types';
+import { navigateToMessage } from '@/utils/messageNavigation';
+import { MediaLightbox } from '@/components/media/MediaLightbox';
+import { useChatScroll } from './hooks/useChatScroll';
+import { useChatTyping } from './hooks/useChatTyping';
+import { useMediaAttachment } from './hooks/useMediaAttachment';
+import { ChatHeader } from './ChatHeader';
+import { MessageList } from './MessageList';
+import { ChatComposer } from './ChatComposer';
 import {
   resolveDisplayName,
   resolveUserRole,
   formatTypingText,
-} from './chat/utils/chatUserHelpers';
+} from './utils/chatUserHelpers';
 
 export const ChatArea: React.FC = () => {
   const currentUserId = useAuthStore((s) => s.user?.id || null);

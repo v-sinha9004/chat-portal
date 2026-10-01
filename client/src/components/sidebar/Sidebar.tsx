@@ -1,20 +1,20 @@
 import React from 'react';
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import {
   useConversationState,
   useUnreadState,
   usePresenceState,
   useChatActions,
-} from '../store/selectors';
-import { useUIStore } from '../store/useUIStore';
-import { getDirectConversationId, getGroupConversationId } from '../types';
-import { CurrentUserCard } from './sidebar/CurrentUserCard';
-import { SidebarHeader } from './sidebar/SidebarHeader';
-import { GroupListItem } from './sidebar/GroupListItem';
-import { DirectUserListItem } from './sidebar/DirectUserListItem';
-import { SidebarStatus } from './sidebar/SidebarStatus';
+} from '@/store/selectors';
+import { useUIStore } from '@/store/useUIStore';
+import { getDirectConversationId, getGroupConversationId } from '@/types';
+import { CurrentUserCard } from './CurrentUserCard';
+import { SidebarHeader } from './SidebarHeader';
+import { GroupListItem } from './GroupListItem';
+import { DirectUserListItem } from './DirectUserListItem';
+import { SidebarStatus } from './SidebarStatus';
 
-export const UserList: React.FC = () => {
+export const Sidebar: React.FC = () => {
   const authUser = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
@@ -137,3 +137,5 @@ export const UserList: React.FC = () => {
     </aside>
   );
 };
+
+export const UserList = Sidebar;

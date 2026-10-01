@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ChatMessage, AttachmentInfo } from '../../types';
-import { QuestionMarkIcon } from '../Icons';
+import { QuestionMarkIcon } from '@/components/icons';
 import { AttachmentRenderer } from '../media/AttachmentRenderer';
 
 interface DoubtCardProps {

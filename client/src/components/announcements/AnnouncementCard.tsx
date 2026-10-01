@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ChatMessage, AttachmentInfo } from '../../types';
-import { MegaphoneIcon } from '../Icons';
+import { MegaphoneIcon } from '@/components/icons';
 import { AttachmentRenderer } from '../media/AttachmentRenderer';
 
 interface AnnouncementCardProps {
