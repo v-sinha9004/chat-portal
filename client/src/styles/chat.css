@@ -332,7 +332,6 @@
 /* WhatsApp-style Dropdown Menu */
 .message-action-dropdown {
   position: absolute;
-  right: 0;
   min-width: 150px;
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
@@ -346,12 +345,38 @@
   animation: messageDropdownIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.message-action-dropdown.open-left {
+  right: 0;
+  left: auto;
+}
+
+.message-action-dropdown.open-right {
+  left: 0;
+  right: auto;
+}
+
 .message-action-dropdown.open-downward {
   top: calc(100% + 4px);
 }
 
 .message-action-dropdown.open-upward {
   bottom: calc(100% + 4px);
+}
+
+.message-action-dropdown.open-downward.open-left {
+  transform-origin: top right;
+}
+
+.message-action-dropdown.open-downward.open-right {
+  transform-origin: top left;
+}
+
+.message-action-dropdown.open-upward.open-left {
+  transform-origin: bottom right;
+}
+
+.message-action-dropdown.open-upward.open-right {
+  transform-origin: bottom left;
 }
 
 @keyframes messageDropdownIn {

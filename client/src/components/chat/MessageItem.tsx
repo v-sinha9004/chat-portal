@@ -168,6 +168,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         <MessageActionMenu
           actions={actions}
           isOpen={isMenuOpen}
+          isMe={isMe}
           onToggle={() => setIsMenuOpen((prev) => !prev)}
           onClose={() => setIsMenuOpen(false)}
         />

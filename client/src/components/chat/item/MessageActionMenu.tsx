@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { MessageActionItem } from './messageActions';
+import { ChevronDownIcon } from '@/components/icons';
 
 interface MessageActionMenuProps {
   actions: MessageActionItem[];
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
+  isMe?: boolean;
 }
 
 export const MessageActionMenu: React.FC<MessageActionMenuProps> = ({
@@ -13,24 +15,49 @@ export const MessageActionMenu: React.FC<MessageActionMenuProps> = ({
   isOpen,
   onToggle,
   onClose,
+  isMe = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [openUpward, setOpenUpward] = useState(false);
+  const [openDirection, setOpenDirection] = useState<'left' | 'right'>(isMe ? 'left' : 'right');
 
-  // Position detection (flip upwards if near bottom of screen)
+  // Position detection (vertical flip if near bottom, horizontal flip if near container edge)
   useEffect(() => {
     if (isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const windowHeight = window.innerHeight;
       const dropdownEstimatedHeight = actions.length * 40 + 20;
+      const dropdownEstimatedWidth = 170;
 
+      // Vertical flip detection
       if (rect.bottom + dropdownEstimatedHeight > windowHeight) {
         setOpenUpward(true);
       } else {
         setOpenUpward(false);
       }
+
+      // Horizontal flip detection based on chat container or viewport bounds
+      const chatContainer = containerRef.current.closest('.chat-messages-container');
+      const containerLeft = chatContainer ? chatContainer.getBoundingClientRect().left : 0;
+      const containerRight = chatContainer ? chatContainer.getBoundingClientRect().right : window.innerWidth;
+
+      const preferred = isMe ? 'left' : 'right';
+
+      if (preferred === 'right') {
+        if (rect.left + dropdownEstimatedWidth > containerRight - 12) {
+          setOpenDirection('left');
+        } else {
+          setOpenDirection('right');
+        }
+      } else {
+        if (rect.right - dropdownEstimatedWidth < containerLeft + 12) {
+          setOpenDirection('right');
+        } else {
+          setOpenDirection('left');
+        }
+      }
     }
-  }, [isOpen, actions.length]);
+  }, [isOpen, actions.length, isMe]);
 
   // Click outside and Escape key detection
   useEffect(() => {
@@ -83,24 +110,15 @@ export const MessageActionMenu: React.FC<MessageActionMenuProps> = ({
         aria-haspopup="true"
         aria-expanded={isOpen}
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#ffffff"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
+        <ChevronDownIcon size={14} color="#ffffff" strokeWidth={2.5} />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          className={`message-action-dropdown ${openUpward ? 'open-upward' : 'open-downward'}`}
+          className={`message-action-dropdown ${openUpward ? 'open-upward' : 'open-downward'} ${
+            openDirection === 'left' ? 'open-left' : 'open-right'
+          }`}
           role="menu"
         >
           {actions.map((action) => (
