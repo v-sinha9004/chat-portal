@@ -104,6 +104,15 @@ export class Message {
   @Prop()
   resolvedAt?: Date;
 
+  @Prop({ default: false, index: true })
+  isDeleted?: boolean;
+
+  @Prop({ type: Date, default: null })
+  deletedAt?: Date;
+
+  @Prop({ type: String, default: null })
+  deletedBy?: string;
+
   @Prop({ required: true })
   timestamp: Date;
 }
@@ -112,5 +121,6 @@ export const MessageSchema = SchemaFactory.createForClass(Message);
 
 // Optimized compound index for all conversation history and cursor pagination queries
 MessageSchema.index({ conversationId: 1, messageId: -1 });
+MessageSchema.index({ conversationId: 1, isDeleted: 1, messageId: -1 });
 MessageSchema.index({ 'replyTo.messageId': 1 }, { sparse: true });
 MessageSchema.index({ conversationId: 1, isDoubt: 1, doubtStatus: 1 });

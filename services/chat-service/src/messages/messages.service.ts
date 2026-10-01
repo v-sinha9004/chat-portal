@@ -21,6 +21,7 @@ import { SocketService } from '../socket/socket.service';
 import {
   getDirectConversationId,
   getGroupConversationId,
+  MessageDeletedEvent,
 } from '../socket/interfaces/socket-events.interface';
 import {
   QueryMessagesDto,
@@ -76,7 +77,7 @@ export class MessagesService {
     const before = query.before?.trim();
     const after = query.after?.trim();
 
-    const filter: Record<string, any> = { conversationId };
+    const filter: Record<string, any> = { conversationId, isDeleted: { $ne: true } };
     if (after) {
       filter.messageId = { $gt: after };
     } else if (before) {
@@ -167,7 +168,7 @@ export class MessagesService {
     const before = query.before?.trim();
     const after = query.after?.trim();
 
-    const filter: Record<string, any> = { conversationId };
+    const filter: Record<string, any> = { conversationId, isDeleted: { $ne: true } };
     if (after) {
       filter.messageId = { $gt: after };
     } else if (before) {
@@ -244,9 +245,12 @@ export class MessagesService {
     }
 
     const cleanMessageId = messageId.trim();
-    const targetDoc = await this.messageModel.findOne({ messageId: cleanMessageId }).lean().exec();
+    const targetDoc = await this.messageModel
+      .findOne({ messageId: cleanMessageId, isDeleted: { $ne: true } })
+      .lean()
+      .exec();
     if (!targetDoc) {
-      throw new NotFoundException(`Message "${cleanMessageId}" not found`);
+      throw new NotFoundException(`Message "${cleanMessageId}" not found or has been deleted`);
     }
 
     // 1. Authorize user access to this conversation
@@ -271,13 +275,13 @@ export class MessagesService {
     // 2. Fetch older and newer slices in parallel
     const [rawOlder, rawNewer] = await Promise.all([
       this.messageModel
-        .find({ conversationId, messageId: { $lt: cleanMessageId } })
+        .find({ conversationId, isDeleted: { $ne: true }, messageId: { $lt: cleanMessageId } })
         .sort({ messageId: -1 })
         .limit(surrounding + 1)
         .lean()
         .exec(),
       this.messageModel
-        .find({ conversationId, messageId: { $gt: cleanMessageId } })
+        .find({ conversationId, isDeleted: { $ne: true }, messageId: { $gt: cleanMessageId } })
         .sort({ messageId: 1 })
         .limit(surrounding + 1)
         .lean()
@@ -429,7 +433,11 @@ export class MessagesService {
       }
     }
 
-    const filter: Record<string, any> = { conversationId, isDoubt: true };
+    const filter: Record<string, any> = {
+      conversationId,
+      isDoubt: true,
+      isDeleted: { $ne: true },
+    };
     if (status && status !== 'ALL') {
       filter.doubtStatus = status;
     }
@@ -446,11 +454,13 @@ export class MessagesService {
       conversationId,
       isDoubt: true,
       doubtStatus: 'OPEN',
+      isDeleted: { $ne: true },
     });
     const resolvedCount = await this.messageModel.countDocuments({
       conversationId,
       isDoubt: true,
       doubtStatus: 'RESOLVED',
+      isDeleted: { $ne: true },
     });
 
     return {
@@ -998,6 +1008,129 @@ export class MessagesService {
     );
 
     return map;
+  }
+
+  /**
+   * Soft-deletes a message.
+   * Authorization rules:
+   * - Author can delete their own message (direct or group).
+   * - Mentor/Admin can delete any message in their group.
+   * - Otherwise Forbidden.
+   */
+  async deleteMessage(
+    currentUserId: string,
+    currentUserRole: string,
+    messageId: string,
+  ): Promise<{ status: string; message: string; messageId: string; conversationId: string }> {
+    if (!messageId || typeof messageId !== 'string' || !messageId.trim()) {
+      throw new BadRequestException('Message ID is required');
+    }
+
+    const cleanMsgId = messageId.trim();
+    const messageDoc = await this.messageModel
+      .findOne({ messageId: cleanMsgId, isDeleted: { $ne: true } })
+      .lean()
+      .exec();
+
+    if (!messageDoc) {
+      throw new NotFoundException(`Message '${cleanMsgId}' not found or already deleted`);
+    }
+
+    const isAuthor = messageDoc.senderId === currentUserId;
+    const roleNormalized = (currentUserRole || '').toUpperCase();
+    const isMentorOrAdmin = roleNormalized === 'ADMIN' || roleNormalized === 'MENTOR';
+
+    if (!isAuthor) {
+      if (messageDoc.type !== 'group' || !messageDoc.groupId) {
+        throw new ForbiddenException('Forbidden: You can only delete your own direct messages');
+      }
+
+      if (!isMentorOrAdmin) {
+        throw new ForbiddenException(
+          'Forbidden: Only mentors or admins can delete messages from other members in a group',
+        );
+      }
+
+      // Verify caller is a member of this specific group
+      const memberIds = await this.socketService.getGroupMemberIds(messageDoc.groupId);
+      if (!memberIds || !memberIds.includes(currentUserId)) {
+        throw new ForbiddenException('Forbidden: You are not a member of this group');
+      }
+    }
+
+    // 1. Soft delete in MongoDB
+    await this.messageModel.updateOne(
+      { messageId: cleanMsgId },
+      {
+        $set: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: currentUserId,
+        },
+      },
+    );
+
+    const cleanConvoId = messageDoc.conversationId;
+
+    // 2. Cleanup from pinned_messages if pinned
+    const existingPin = await this.pinnedMessageModel
+      .findOne({ conversationId: cleanConvoId, messageId: cleanMsgId })
+      .lean()
+      .exec();
+
+    if (existingPin) {
+      await this.pinnedMessageModel.deleteOne({ _id: existingPin._id });
+      await this.broadcastPinEvent(cleanConvoId, 'message_unpinned', {
+        conversationId: cleanConvoId,
+        messageId: cleanMsgId,
+      });
+    }
+
+    // 3. Broadcast real-time socket event
+    await this.broadcastDeleteEvent(cleanConvoId, cleanMsgId, currentUserId);
+
+    this.logger.log(
+      `Message ${cleanMsgId} soft-deleted by user ${currentUserId} (Role: ${currentUserRole}) in conversation ${cleanConvoId}`,
+    );
+
+    return {
+      status: 'success',
+      message: 'Message deleted successfully',
+      messageId: cleanMsgId,
+      conversationId: cleanConvoId,
+    };
+  }
+
+  /**
+   * Broadcasts message_deleted event to all conversation participants.
+   */
+  private async broadcastDeleteEvent(
+    conversationId: string,
+    messageId: string,
+    deletedBy: string,
+  ): Promise<void> {
+    try {
+      const payload: MessageDeletedEvent = {
+        conversationId,
+        messageId,
+        deletedBy,
+      };
+
+      if (conversationId.startsWith('direct:')) {
+        const parts = conversationId.replace('direct:', '').split(':');
+        this.socketService.emitToUsers(parts, 'message_deleted', payload);
+      } else if (conversationId.startsWith('group:')) {
+        const groupId = conversationId.replace('group:', '');
+        const memberIds = await this.socketService.getGroupMemberIds(groupId);
+        if (memberIds && memberIds.length > 0) {
+          this.socketService.emitToUsers(memberIds, 'message_deleted', payload);
+        }
+      }
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to broadcast message_deleted event to conversation "${conversationId}": ${err?.message || err}`,
+      );
+    }
   }
 }
 

@@ -224,4 +224,10 @@ export interface MessageUnpinnedEvent {
   messageId: string;
 }
 
+export interface MessageDeletedEvent {
+  conversationId: string;
+  messageId: string;
+  deletedBy: string;
+}
+
 
