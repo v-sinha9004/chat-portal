@@ -9,6 +9,7 @@ import {
   socketService,
 } from '@/services';
 import { useAuthStore } from '../useAuthStore';
+import { useUIStore } from '../useUIStore';
 
 let convoAbortController: AbortController | null = null;
 
@@ -119,6 +120,9 @@ export const createConversationSlice: ChatSlice<ConversationSlice> = (set, get) 
   },
 
   selectConversation: (conversation) => {
+    if (conversation) {
+      useUIStore.getState().closeReportsView();
+    }
     const prevConvo = get().activeConversation;
     if (prevConvo) {
       if (prevConvo.type === 'direct') {

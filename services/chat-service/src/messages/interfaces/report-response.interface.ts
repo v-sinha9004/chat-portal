@@ -8,7 +8,13 @@ export interface ReportedMessageSnapshotDto {
   groupId?: string;
   type: 'direct' | 'group';
   content: string;
+  text?: string;
   heading?: string;
+  replyTo?: {
+    messageId: string;
+    senderId: string;
+    text: string;
+  };
   isAnnouncement?: boolean;
   isDoubt?: boolean;
   doubtStatus?: 'OPEN' | 'RESOLVED';
@@ -23,10 +29,12 @@ export interface ReportedMessageResponse {
   conversationId: string;
   reportedBy: string;
   reporterName?: string;
+  reportedByName?: string;
   senderName?: string;
   reason?: string;
   status: string;
   createdAt: string;
+  reportedAt?: string;
   message: ReportedMessageSnapshotDto;
 }
 

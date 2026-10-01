@@ -1,4 +1,4 @@
-import type { ReplyToInfo, PinnedMessage, AttachmentInfo } from '@/types';
+import type { ReplyToInfo, PinnedMessage, AttachmentInfo, ReportsListResponse } from '@/types';
 import { apiClient } from '@/utils/httpClient';
 
 const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || '/api/chat';
@@ -260,4 +260,19 @@ export async function reportMessageRest(
     reason ? { reason } : {},
     { token },
   );
+}
+
+/**
+ * Fetch reported messages (Admin only).
+ */
+export async function fetchReportedMessages(
+  token: string,
+  params?: { page?: number; limit?: number; status?: string },
+  signal?: AbortSignal,
+): Promise<ReportsListResponse> {
+  return apiClient.get<ReportsListResponse>(`${CHAT_API_URL}/messages/reports`, {
+    token,
+    signal,
+    params,
+  });
 }

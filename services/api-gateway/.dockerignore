@@ -1,0 +1,7 @@
+# Development / Local Docker ignore
+node_modules
+dist
+.git
+.DS_Store
+*.log
+.env

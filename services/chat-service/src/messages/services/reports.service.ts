@@ -80,6 +80,7 @@ export class ReportsService {
       isDoubt: !!messageDoc.isDoubt,
       doubtStatus: messageDoc.doubtStatus,
       doubtTopic: messageDoc.doubtTopic,
+      replyTo: messageDoc.replyTo,
       timestamp: messageDoc.timestamp ? new Date(messageDoc.timestamp) : new Date(),
       attachments: messageDoc.attachments || [],
     };
@@ -162,16 +163,21 @@ export class ReportsService {
           ? doc.message.timestamp.toISOString()
           : new Date(doc.message?.timestamp || Date.now()).toISOString();
 
+      const reporterName = userNamesMap.get(reportedBy) || 'Unknown User';
+      const senderName = userNamesMap.get(senderId) || 'Unknown User';
+
       return {
         id: String(doc._id),
         messageId: doc.messageId,
         conversationId: doc.conversationId,
         reportedBy,
-        reporterName: userNamesMap.get(reportedBy) || 'Unknown User',
-        senderName: userNamesMap.get(senderId) || 'Unknown User',
+        reporterName,
+        reportedByName: reporterName,
+        senderName,
         reason: doc.reason || undefined,
         status: doc.status,
         createdAt: createdAtIso,
+        reportedAt: createdAtIso,
         message: {
           messageId: doc.message?.messageId,
           conversationId: doc.message?.conversationId,
@@ -180,11 +186,13 @@ export class ReportsService {
           groupId: doc.message?.groupId,
           type: doc.message?.type,
           content: doc.message?.content || '',
+          text: doc.message?.content || '',
           heading: doc.message?.heading,
           isAnnouncement: !!doc.message?.isAnnouncement,
           isDoubt: !!doc.message?.isDoubt,
           doubtStatus: doc.message?.doubtStatus,
           doubtTopic: doc.message?.doubtTopic,
+          replyTo: doc.message?.replyTo,
           timestamp: timestampIso,
           attachments: doc.message?.attachments || [],
         },

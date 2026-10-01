@@ -8,4 +8,5 @@ export * from './doubts';
 export * from './media';
 export * from './pins';
 export * from './toast';
+export * from './reports';
 

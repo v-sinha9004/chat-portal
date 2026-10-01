@@ -7,6 +7,9 @@ interface UIState {
   isGroupModalOpen: boolean;
   openGroupModal: () => void;
   closeGroupModal: () => void;
+  activeView: 'chat' | 'reports';
+  openReportsView: () => void;
+  closeReportsView: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -16,5 +19,8 @@ export const useUIStore = create<UIState>((set) => ({
   isGroupModalOpen: false,
   openGroupModal: () => set({ isGroupModalOpen: true }),
   closeGroupModal: () => set({ isGroupModalOpen: false }),
+  activeView: 'chat',
+  openReportsView: () => set({ activeView: 'reports' }),
+  closeReportsView: () => set({ activeView: 'chat' }),
 }));
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { User, AuthUser } from '@/types';
 import { getInitials, getRoleBadgeClass } from '@/utils';
+import { useUIStore } from '@/store/useUIStore';
 
 interface CurrentUserCardProps {
   user: User | AuthUser | null;
@@ -17,6 +18,8 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const openReportsView = useUIStore((s) => s.openReportsView);
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -80,6 +83,19 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
                   >
                     <span className="dropdown-item-icon">👥</span>
                     <span className="dropdown-item-title">New Group</span>
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="dropdown-menu-item"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      openReportsView();
+                    }}
+                  >
+                    <span className="dropdown-item-icon">🚩</span>
+                    <span className="dropdown-item-title">Reported Messages</span>
                   </button>
                 )}
                 <button

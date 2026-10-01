@@ -95,3 +95,45 @@ export interface MessageUnpinnedSocketEvent {
   conversationId: string;
   messageId: string;
 }
+
+export interface ReportedMessageSnapshot {
+  messageId: string;
+  conversationId: string;
+  senderId: string;
+  recipientId?: string;
+  groupId?: string;
+  type: 'direct' | 'group';
+  content: string;
+  text?: string;
+  heading?: string;
+  replyTo?: ReplyToInfo;
+  isAnnouncement?: boolean;
+  isDoubt?: boolean;
+  doubtStatus?: 'OPEN' | 'RESOLVED';
+  doubtTopic?: string;
+  timestamp: string;
+  attachments?: AttachmentInfo[];
+}
+
+export interface ReportedMessageItem {
+  id: string;
+  messageId: string;
+  conversationId: string;
+  reportedBy: string;
+  reporterName?: string;
+  reportedByName?: string;
+  senderName?: string;
+  reason?: string;
+  status: 'PENDING' | 'REVIEWED' | 'DISMISSED' | string;
+  createdAt: string;
+  reportedAt?: string;
+  message: ReportedMessageSnapshot;
+}
+
+export interface ReportsListResponse {
+  status: string;
+  total: number;
+  page: number;
+  limit: number;
+  reports: ReportedMessageItem[];
+}

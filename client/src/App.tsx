@@ -1,6 +1,14 @@
 import { useEffect } from 'react';
-import { useAuthStore, useConversationState, useChatActions } from '@/store';
-import { AuthView, Sidebar, ChatArea, CreateGroupModal, GroupModal, ToastContainer } from '@/components';
+import { useAuthStore, useConversationState, useChatActions, useUIStore } from '@/store';
+import {
+  AuthView,
+  Sidebar,
+  ChatArea,
+  ReportedMessagesArea,
+  CreateGroupModal,
+  GroupModal,
+  ToastContainer,
+} from '@/components';
 import './App.css';
 
 function App() {
@@ -8,6 +16,10 @@ function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isAuthLoading = useAuthStore((s) => s.isLoading);
   const hydrateSession = useAuthStore((s) => s.hydrateSession);
+
+  const activeView = useUIStore((s) => s.activeView);
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+  const showReports = activeView === 'reports' && isAdmin;
 
   const { activeConversation } = useConversationState();
   const { fetchConversations, initSocket, reset: resetChat } = useChatActions();
@@ -47,11 +59,13 @@ function App() {
     return <AuthView />;
   }
 
+  const hasActiveScreen = Boolean(activeConversation || showReports);
+
   return (
     <>
-      <div className={`chat-app-container ${activeConversation ? 'has-active-chat' : 'no-active-chat'}`}>
+      <div className={`chat-app-container ${hasActiveScreen ? 'has-active-chat' : 'no-active-chat'}`}>
         <Sidebar />
-        <ChatArea />
+        {showReports ? <ReportedMessagesArea /> : <ChatArea />}
         <CreateGroupModal />
         <GroupModal />
       </div>

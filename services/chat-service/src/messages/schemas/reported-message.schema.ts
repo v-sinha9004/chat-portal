@@ -41,6 +41,21 @@ export class ReportedMessageSnapshot {
   @Prop()
   doubtTopic?: string;
 
+  @Prop({
+    type: {
+      messageId: { type: String, required: true },
+      senderId: { type: String, required: true },
+      text: { type: String, required: true },
+    },
+    _id: false,
+    required: false,
+  })
+  replyTo?: {
+    messageId: string;
+    senderId: string;
+    text: string;
+  };
+
   @Prop({ required: true })
   timestamp: Date;
 
