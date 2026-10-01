@@ -192,6 +192,17 @@
     width: 210px;
   }
 
+  .current-user-dropdown-menu {
+    width: max-content !important;
+    min-width: 0 !important;
+  }
+
+  .current-user-dropdown-menu .dropdown-menu-item {
+    padding: 8px 12px;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
   /* Responsive Create Group Modal */
   .modal-backdrop {
     padding: 10px;

@@ -414,6 +414,27 @@
   color: var(--text-muted);
 }
 
+.current-user-dropdown-menu {
+  width: max-content;
+  min-width: 0;
+  padding: 4px;
+}
+
+.current-user-dropdown-menu .dropdown-menu-item {
+  padding: 7px 12px;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.current-user-dropdown-menu .dropdown-item-icon {
+  font-size: 15px;
+}
+
+.current-user-dropdown-menu .dropdown-item-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
 /* Conversation Section Header */
 .conversation-section-header {
   padding: 10px 12px 4px;

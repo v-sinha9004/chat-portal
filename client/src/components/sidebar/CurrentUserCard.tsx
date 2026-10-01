@@ -68,7 +68,7 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
             </button>
 
             {isMenuOpen && (
-              <div className="action-dropdown-menu">
+              <div className="action-dropdown-menu current-user-dropdown-menu">
                 {onCreateGroup && (
                   <button
                     type="button"
@@ -79,10 +79,7 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
                     }}
                   >
                     <span className="dropdown-item-icon">👥</span>
-                    <div className="dropdown-item-text">
-                      <span className="dropdown-item-title">New Group</span>
-                      <span className="dropdown-item-desc">Create a group chat</span>
-                    </div>
+                    <span className="dropdown-item-title">New Group</span>
                   </button>
                 )}
                 <button
@@ -94,10 +91,7 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
                   }}
                 >
                   <span className="dropdown-item-icon">🚪</span>
-                  <div className="dropdown-item-text">
-                    <span className="dropdown-item-title">Sign Out</span>
-                    <span className="dropdown-item-desc">Log out of your account</span>
-                  </div>
+                  <span className="dropdown-item-title">Sign Out</span>
                 </button>
               </div>
             )}
@@ -131,8 +125,8 @@ export const CurrentUserCard: React.FC<CurrentUserCardProps> = ({
               {user.username
                 ? `@${user.username}`
                 : 'email' in user && user.email
-                ? user.email
-                : ''}
+                  ? user.email
+                  : ''}
             </span>
           </div>
         </div>
