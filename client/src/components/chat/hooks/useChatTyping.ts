@@ -31,6 +31,11 @@ export function useChatTyping({
     }
   }, [sendTypingStop]);
 
+  const clearInput = useCallback(() => {
+    setInputText('');
+    stopTyping();
+  }, [stopTyping]);
+
   // Handle typing input changes with 2.5s debounce and 3s heartbeat
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,5 +82,6 @@ export function useChatTyping({
     setInputText,
     handleInputChange,
     stopTyping,
+    clearInput,
   };
 }
