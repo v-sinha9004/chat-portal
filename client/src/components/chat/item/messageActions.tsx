@@ -13,7 +13,7 @@ export interface MessageActionItem {
 export interface BuildMessageActionsParams {
   message: ChatMessage;
   isPinned: boolean;
-  canManagePins: boolean;
+  canManagePins?: boolean;
   onInitiateReply: (message: ChatMessage) => void;
   onPinMessage: (message: ChatMessage) => Promise<void>;
   onUnpinMessage: (message: ChatMessage) => Promise<void>;
@@ -27,7 +27,6 @@ export interface BuildMessageActionsParams {
 export function getMessageActions({
   message,
   isPinned,
-  canManagePins,
   onInitiateReply,
   onPinMessage,
   onUnpinMessage,
@@ -54,40 +53,37 @@ export function getMessageActions({
       ),
       onClick: () => onInitiateReply(message),
     },
-  ];
-
-  if (canManagePins) {
-    actions.push({
+    {
       id: 'pin',
       label: isPinned ? 'Unpin message' : 'Pin message',
       icon: <PinIcon size={15} filled={isPinned} />,
       onClick: () => (isPinned ? onUnpinMessage(message) : onPinMessage(message)),
-    });
-  }
-
-  actions.push({
-    id: 'report',
-    label: 'Report',
-    danger: true,
-    icon: (
-      <svg
-        width="15"
-        height="15"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-        <line x1="4" y1="22" x2="4" y2="15" />
-      </svg>
-    ),
-    onClick: () => onReportMessage(message),
-  });
+    },
+    {
+      id: 'report',
+      label: 'Report',
+      danger: true,
+      icon: (
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+          <line x1="4" y1="22" x2="4" y2="15" />
+        </svg>
+      ),
+      onClick: () => onReportMessage(message),
+    },
+  ];
 
   return actions;
 }
+
 
 
