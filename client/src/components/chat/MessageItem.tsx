@@ -60,9 +60,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     ? 'doubt-row'
     : '';
 
-  // Mentee will not see delete option in group conversations
+  // Mentee will not see delete option in group conversations; in direct chat, only sender can delete
   const isMenteeInGroup = isGroup && currentUserRole.toUpperCase() === 'MENTEE';
-  const canDelete = !isMenteeInGroup;
+  const canDelete = isGroup ? !isMenteeInGroup : isMe;
 
   // Configurable actions list (DRY & easily extensible)
   const actions = useMemo(
