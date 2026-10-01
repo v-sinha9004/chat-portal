@@ -1,5 +1,6 @@
 import type { ChatSlice, MessageSlice } from './types';
 import type { ActiveConversation, ChatMessage, AttachmentInfo, ReplyToInfo } from '../../types';
+import { getDirectConversationId, getGroupConversationId } from '../../types';
 import {
   fetchDirectMessages,
   fetchGroupMessages,
@@ -538,5 +539,143 @@ export const createMessageSlice: ChatSlice<MessageSlice> = (set, get) => ({
         }
       }
     }
+  },
+
+  addIncomingMessage: (incomingMsg: ChatMessage) => {
+    set((state) => {
+      const existingIndex = state.messages.findIndex(
+        (m) =>
+          m.id === incomingMsg.id ||
+          (incomingMsg.clientMessageId &&
+            m.clientMessageId === incomingMsg.clientMessageId),
+      );
+
+      if (existingIndex !== -1) {
+        const nextMessages = [...state.messages];
+        nextMessages[existingIndex] = {
+          ...nextMessages[existingIndex],
+          ...incomingMsg,
+          status: 'sent',
+        };
+        return { messages: nextMessages };
+      }
+
+      if (state.hasNewerMessages) {
+        return {
+          unseenLiveCountWhileInHistory: state.unseenLiveCountWhileInHistory + 1,
+        };
+      }
+
+      return {
+        messages: [...state.messages, incomingMsg],
+      };
+    });
+  },
+
+  updateMessageDelivered: (messageId: string) => {
+    set((state) => ({
+      messages: state.messages.map((msg) => {
+        if (
+          msg.id === messageId &&
+          (msg.status === 'sent' || msg.status === 'sending' || !msg.status)
+        ) {
+          return { ...msg, status: 'delivered' };
+        }
+        return msg;
+      }),
+    }));
+  },
+
+  updatePartnerLastRead: (lastReadMessageId: string, conversationId?: string) => {
+    const myId = useAuthStore.getState().user?.id;
+    const currentConvo = get().activeConversation;
+    const expectedConvoId = currentConvo
+      ? currentConvo.type === 'direct'
+        ? myId
+          ? getDirectConversationId(myId, currentConvo.id)
+          : `direct:${currentConvo.id}`
+        : getGroupConversationId(currentConvo.id)
+      : null;
+
+    set((state) => ({
+      partnerLastReadMessageId: lastReadMessageId,
+      messages: state.messages.map((msg) => {
+        if (
+          (!msg.conversationId ||
+            msg.conversationId === conversationId ||
+            msg.conversationId === expectedConvoId) &&
+          msg.senderId === myId &&
+          lastReadMessageId &&
+          msg.id <= lastReadMessageId
+        ) {
+          return { ...msg, status: 'read' };
+        }
+        return msg;
+      }),
+    }));
+  },
+
+  updateGroupMemberLastRead: (
+    readerId: string,
+    lastReadMessageId: string,
+    groupId: string,
+  ) => {
+    const myId = useAuthStore.getState().user?.id;
+    const activeConvo = get().activeConversation;
+    if (!activeConvo || activeConvo.type !== 'group' || activeConvo.id !== groupId) {
+      return;
+    }
+
+    set((state) => {
+      const updatedGroupReadMap = {
+        ...state.groupMemberLastReadMap,
+        [readerId]: lastReadMessageId,
+      };
+
+      const activeGroup = activeConvo.group;
+      const allMemberIds =
+        activeGroup?.members?.map((m) => m.userId) || Object.keys(updatedGroupReadMap);
+      const otherMemberIds = allMemberIds.filter((id) => id !== myId);
+
+      return {
+        groupMemberLastReadMap: updatedGroupReadMap,
+        messages: state.messages.map((msg) => {
+          if (msg.senderId === myId && msg.status !== 'read') {
+            const allRead =
+              otherMemberIds.length > 0 &&
+              otherMemberIds.every((id) => {
+                const memberWatermark = updatedGroupReadMap[id];
+                return memberWatermark && msg.id <= memberWatermark;
+              });
+
+            if (allRead) {
+              return { ...msg, status: 'read' };
+            }
+          }
+          return msg;
+        }),
+      };
+    });
+  },
+
+  applyDoubtStatusUpdate: (
+    messageId: string,
+    status: 'OPEN' | 'RESOLVED',
+    details?: { resolvedBy?: string; resolvedByName?: string; resolvedAt?: string },
+  ) => {
+    set((state) => ({
+      messages: state.messages.map((msg) => {
+        if (msg.id === messageId) {
+          return {
+            ...msg,
+            doubtStatus: status,
+            resolvedBy: details?.resolvedBy,
+            resolvedByName: details?.resolvedByName,
+            resolvedAt: details?.resolvedAt,
+          };
+        }
+        return msg;
+      }),
+    }));
   },
 });

@@ -130,4 +130,48 @@ export const createPinSlice: ChatSlice<PinSlice> = (set, get) => ({
       activePinIndex: (state.activePinIndex - 1 + len) % len,
     }));
   },
+
+  handleSocketPin: (pin, conversationId) => {
+    const currentConvo = get().activeConversation;
+    if (!currentConvo) return;
+    const currentUserId = useAuthStore.getState().user?.id;
+    const activeConvoId =
+      currentConvo.type === 'direct'
+        ? currentUserId
+          ? getDirectConversationId(currentUserId, currentConvo.id)
+          : `direct:${currentConvo.id}`
+        : getGroupConversationId(currentConvo.id);
+
+    if (conversationId === activeConvoId) {
+      set((state) => {
+        const existingFiltered = state.pinnedMessages.filter(
+          (p) => p.messageId !== pin.messageId,
+        );
+        const updated = [pin, ...existingFiltered].slice(0, 5);
+        return { pinnedMessages: updated, activePinIndex: 0 };
+      });
+    }
+  },
+
+  handleSocketUnpin: (messageId, conversationId) => {
+    const currentConvo = get().activeConversation;
+    if (!currentConvo) return;
+    const currentUserId = useAuthStore.getState().user?.id;
+    const activeConvoId =
+      currentConvo.type === 'direct'
+        ? currentUserId
+          ? getDirectConversationId(currentUserId, currentConvo.id)
+          : `direct:${currentConvo.id}`
+        : getGroupConversationId(currentConvo.id);
+
+    if (conversationId === activeConvoId) {
+      set((state) => {
+        const updated = state.pinnedMessages.filter(
+          (p) => p.messageId !== messageId,
+        );
+        const nextIndex = Math.min(state.activePinIndex, Math.max(0, updated.length - 1));
+        return { pinnedMessages: updated, activePinIndex: nextIndex };
+      });
+    }
+  },
 });

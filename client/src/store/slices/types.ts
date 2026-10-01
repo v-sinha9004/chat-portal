@@ -8,6 +8,7 @@ import type {
   GroupPresence,
   PinnedMessage,
   AttachmentInfo,
+  UserTypingEvent,
 } from '../../types';
 
 // ==========================================
@@ -24,6 +25,10 @@ export interface PinSlice {
   setActivePinIndex: (index: number) => void;
   nextPin: () => void;
   prevPin: () => void;
+
+  // Domain socket reactions
+  handleSocketPin: (pin: PinnedMessage, conversationId: string) => void;
+  handleSocketUnpin: (messageId: string, conversationId: string) => void;
 }
 
 // ==========================================
@@ -37,6 +42,12 @@ export interface PresenceSlice {
 
   sendTypingStart: () => void;
   sendTypingStop: () => void;
+
+  // Domain socket reactions
+  clearTypingUser: (convKey: string, userId: string) => void;
+  handleTypingEvent: (event: UserTypingEvent) => void;
+  handleUserPresenceChange: (userId: string, isOnline: boolean, lastSeen?: string | null) => void;
+  handleGroupPresenceChange: (groupId: string, userId: string, isOnline: boolean) => void;
 }
 
 // ==========================================
@@ -51,6 +62,10 @@ export interface UnreadSlice {
 
   getConversationUnreadCount: (conversationId: string) => number;
   markConversationRead: (conversationId: string, lastReadMessageId?: string) => void;
+
+  // Domain socket reactions
+  incrementUnread: (convoId: string, entityId: string, isGroup: boolean) => void;
+  applyReadAck: (conversationId: string) => void;
 }
 
 // ==========================================
@@ -106,6 +121,17 @@ export interface MessageSlice {
     messageId: string,
     status: 'OPEN' | 'RESOLVED',
   ) => Promise<void>;
+
+  // Domain socket reactions
+  addIncomingMessage: (msg: ChatMessage) => void;
+  updateMessageDelivered: (messageId: string) => void;
+  updatePartnerLastRead: (lastReadMessageId: string, conversationId?: string) => void;
+  updateGroupMemberLastRead: (readerId: string, lastReadMessageId: string, groupId: string) => void;
+  applyDoubtStatusUpdate: (
+    messageId: string,
+    status: 'OPEN' | 'RESOLVED',
+    details?: { resolvedBy?: string; resolvedByName?: string; resolvedAt?: string },
+  ) => void;
 }
 
 // ==========================================

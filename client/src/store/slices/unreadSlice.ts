@@ -55,4 +55,48 @@ export const createUnreadSlice: ChatSlice<UnreadSlice> = (set, get) => ({
       };
     });
   },
+
+  incrementUnread: (convoId: string, entityId: string, isGroup: boolean) => {
+    set((state) => {
+      const nextCounts = {
+        ...state.unreadCountsByConversation,
+        [convoId]: (state.unreadCountsByConversation[convoId] || 0) + 1,
+      };
+      if (isGroup) {
+        const nextGroups = new Set(state.unreadGroupIds);
+        nextGroups.add(entityId);
+        return { unreadCountsByConversation: nextCounts, unreadGroupIds: nextGroups };
+      } else {
+        const nextUsers = new Set(state.unreadUserIds);
+        nextUsers.add(entityId);
+        return { unreadCountsByConversation: nextCounts, unreadUserIds: nextUsers };
+      }
+    });
+  },
+
+  applyReadAck: (conversationId: string) => {
+    const currentUserId = useAuthStore.getState().user?.id;
+    set((state) => {
+      const nextCounts = {
+        ...state.unreadCountsByConversation,
+        [conversationId]: 0,
+      };
+      const nextUsers = new Set(state.unreadUserIds);
+      const nextGroups = new Set(state.unreadGroupIds);
+
+      if (conversationId.startsWith('direct:') && currentUserId) {
+        const parts = conversationId.slice(7).split(':');
+        const partner = parts.find((id) => id !== currentUserId);
+        if (partner) nextUsers.delete(partner);
+      } else if (conversationId.startsWith('group:')) {
+        nextGroups.delete(conversationId.slice(6));
+      }
+
+      return {
+        unreadCountsByConversation: nextCounts,
+        unreadUserIds: nextUsers,
+        unreadGroupIds: nextGroups,
+      };
+    });
+  },
 });
