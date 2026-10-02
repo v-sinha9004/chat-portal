@@ -2,6 +2,8 @@
 
 A scalable, multi-tenant real-time chat application built with a microservices architecture on NestJS, Socket.IO, Redis, PostgreSQL, MongoDB, and React with TypeScript.
 
+🚀 **Live Demo:** [https://chat-portal-gamma.vercel.app](https://chat-portal-gamma.vercel.app/)
+
 ---
 
 ## Tech Stack
@@ -9,7 +11,7 @@ A scalable, multi-tenant real-time chat application built with a microservices a
 | Layer | Technology |
 | --- | --- |
 | **Frontend** | React 19, TypeScript, Vite, Vanilla CSS |
-| **Backend Framework** | NestJS (Express adapter) |
+| **Backend Framework** | NestJS |
 | **API Gateway** | NestJS HTTP reverse proxy & WebSocket upgrade routing (`http-proxy-middleware`) |
 | **Real-time Engine** | Socket.IO with `@socket.io/redis-adapter` for horizontal multi-instance scaling |
 | **Relational Data** | PostgreSQL 16 (DBs for Auth & Users, managed via Prisma ORM) |
@@ -158,10 +160,10 @@ cp .env.example .env
 #### 2. Launch Containers
 
 ##### Option A: Full-Stack (All Microservices + Databases)
-Builds and launches all backend microservices, API Gateway, reverse proxy, PostgreSQL, MongoDB, Redis, and MinIO in detached mode:
+Builds and launches the frontend client (`http://localhost:8080`), API Gateway (`http://localhost:3000`), all backend microservices, PostgreSQL, MongoDB, Redis, and MinIO in detached mode:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
 > **Note:** Database migrations and Prisma schema sync (`npx prisma db push`) execute automatically upon container startup for both `auth-service` and `user-service`.
@@ -177,18 +179,25 @@ docker compose up -d
 
 ```bash
 # View aggregated live logs across all containers (Full-Stack)
-docker compose -f docker-compose.prod.yml logs -f
+docker compose -f docker-compose.local.yml logs -f
 
 # Check status of running containers
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.local.yml ps
 # Or for local infrastructure:
 docker compose ps
 
 # Stop and remove all containers
-docker compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.local.yml down
 # Or for local infrastructure:
 docker compose down
 ```
+
+---
+
+## Deployment
+
+- **Frontend**: Deployed on **[Vercel](https://chat-portal-gamma.vercel.app/)** with automated continuous deployment.
+- **Backend Services**: Hosted on **AWS** with infrastructure fully provisioned and managed via **Terraform** (`terraform/` directory), orchestrating containerized microservices, API Gateway, databases, cache, and object storage.
 
 ---
 
