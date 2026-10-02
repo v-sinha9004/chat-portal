@@ -5,6 +5,7 @@ import {
   Patch,
   Body,
   Param,
+  Headers,
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
@@ -29,10 +30,14 @@ export class UsersController {
   /**
    * List all users
    * GET /api/users
+   * If requester is a mentee, excludes other mentees.
    */
   @Get()
-  async findAll() {
-    return this.usersService.findAll();
+  async findAll(
+    @Headers('x-user-role') requesterRole?: string,
+    @Headers('x-user-id') requesterId?: string,
+  ) {
+    return this.usersService.findAll(requesterRole, requesterId);
   }
 
   /**

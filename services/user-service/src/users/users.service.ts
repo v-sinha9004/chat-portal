@@ -58,8 +58,15 @@ export class UsersService {
     return user;
   }
 
-  async findAll(): Promise<SafeUser[]> {
+  async findAll(requesterRole?: string, requesterId?: string): Promise<SafeUser[]> {
+    const where: Prisma.UserWhereInput = {};
+
+    if (requesterRole?.toUpperCase() === 'MENTEE') {
+      where.role = { not: Role.MENTEE };
+    }
+
     return this.prisma.user.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       select: USER_SAFE_SELECT,
       orderBy: { createdAt: 'desc' },
     });

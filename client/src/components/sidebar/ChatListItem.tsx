@@ -94,7 +94,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
           ) : null}
         </div>
 
-        {isTyping ? (
+        {isTyping && (
           <p className="user-typing-indicator-sidebar">
             <span className="typing-dots mini">
               <span className="typing-dot" />
@@ -103,14 +103,6 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
             </span>
             <span>typing...</span>
           </p>
-        ) : isGroup ? (
-          item.group.description ? (
-            <p className="user-bio">{item.group.description}</p>
-          ) : null
-        ) : item.user.bio ? (
-          <p className="user-bio">{item.user.bio}</p>
-        ) : (
-          null
         )}
       </div>
     </div>

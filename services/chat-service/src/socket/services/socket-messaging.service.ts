@@ -5,6 +5,7 @@ import { SocketService } from '../socket.service';
 import { ChatQueueProducer } from '../../queue/chat-queue.producer';
 import { PresenceService } from '../../presence/presence.service';
 import { ReadTrackingService } from '../../read-tracking/read-tracking.service';
+import { UserServiceClient } from '../../clients/user-service.client';
 import {
   AuthenticatedSocket,
   DirectMessagePayload,
@@ -29,6 +30,7 @@ export class SocketMessagingService {
     private readonly chatQueueProducer: ChatQueueProducer,
     private readonly presenceService: PresenceService,
     private readonly readTrackingService: ReadTrackingService,
+    private readonly userServiceClient: UserServiceClient,
   ) {}
 
   async handleSendDirectMessage(
@@ -49,6 +51,17 @@ export class SocketMessagingService {
         status: 'error',
         message: 'RecipientId and either message or attachments are required',
       };
+    }
+
+    const senderRole = (client.data.user?.role || '').toUpperCase();
+    if (senderRole === 'MENTEE') {
+      const recipient = await this.userServiceClient.getUserById(recipientId);
+      if (recipient && (recipient.role || '').toUpperCase() === 'MENTEE') {
+        return {
+          status: 'error',
+          message: 'Mentees cannot chat directly with other mentees.',
+        };
+      }
     }
 
     const senderId = client.data.userId || client.id;

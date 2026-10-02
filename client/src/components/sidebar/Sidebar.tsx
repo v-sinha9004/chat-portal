@@ -40,9 +40,19 @@ export const Sidebar: React.FC = () => {
   const currentUserId = authUser?.id || null;
   const foundUser = users.find((u) => u.id === currentUserId);
   const activeUser = foundUser || authUser || null;
-  const contacts = users.filter((u) => u.id !== currentUserId);
+  const userRole = (activeUser?.role || authUser?.role || '').toUpperCase();
+  const isAdmin = userRole === 'ADMIN';
+  const isMentee = userRole === 'MENTEE';
+
+  const contacts = useMemo(() => {
+    return users.filter((u) => {
+      if (u.id === currentUserId) return false;
+      if (isMentee && (u.role || '').toUpperCase() === 'MENTEE') return false;
+      return true;
+    });
+  }, [users, currentUserId, isMentee]);
+
   const totalConversations = contacts.length + groups.length;
-  const isAdmin = (activeUser?.role || authUser?.role)?.toUpperCase() === 'ADMIN';
 
   // Combine groups and direct chat contacts into a single list
   const chatList = useMemo<ChatListItemData[]>(() => {
