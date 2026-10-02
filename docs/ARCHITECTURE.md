@@ -83,6 +83,9 @@
 └────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+> **Scalability Note (Horizontal Scaling via Redis Adapter)**:
+> Because the **Chat Service** handles ~80% of active traffic (persistent WebSocket connections, heartbeats, and live message fan-outs), it is architected for horizontal scalability across multiple replica nodes. Using `@socket.io/redis-adapter`, events are seamlessly synchronized across clustered nodes via Redis Pub/Sub — enabling users connected to different Chat Service instances to exchange messages with zero cross-node communication friction. Furthermore, write operations are completely decoupled into BullMQ background workers, ensuring the WebSocket event loop remains ultra-responsive under high concurrent load. [may need some work around edge cases to handle]
+
 ---
 
 ### Microservices Summary
