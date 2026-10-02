@@ -339,15 +339,18 @@ chat-portal/
 │   │   ├── components/         # Chat, auth, doubts, pins, modals, media
 │   │   ├── hooks/              # Custom React hooks
 │   │   ├── services/           # Socket service, REST API clients
-│   │   └── store/              # State management
+│   │   └── store/              # Zustand state management
 ├── services/
 │   ├── api-gateway/            # Reverse proxy, auth guards, rate limiting
-│   ├── auth-service/           # User authentication, JWT tokens, bcrypt
-│   ├── user-service/           # User profiles, groups, memberships
+│   ├── auth-service/           # User authentication, JWT tokens, bcrypt, Prisma
+│   ├── user-service/           # User profiles, groups, memberships, Prisma
 │   ├── chat-service/           # Real-time WebSocket gateway, chat REST APIs
 │   ├── message-worker/         # BullMQ queue consumer for MongoDB persistence
 │   └── media-service/          # MinIO / S3 file upload handler
-├── scripts/                    # Database init and testing scripts
+├── scripts/                    # Database init, seeding, and E2E test scripts
 ├── terraform/                  # Cloud infrastructure as code
-└── docker-compose.yml          # Local infrastructure (Postgres, Mongo, Redis, MinIO)
+├── docker-compose.yml          # Backing infrastructure (Postgres, Mongo, Redis, MinIO)
+├── docker-compose.local.yml    # Local full-stack container compose
+├── docker-compose.prod.yml     # Production full-stack compose (Services, DBs, Caddy)
+└── .env.example                # Root environment configuration template
 ```
