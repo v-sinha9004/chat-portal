@@ -138,9 +138,9 @@ The frontend will be running at `http://localhost:5173` and the API Gateway at `
 
 ---
 
-### Option 2: Docker Installation (Full-Stack / Production)
+### Option 2: Docker Installation
 
-Run the entire stack (databases, microservices, API Gateway, and reverse proxy) containerized via Docker Compose.
+Run using Docker Compose — choose between spinning up the **Full-Stack (all services + databases)** or **Infrastructure Only (databases & backing services)**.
 
 #### Prerequisites
 
@@ -155,29 +155,39 @@ Copy the root environment template:
 cp .env.example .env
 ```
 
-#### 2. Build & Launch All Containers
+#### 2. Launch Containers
 
-Build and run all services and databases in detached mode:
+##### Option A: Full-Stack (All Microservices + Databases)
+Builds and launches all backend microservices, API Gateway, reverse proxy, PostgreSQL, MongoDB, Redis, and MinIO in detached mode:
 
 ```bash
-npm run compose:prod
-# Or directly:
-# docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 > **Note:** Database migrations and Prisma schema sync (`npx prisma db push`) execute automatically upon container startup for both `auth-service` and `user-service`.
 
+##### Option B: Local Infrastructure Only (Databases, Cache & Storage)
+Launches only the backing infrastructure (PostgreSQL 16, MongoDB 7, Redis 7, and MinIO) using `docker-compose.yml`:
+
+```bash
+docker compose up -d
+```
+
 #### 3. Manage & Monitor
 
 ```bash
-# View aggregated live logs across all containers
-npm run compose:prod:logs
+# View aggregated live logs across all containers (Full-Stack)
+docker compose -f docker-compose.prod.yml logs -f
 
 # Check status of running containers
 docker compose -f docker-compose.prod.yml ps
+# Or for local infrastructure:
+docker compose ps
 
 # Stop and remove all containers
-npm run compose:prod:down
+docker compose -f docker-compose.prod.yml down
+# Or for local infrastructure:
+docker compose down
 ```
 
 ---
@@ -225,9 +235,11 @@ The real-time layer is implemented with **NestJS WebSockets** and **Socket.IO**,
 | `presence:user:<userId>` | Presence Subscription Room | Clients subscribe to this room to receive real-time presence updates (`user_presence_changed`) for a specific user. |
 | `presence:group:<groupId>` | Group Presence Room | Clients subscribe to this room to receive member presence and typing notifications (`group_presence_changed`, `user_typing`) within a group. |
 
-> **Design Choice**: Rather than having sockets join group rooms directly (which requires heavy socket room joins/leaves when group membership changes across clustered servers), group messages are routed using **targeted user room delivery**:
-> 1. The gateway queries member IDs for the group from `user-service`.
-> 2. `chat-service` broadcasts the event directly to `user:<memberId>` rooms across the Redis cluster.
+> **How Group Messaging Works (Simple Explanation)**:
+> Instead of having every client socket join dozens of different group rooms (which gets messy and slow to keep in sync across servers):
+> 1. Each user only joins **one** room: their own personal room (`user:<userId>`).
+> 2. When someone sends a message to a group, `chat-service` fetches the list of members in that group from `user-service`.
+> 3. The server then pushes the message directly to each member's personal room (`user:<memberId>`).
 
 ---
 
@@ -285,47 +297,36 @@ The real-time layer is implemented with **NestJS WebSockets** and **Socket.IO**,
 
 ### Features Completed
 
-- [x] **Microservices Architecture**: Clean separation between API Gateway, Auth, User, Chat, Media, and Message Worker services.
-- [x] **Authentication & RBAC**:
-  - JWT Access & Refresh token rotation with secure HTTP-only cookies and header fallbacks.
-  - Role-based permissions supporting `MENTOR`, `MENTEE`, and `ADMIN`.
-  - Mentee-to-Mentee direct chat restrictions (mentees can only DM mentors).
-- [x] **Real-Time Direct & Group Messaging**:
-  - Socket.IO with Redis Adapter cluster support.
-  - Asynchronous durable persistence via BullMQ worker to MongoDB.
-  - Multi-tab synchronization and offline delivery detection.
-- [x] **Delivery & Read Watermarks**:
-  - Delivered receipt (`message_delivered`) and read receipt (`messages_read`) tracking.
-  - In-memory sub-millisecond unread counts powered by Redis hashes.
-- [x] **Presence & Activity Tracking**:
-  - Online/offline indicator with 10-second grace period preventing disconnect flickering.
-  - `lastSeenAt` tracking stored in Redis and persisted to PostgreSQL.
-  - Real-time typing indicators with auto-cancellation timeouts.
-- [x] **Doubt Resolution System**:
-  - Messages flaggable as doubts with topic tags.
-  - Filterable Doubts view (Open vs. Resolved).
-  - One-click resolution status toggling with real-time sync across participants.
-- [x] **Announcements & Broadcasts**:
-  - Mentor-only announcement composer with bold headings.
-  - Dedicated visual treatment in chat streams.
-- [x] **Pinned Messages Carousel**:
-  - Pin important messages and announcements to the top banner.
-  - Pinned carousel with instant jump-to-message navigation.
-- [x] **Media & File Attachments**:
-  - Direct S3/MinIO upload flow via `media-service`.
-  - Image preview, lightbox dialog, and document file download cards.
-- [x] **Message Moderation**:
-  - Soft deletion of messages.
-  - Reporting messages with reason categorization and admin review capabilities.
-- [x] **Search & Chat Filter**:
-  - Search conversation history and filter active chats by Mentors, Groups, and Doubts.
+- [x] **Authentication & Roles**: Sign up and log in (email + password, JWT) supporting Admin, Mentor, and Mentee roles.
+- [x] **Mentorship Groups**: Program and batch groups with admin group creation.
+- [x] **Real-Time Messaging**: WebSockets (Socket.IO / NestJS Gateway) with instant delivery, sender role badges, and timestamps.
+- [x] **Older Messages on Scroll**: Paginated history loading in batches on upward scroll and durable database persistence.
+- [x] **Typing Indicator**: Live typing notifications.
+- [x] **Online/Offline Status**: Real-time user presence tracking.
+- [x] **One-to-One Chat**: Private mentor–mentee conversations with mentee-to-mentee private chats restricted by default.
+- [x] **Announcements**: Mentor tools to broadcast highlighted messages and notices distinct from casual chat.
+- [x] **Pin Messages**: Keep important links and schedules pinned to the top of a group.
+- [x] **Doubts**: Mentee marks a message as a doubt; mentor marks it resolved.
+- [x] **Reply to Message**: Quote and reply directly to a specific message, like WhatsApp.
+- [x] **File Sharing**: Share images and PDFs (max 5 MB) with inline preview for images and download links for PDFs.
+- [x] **Message Deletion**: Users delete their own messages; mentors/admins delete any message in their groups.
+- [x] **Read Receipts**: Real-time read status watermarks and delivery tracking.
+- [x] **Unread Count**: Unread message count badges per chat in the conversation list.
+- [x] **Report Message**: Report a message; reported messages appear on an admin screen.
+- [x] **Historical Message Access**: Late joiners and new members can read earlier group discussions.
+- [x] **Privacy & Data Protection**: No phone numbers or personal emails exposed in UI or API responses.
+- [x] **Role-Based Access Control**: Each role sees and interacts only with its permitted groups and chats.
+- [x] **Deployed Live Link**: Cloud deployment with live accessible URL.
+
 
 ### Features Pending / Roadmap
 
-- [ ] **Message Reactions**: Quick emoji reactions on individual message bubbles.
-- [ ] **Threaded Message Replies**: Nested side-panel comment threads for deep question discussions.
-- [ ] **Push Notifications**: Web Push / FCM integration for background offline alerts.
-- [ ] **Kafka Event Bus**: Transitioning from BullMQ to Apache Kafka for high-throughput enterprise event streams.
+- [ ] **Emoji Reactions**: Emoji reactions on individual message bubbles.
+- [ ] **Edit a Message**: Edit sent messages within a 5-minute window.
+- [ ] **Message Search**: Message and keyword search within a group.
+- [ ] **WhatsApp Import**: Upload exported chat (`.txt`) and convert it into a group's history.
+- [ ] **AI Summary**: AI summary of unresolved doubts for the mentor.
+- [ ] **Browser Push Notifications**: Web push notifications for background offline alerts.
 
 ---
 
