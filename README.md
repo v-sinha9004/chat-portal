@@ -45,41 +45,6 @@ Copy the root environment configuration template:
 cp .env.example .env
 ```
 
-Ensure default environment values match your local setup:
-
-```dotenv
-# PostgreSQL
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=chat_portal
-POSTGRES_PORT=5432
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/chat_portal?schema=public
-
-# MongoDB
-MONGO_INITDB_ROOT_USERNAME=admin
-MONGO_INITDB_ROOT_PASSWORD=password
-MONGO_INITDB_DATABASE=chat_portal
-MONGO_PORT=27017
-MONGODB_URI=mongodb://admin:password@localhost:27017/chat_portal?authSource=admin
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# MinIO / Object Storage
-MINIO_PORT=9000
-MINIO_CONSOLE_PORT=9001
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=minioadmin
-STORAGE_ENDPOINT=http://localhost:9000
-STORAGE_REGION=us-east-1
-STORAGE_ACCESS_KEY=minioadmin
-STORAGE_SECRET_KEY=minioadmin
-STORAGE_BUCKET=chat-portal-attachments
-STORAGE_PUBLIC_URL=http://localhost:9000/chat-portal-attachments
-STORAGE_FORCE_PATH_STYLE=true
-```
-
 #### 2. Start Infrastructure via Docker Compose
 
 Launch PostgreSQL, MongoDB, Redis, and MinIO:
@@ -244,25 +209,24 @@ The real-time layer is implemented with **NestJS WebSockets** and **Socket.IO**,
 | `presence:user:<userId>` | Presence Subscription Room | Clients subscribe to this room to receive real-time presence updates (`user_presence_changed`) for a specific user. |
 | `presence:group:<groupId>` | Group Presence Room | Clients subscribe to this room to receive member presence and typing notifications (`group_presence_changed`, `user_typing`) within a group. |
 
-> **How Group Messaging Works (Simple Explanation)**:
-> Instead of having every client socket join dozens of different group rooms (which gets messy and slow to keep in sync across servers):
-> 1. Each user only joins **one** room: their own personal room (`user:<userId>`).
-> 2. When someone sends a message to a group, `chat-service` fetches the list of members in that group from `user-service`.
-> 3. The server then pushes the message directly to each member's personal room (`user:<memberId>`).
+### Design Rationale: Rooms & Event Architecture
+
+1. **User-Centric Private Room Model (`user:<userId>`)**:
+   - Rather than forcing sockets to join and leave dozens of dynamic group rooms, every user socket connects to **only one** permanent private room: `user:<userId>`.
+   - All inbound events — direct messages, group messages, delivery acknowledgments, read watermarks, and multi-device/multi-tab sync — are routed directly to the recipient's user room.
+   - **Why?** This eliminates cross-server room synchronization overhead in Redis whenever group membership changes, minimizes memory consumption, and ensures multi-tab synchronization works out of the box.
+
+2. **Dynamic Group Fanout**:
+   - When a user sends a message to a group, `chat-service` fetches the group member list from `user-service` and emits the event across the Redis adapter directly to `user:<memberId>` rooms.
+   - Group membership changes in the database take effect immediately without requiring client socket reconnects or room joins/leaves.
+
+3. **On-Demand Ephemeral Presence Rooms**:
+   - `presence:user:<userId>` and `presence:group:<groupId>` operate as lightweight subscription rooms.
+   - Clients subscribe only when actively viewing a direct chat or group, preventing broadcast spam to idle users across the platform.
 
 ---
 
-### 3. Presence Architecture & Disconnect Grace Period
-
-- **Multi-Device / Multi-Tab Support**: Active sockets per user are tracked in Redis Sorted Sets (`presence:sockets:<userId>`) with millisecond timestamps and a 15-second heartbeat cadence.
-- **10-Second Tunnel/Grace Period**: When a user's last socket disconnects (e.g., page refresh, network fluctuation, tunnel switch), a **10-second grace timer** is initiated.
-  - If the user reconnects within 10 seconds, the grace timer is aborted and the user remains `isOnline: true` with zero flicker.
-  - If the timer expires without reconnection, the user is transitioned to `isOnline: false` with a `lastSeen` timestamp, which is broadcasted and asynchronously persisted to PostgreSQL via `user-service`.
-- **Immediate Offline on Logout**: When a user clicks **Logout**, the client emits `user_logout`, bypassing the 10-second grace period and marking the user offline immediately.
-
----
-
-### 4. WebSocket Event Reference
+### 3. WebSocket Event Reference
 
 #### Client-to-Server (Emitters)
 

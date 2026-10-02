@@ -26,37 +26,46 @@
 ### Service Decomposition
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                CLIENT TIER (React / Vite)                              │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               🔀 API GATEWAY (Port 3000)                               │
-│                                                                                        │
-│  • Edge Authentication: Stateless JWT signature & expiration check                     │
-│  • Rate Limiting: Sliding-window rate limiter per IP / User                            │
-│  • Request Logging & Correlation ID propagation (`x-correlation-id`, `x-user-id`)      │
-│  • Transparent Reverse Proxying for REST endpoints                                     │
-│  • WebSocket Upgrade & Proxying to Chat Service (`/socket.io`)                         │
-└───────┬──────────────┬──────────────┬────────────────────────┬─────────────┬───────────┘
-        │              │              │                        │             │
-        ▼              ▼              ▼                        ▼             ▼
-  ┌───────────┐  ┌───────────┐  ┌───────────┐            ┌───────────┐ ┌───────────┐
-  │  🔐 AUTH   │  │  👤 USER   │  │  💬 CHAT │            │ 📁 MEDIA  │ │ ⚙️ WORKER  │
-  │  SERVICE  │  │  SERVICE  │  │  SERVICE  │            │  SERVICE  │ │  SERVICE  │
-  │  Port 3001│  │  Port 3002│  │  Port 3003│            │  Port 3005│ │  Port 3004│
-  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘            └─────┬─────┘ └─────┬─────┘
-        │              │              │                        │             │
-        │              │              ├──────────┐             │             │
-        ▼              ▼              ▼          ▼             ▼             ▼
-  ┌───────────┐  ┌───────────┐  ┌───────────┐ ┌─────────┐ ┌──────────┐ ┌───────────┐
-  │PostgreSQL │  │PostgreSQL │  │   Redis   │ │ BullMQ  │ │MinIO / S3│ │  MongoDB  │
-  │(auth_db)  │  │ (user_db) │  │ (Presence/│ │ (Job    │ │ (Media   │ │ (chat_db) │
-  │           │  │           │  │  Adapter) │ │  Queues)│ │  Bucket) │ │           │
-  └───────────┘  └───────────┘  └───────────┘ └────┬────┘ └──────────┘ └─────▲─────┘
-                                                   │                         │
-                                                   └─────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT TIER (React / Vite)                             │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                            API GATEWAY (Port 3000)                               │
+│                                                                                  │
+│  • Edge Authentication: Stateless JWT signature & expiration check               │
+│  • Rate Limiting: Sliding-window rate limiter per IP / User                      │
+│  • Transparent Reverse Proxying for REST endpoints                               │
+│  • WebSocket Upgrade & Proxying to Chat Service (/socket.io)                     │
+└───────┬───────────────────┬────────────────────┬──────────────────┬──────────────┘
+        │                   │                    │                  │
+        ▼                   ▼                    ▼                  ▼
+  ┌───────────┐       ┌───────────┐        ┌───────────┐      ┌───────────┐
+  │   AUTH    │       │   USER    │        │   CHAT    │      │   MEDIA   │
+  │  SERVICE  │       │  SERVICE  │        │  SERVICE  │      │  SERVICE  │
+  │(Port 3003)│       │(Port 3002)│        │(Port 3001)│      │(Port 3005)│
+  └─────┬─────┘       └─────┬─────┘        └─────┬─────┘      └─────┬─────┘
+        │                   │                    │                  │
+        │                   │             ┌──────┴──────┐           │
+        ▼                   ▼             ▼             ▼           ▼
+  ┌───────────┐       ┌───────────┐ ┌───────────┐ ┌───────────┐┌───────────┐
+  │PostgreSQL │       │PostgreSQL │ │   Redis   │ │  BullMQ   ││MinIO / S3 │
+  │ (auth_db) │       │ (user_db) │ │(Presence) │ │ (Queues)  ││ (Bucket)  │
+  └───────────┘       └───────────┘ └───────────┘ └─────┬─────┘└───────────┘
+                                                        │
+                                                        ▼
+                                                  ┌───────────┐
+                                                  │  WORKER   │
+                                                  │  SERVICE  │
+                                                  │(Port 3004)│
+                                                  └─────┬─────┘
+                                                        │ (Write)
+                                                        ▼
+                                                  ┌───────────┐
+                                                  │  MongoDB  │
+                                                  │ (chat_db) │
+                                                  └───────────┘
 ```
 
 ### Why This Decomposition?
@@ -73,6 +82,20 @@
 │ Media Service         │ High Network Bandwidth  │ ~5% of Req    │ Presigned URLs, S3 uploads   │
 └────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+### Microservices Summary
+
+| Service | Port | Primary Responsibility |
+| :--- | :--- | :--- |
+| **API Gateway** | `3000` | Edge reverse proxy, stateless JWT validation, IP rate limiting, and WebSocket proxying. |
+| **Chat Service** | `3001` | WebSocket gateway, real-time message routing, user presence tracking, and chat REST APIs. |
+| **User Service** | `3002` | Manages user profiles, role-based access control (Admin/Mentor/Mentee), and program group memberships. |
+| **Auth Service** | `3003` | User registration, credential hashing with bcrypt, JWT token generation, and refresh token rotation. |
+| **Message Worker** | `3004` | Asynchronous worker consuming BullMQ queues to persist messages and read receipts into MongoDB. |
+| **Media Service** | `3005` | Generates presigned upload URLs and handles secure file attachment storage with MinIO/S3. |
+| **Frontend Client** | `5173 / 8080` | React 19 single-page application providing real-time chat, doubt resolution, and media viewing. |
 
 ---
 
