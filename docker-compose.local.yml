@@ -1,0 +1,271 @@
+# ==============================================================================
+# Local Full-Stack Docker Compose
+# Runs EVERYTHING with a single command:
+#   docker compose -f docker-compose.local.yml up -d --build
+#
+# Services included:
+#   - Frontend (React SPA on http://localhost:8080)
+#   - API Gateway (NestJS on http://localhost:3000)
+#   - Auth Microservice (http://localhost:3003)
+#   - User Microservice (http://localhost:3002)
+#   - Chat Microservice (http://localhost:3001)
+#   - Media Microservice (http://localhost:3005)
+#   - Message Worker (http://localhost:3004)
+#   - MinIO Object Storage (http://localhost:9000, console: http://localhost:9001)
+#   - PostgreSQL (port 5432)
+#   - MongoDB (port 27017)
+#   - Redis (port 6379)
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. DATABASES & LOCAL INFRASTRUCTURE
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: chat-portal-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-chat_portal}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sh:/docker-entrypoint-initdb.d/init-postgres.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-chat_portal}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chat-network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: chat-portal-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-chat_portal}
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chat-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: chat-portal-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chat-network
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: chat-portal-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    networks:
+      - chat-network
+
+  # ----------------------------------------------------------------------------
+  # 2. MICROSERVICES
+  # ----------------------------------------------------------------------------
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: chat-portal-user-service
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/chat_portal_users?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - chat-network
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: chat-portal-auth-service
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/chat_portal_auth?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-chat-portal-jwt-access-secret-key-32chars}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-chat-portal-jwt-refresh-secret-key-32chars}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      USER_SERVICE_URL: http://user-service:3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    networks:
+      - chat-network
+
+  chat-service:
+    build:
+      context: ./services/chat-service
+      dockerfile: Dockerfile
+    container_name: chat-portal-chat-service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-chat-portal-jwt-access-secret-key-32chars}
+      USER_SERVICE_URL: http://user-service:3002
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-password}@mongodb:27017/chat_portal?authSource=admin
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    networks:
+      - chat-network
+
+  message-worker:
+    build:
+      context: ./services/message-worker
+      dockerfile: Dockerfile
+    container_name: chat-portal-message-worker
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-password}@mongodb:27017/chat_portal?authSource=admin
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chat-network
+
+  media-service:
+    build:
+      context: ./services/media-service
+      dockerfile: Dockerfile
+    container_name: chat-portal-media-service
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+      NODE_ENV: production
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_REGION: us-east-1
+      STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      STORAGE_BUCKET: chat-portal-attachments
+      STORAGE_PUBLIC_URL: http://localhost:9000/chat-portal-attachments
+      STORAGE_FORCE_PATH_STYLE: "true"
+    depends_on:
+      - minio
+    networks:
+      - chat-network
+
+  # ----------------------------------------------------------------------------
+  # 3. API GATEWAY
+  # ----------------------------------------------------------------------------
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: chat-portal-api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      AUTH_SERVICE_URL: http://auth-service:3003
+      CHAT_SERVICE_URL: http://chat-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      MEDIA_SERVICE_URL: http://media-service:3005
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-chat-portal-jwt-access-secret-key-32chars}
+      CORS_ORIGIN: "*"
+      RATE_LIMIT_WINDOW_MS: 60000
+      RATE_LIMIT_MAX: 1000
+    depends_on:
+      - auth-service
+      - chat-service
+      - user-service
+      - media-service
+    networks:
+      - chat-network
+
+  # ----------------------------------------------------------------------------
+  # 4. FRONTEND CLIENT (React Vite SPA)
+  # ----------------------------------------------------------------------------
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: chat-portal-client
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - chat-network
+
+# ------------------------------------------------------------------------------
+# VOLUMES & NETWORKS
+# ------------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    name: chat-portal-local-postgres-data
+  mongodb_data:
+    name: chat-portal-local-mongodb-data
+  minio_data:
+    name: chat-portal-local-minio-data
+
+networks:
+  chat-network:
+    name: chat-portal-local-network

@@ -322,9 +322,6 @@ The real-time layer is implemented with **NestJS WebSockets** and **Socket.IO**,
 
 ### Features Pending / Roadmap
 
-- [ ] **End-to-End Encryption (E2EE)**: Client-side Signal protocol / Web Crypto key exchange for private 1-on-1 conversations.
-- [ ] **Voice & Video Calling**: WebRTC signaling integration for peer-to-peer 1-on-1 or group video sessions.
-- [ ] **Rich Text & Code Block Syntax Highlighting**: Markdown parser with embedded code blocks and syntax highlighting in composer.
 - [ ] **Message Reactions**: Quick emoji reactions on individual message bubbles.
 - [ ] **Threaded Message Replies**: Nested side-panel comment threads for deep question discussions.
 - [ ] **Push Notifications**: Web Push / FCM integration for background offline alerts.

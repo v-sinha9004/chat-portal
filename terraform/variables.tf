@@ -19,11 +19,12 @@ variable "project_name" {
 variable "jwt_access_secret" {
   description = "JWT Access Secret Key"
   type        = string
-  default     = "chat-portal-jwt-access-secret-key-32chars"
+  sensitive   = true
 }
 
 variable "jwt_refresh_secret" {
   description = "JWT Refresh Secret Key"
   type        = string
-  default     = "chat-portal-jwt-refresh-secret-key-32chars"
+  sensitive   = true
 }
+
