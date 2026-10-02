@@ -186,13 +186,12 @@ npm run compose:prod:down
 
 Pre-seeded accounts are available for instant testing. You can also use the **Quick Test Login** buttons directly on the login page:
 
-| Email | Password | Role | Description |
-| --- | --- | --- | --- |
-| `mentor_alice@chatportal.com` | `Password123!` | **MENTOR** | Full messaging, can answer doubts, post announcements, and create groups. |
-| `test_plan_user@chatportal.com` | `Password123!` | **MENTEE** | Can chat with mentors, raise doubts in groups, and view announcements. Direct mentee-to-mentee chats are restricted. |
-| `vishalsinha15456@gmail.com` | `Password123!` | **ADMIN** | Administrative permissions, moderation, and full channel access. |
-
-You can also create new users using the **Sign Up** tab in the client interface.
+| Email | Password | Role |
+| --- | --- | --- |
+| `raghav@unsaidtalks.com` | `Unsaidtalks@123` | **ADMIN** |
+| `shubhankar@unsaidtalks.com` | `Unsaidtalks@123` | **MENTOR** |
+| `vishalsinha15456@gmail.com` | `Unsaidtalks@123` | **MENTEE** |
+| `aradhanakund@gmail.com` | `Unsaidtalks@123` | **MENTEE** |
 
 ---
 
