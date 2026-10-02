@@ -112,10 +112,17 @@
 
 | # | Task Description | Status |
 | :-: | :--- | :-: |  
-| 4 | Group Chat Management | ⏳ |
-| 5 | Report message feature | ⏳ |
-| 10 | Image preview | ⏳ |
-| 19 | Merge groups and direct chats | ⏳ |
+| 1 | Group Chat Management | ⏳ |
+| 2 | Report message feature | ⏳ |
+| 3 | Image preview | ⏳ |
+| 4 | Merge groups and direct chats | ⏳ |
+| 5 | refactor codebase for scalability and security | ⏳ |
+| 6 | Role based access | ⏳ |
+| 7 | Message delete feature | ⏳ |
+| 8 | Test on real devices | ⏳ |
+| 9 | Deployment of all services | ⏳ |
+| 10 | Clean Up Codebase & documentation | ⏳ |
+| 11 | Clean up UI for better UX | ⏳ |
 
 
 ---
@@ -124,21 +131,10 @@
 
 | # | Task Description | Status |
 | :-: | :--- | :-: |
-| 1 | Message deliver when user is connected to different chat server | ⏳ |
-| 2 | Cache groupUsers response in chat-service for faster group chat fan-out | ⏳ |
-| 3 | Role based access | ⏳ |
-| 6 | Message search feature | ⏳ |
-| 7 | Message edit feature | ⏳ |
-| 8 | Message delete feature | ⏳ |
-| 9 | Message reaction feature | ⏳ |
-| 10 | Image preview | ⏳ |
-| 11 | In app notification | ⏳ |
-| 12 | Test on real devices | ⏳ |
-| 13 | Deployment of all services | ⏳ |
-| 14 | Clean Up Codebase & documentation | ⏳ |
-| 15 | Cache implementation at multiple levels for smooth loading and functioning | ⏳ |
-| 16 | Cache invalidation when needed | ⏳ |
-| 17 | Monitoring system | ⏳ |
-| 18 | Limit character count of messages | ⏳ |
-| 20 | Sort groups and direct chats by last message time | ⏳ |
+| 1 | Message import feature | ⏳ |
+| 2 | Message search feature | ⏳ |
+| 3 | Message edit feature | ⏳ |
+| 4 | Message reaction feature | ⏳ |
+| 5 | In app notification | ⏳ |
+| 6 | AI summary of doubts | ⏳ |
 ...More
