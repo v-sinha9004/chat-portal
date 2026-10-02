@@ -126,27 +126,6 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
           </button>
         </form>
 
-        {/* Quick Demo Credentials */}
-        <div className="auth-demo-section">
-          <span className="auth-demo-label">Quick Test Login:</span>
-          <div className="auth-demo-buttons">
-            <button
-              type="button"
-              className="auth-demo-btn"
-              onClick={() => handlePrefillDemo('test_plan_user@chatportal.com', 'Password123!')}
-            >
-              Plan User (Mentee)
-            </button>
-            <button
-              type="button"
-              className="auth-demo-btn"
-              onClick={() => handlePrefillDemo('mentor_alice@chatportal.com', 'Password123!')}
-            >
-              Alice (Mentor)
-            </button>
-          </div>
-        </div>
-
         {/* Bottom Toggle Text */}
         {onSwitchToRegister && (
           <div className="auth-footer-text">

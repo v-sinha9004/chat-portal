@@ -168,7 +168,7 @@ docker compose down
 
 ## Sample Login Credentials
 
-Pre-seeded accounts are available for instant testing. You can also use the **Quick Test Login** buttons directly on the login page:
+Pre-seeded accounts are available for instant testing.:
 
 | Email | Password | Role |
 | --- | --- | --- |
