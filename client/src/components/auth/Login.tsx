@@ -35,13 +35,6 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
     }
   };
 
-  const handlePrefillDemo = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setLocalError(null);
-    clearError();
-  };
-
   const handleSwitchToRegister = () => {
     setLocalError(null);
     clearError();
